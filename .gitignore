@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+.lake/
+.leanflow/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.olean
+*.ilean
+*.c
+*.log
+.env
+api.md
