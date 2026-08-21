@@ -188,6 +188,7 @@ def execute_next_campaign_action(
     python_executable: str,
     reserve_usd: float,
     provider: str = "",
+    model: str = "",
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute exactly one admitted action; the native runner commits its outcome."""
@@ -228,8 +229,13 @@ def execute_next_campaign_action(
         }
     )
     action_argv = action.argv
+    action_argv = action.argv
     if provider.strip():
-        action_argv = (*action.argv[:4], "--provider", provider.strip(), *action.argv[4:])
+        action_argv = (*action_argv[:4], "--provider", provider.strip(), *action_argv[4:])
+    if model.strip():
+        # The outer CLI owns --provider, while --model is parsed from the
+        # selected workflow's remainder after the workflow name.
+        action_argv = (*action_argv, "--model", model.strip())
     process = subprocess.Popen(
         action_argv,
         cwd=str(Path(project_root).expanduser().resolve()),
@@ -450,6 +456,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--reserve-usd", type=float, default=None)
     parser.add_argument("--provider", default="")
+    parser.add_argument("--model", default="")
     parser.add_argument("--batch-item-limit", type=int, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--execute", action="store_true")
@@ -526,6 +533,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             python_executable=sys.executable,
             reserve_usd=args.reserve_usd,
             provider=args.provider,
+            model=args.model,
         )
         print(json.dumps(outcome, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if bool(outcome.get("success", not outcome.get("executed"))) else 1

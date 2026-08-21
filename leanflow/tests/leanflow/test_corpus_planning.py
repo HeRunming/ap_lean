@@ -356,6 +356,7 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
         python_executable="python",
         reserve_usd=2,
         provider="openai-codex",
+        model="gpt-5.6-sol",
         environ={"PATH": "/usr/bin"},
     )
 
@@ -373,6 +374,7 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
         "openai-codex",
         "formalize",
     )
+    assert calls[0][0][-2:] == ("--model", "gpt-5.6-sol")
     assert calls[0][2]["LEANFLOW_FORMALIZATION_QA_BATCH"] == "batch-1"
     assert calls[0][2]["LEANFLOW_ACTION_COST_LIMIT_USD"] == "2.0"
     assert calls[0][2]["LEANFLOW_FORMALIZATION_PROVENANCE"] == "agent"

@@ -635,6 +635,139 @@
             "prompt_tokens": 0,
             "total_tokens": 0
           }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-21T06:44:09+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-21T06:50:30+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-21T06:54:50+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 2,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Error code: 401 - {'error': {'message': 'Missing Authentication header', 'code': 401}}",
+          "recorded_at": "2026-08-21T06:56:59+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 2,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "TransientProviderRetriesExhausted: Error code: 503 - {'error': {'message': '当前分组 default 下对于模型 moonshotai/Kimi-K2.7-Code 无可用渠道 (request id: 20260821145922684289914OOfYzZbV)', 'type': 'new_api_error'}}",
+          "recorded_at": "2026-08-21T06:59:31+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.0,
+          "exit_code": 2,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Error code: 403 - {'error': {'message': 'user quota is not enough (request id: 202608211503314484603428SERZ3pZ)', 'type': 'new_api_error', 'param': '', 'code': 'insufficient_user_quota'}}",
+          "recorded_at": "2026-08-21T07:03:40+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 5.50739,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-21T07:12:46+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 15432,
+            "prompt_tokens": 504443,
+            "total_tokens": 519875
+          }
         }
       ],
       "chapter": "0",
@@ -645,21 +778,22 @@
         "0.2"
       ],
       "last_outcome": {
-        "cost_scope": "no_provider_call",
-        "cost_source": "local",
-        "cost_usd": 0.0,
-        "exit_code": 0,
+        "cost_scope": "primary_agent_only",
+        "cost_source": "estimated",
+        "cost_usd": 5.50739,
+        "exit_code": 2,
+        "failure_class": "budget_limit",
         "proof_obligations": 0,
-        "provenance": "manual_gold",
-        "reason": "locally verified proofs repair",
-        "recorded_at": "2026-08-20T05:48:34+00:00",
-        "stage": "proofs",
-        "success": true,
+        "provenance": "agent",
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "recorded_at": "2026-08-21T07:12:46+00:00",
+        "stage": "statements",
+        "success": false,
         "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
         "usage": {
-          "completion_tokens": 0,
-          "prompt_tokens": 0,
-          "total_tokens": 0
+          "completion_tokens": 15432,
+          "prompt_tokens": 504443,
+          "total_tokens": 519875
         }
       },
       "selection_kind": "items",
@@ -5770,15 +5904,15 @@
     "stop_before_batch_when_budget_would_be_exceeded": true
   },
   "failure_class_counts": {
-    "budget_limit": 7,
-    "infrastructure": 4,
-    "statement_generation_incomplete": 15
+    "budget_limit": 8,
+    "infrastructure": 8,
+    "statement_generation_incomplete": 17
   },
   "item_count": 366,
   "manual_gold_completed_batch_count": 1,
   "schema_version": "2",
   "source": "HDP/source/full/qa/questions.json",
-  "spent_usd": 54.34758,
+  "spent_usd": 59.85497,
   "statement_completed_batch_count": 2,
   "status": "active"
 }
