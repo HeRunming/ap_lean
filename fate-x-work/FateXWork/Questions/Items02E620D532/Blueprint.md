@@ -3,7 +3,7 @@
 - Source: `HDP/source/full/qa/questions.json`
 - Scoped item: `items-0.2`, source label `[0.2]`
 - Target Lean entry file: `FateXWork/Questions/Items02E620D532/Main.lean`
-- Planner status: source-backed declaration plan prepared; waiting for independent statement/source verification before proof handoff.
+- Planner status: source-backed declarations independently reviewed and ready for proof handoff.
 
 ## Planner Checklist
 
@@ -12,11 +12,11 @@
 - [x] Record source labels and bounded-cache lines for every generated declaration.
 - [x] Check local project and Mathlib names before introducing duplicates.
 - [x] Compare the drafted Lean statements with the source at planner level.
-- [ ] Run independent statement/source verification review and apply corrections.
+- [x] Run independent statement/source verification review and apply corrections.
 - [x] Attach all source proof text available in the bounded source slice.
 - [x] Record a natural-language proof strategy for every theorem.
 - [x] Resolve all construction stubs before proof handoff; no definition, structure, class, or instance stubs are planned.
-- [ ] Mark stable theorem/lemma/example `sorry` declarations ready for a user-started prove workflow. (Only check after independent review.)
+- [x] Mark stable theorem/lemma/example `sorry` declarations ready for a user-started prove workflow. (Only check after independent review.)
 
 ## Import Plan
 
@@ -130,7 +130,7 @@ Non-gating modules or namespaces to search while proving; these are not direct i
   - The scalar companion similarly makes finite first and second moments explicit; these are the finite-variance conditions implicit in the introductory formula.
   - The source's `\mathbb{R}^n` is represented by the shared abbreviation `RealN n = EuclideanSpace ℝ (Fin n)`; no coordinate-level weakening is made.
   - The ambiguous scalar typesetting is interpreted as minimization outside expectation, as forced by the title and the unambiguous high-dimensional formula. No uniqueness theorem is added.
-- Statement verification status: pending independent statement/source review.
+- Statement verification status: approved by independent read-only Codex `gpt-5.6-terra` review; see `IndependentReview.md`.
 - Complete source proof text available in the scoped source slice:
 
   > 0.2 Check the identity `𝔼 ‖Z - a‖₂² - 𝔼 ‖Z - μ‖₂² = ‖a - μ‖₂²` where `μ = 𝔼 Z`.
