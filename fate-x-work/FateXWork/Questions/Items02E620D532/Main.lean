@@ -71,7 +71,14 @@ theorem mean_squared_error_decomposition_realN
     (∫ ω, ‖Z ω - a‖ ^ 2 ∂μ)
         - (∫ ω, ‖Z ω - ∫ η, Z η ∂μ‖ ^ 2 ∂μ)
       = ‖a - ∫ η, Z η ∂μ‖ ^ 2 := by
-  sorry
+  let m : RealN n := ∫ η, Z η ∂μ
+  change
+    (∫ ω, ‖Z ω - a‖ ^ 2 ∂μ) - (∫ ω, ‖Z ω - m‖ ^ 2 ∂μ) =
+      ‖a - m‖ ^ 2
+  rw [integral_norm_sub_sq_realN Z hZ hZ_sq a,
+    integral_norm_sub_sq_realN Z hZ hZ_sq m,
+    norm_sub_pow_two_real, real_inner_self_eq_norm_sq, real_inner_comm a m]
+  ring
 
 /--
 Source proof: apply the preceding decomposition identity. Its right-hand
@@ -88,7 +95,12 @@ theorem expectation_minimizes_mean_squared_error_realN
     IsLeast
       (Set.range (fun a : RealN n => ∫ ω, ‖Z ω - a‖ ^ 2 ∂μ))
       (∫ ω, ‖Z ω - ∫ η, Z η ∂μ‖ ^ 2 ∂μ) := by
-  sorry
+  constructor
+  · exact ⟨∫ η, Z η ∂μ, rfl⟩
+  · rintro b ⟨a, rfl⟩
+    apply sub_nonneg.mp
+    rw [mean_squared_error_decomposition_realN Z hZ hZ_sq a]
+    positivity
 
 /--
 Source proof: the scalar variance is the centered squared-error integral, and
@@ -105,6 +117,39 @@ theorem variance_is_minimum_mean_squared_error_real
     IsLeast
       (Set.range (fun a : ℝ => ∫ ω, (X ω - a) ^ 2 ∂μ))
       (ProbabilityTheory.variance X μ) := by
-  sorry
+  let m : ℝ := ∫ ω, X ω ∂μ
+  have hcost (a : ℝ) :
+      (∫ ω, (X ω - a) ^ 2 ∂μ) =
+        (∫ ω, (X ω) ^ 2 ∂μ) - 2 * a * m + a ^ 2 := by
+    have hlin : Integrable (fun ω => 2 * a * X ω) μ :=
+      hX.const_mul (2 * a)
+    have hconst : Integrable (fun _ : Ω => a ^ 2) μ := integrable_const _
+    calc
+      (∫ ω, (X ω - a) ^ 2 ∂μ) =
+          ∫ ω, ((X ω) ^ 2 - 2 * a * X ω) + a ^ 2 ∂μ := by
+        congr 1
+        funext ω
+        ring
+      _ = (∫ ω, (X ω) ^ 2 - 2 * a * X ω ∂μ) +
+            (∫ _ : Ω, a ^ 2 ∂μ) := by
+        simpa only [Pi.add_apply, Pi.sub_apply] using
+          (integral_add (hX_sq.sub hlin) hconst)
+      _ = (∫ ω, (X ω) ^ 2 ∂μ) -
+            (∫ ω, 2 * a * X ω ∂μ) + (∫ _ : Ω, a ^ 2 ∂μ) := by
+        rw [integral_sub hX_sq hlin]
+      _ = (∫ ω, (X ω) ^ 2 ∂μ) - 2 * a * m + a ^ 2 := by
+        rw [integral_const_mul]
+        simp [m]
+  have hvar :
+      ProbabilityTheory.variance X μ = ∫ ω, (X ω - m) ^ 2 ∂μ := by
+    simpa [m] using (ProbabilityTheory.variance_eq_integral hX.aemeasurable)
+  constructor
+  · refine ⟨m, ?_⟩
+    exact hvar.symm
+  · rintro b ⟨a, rfl⟩
+    rw [hvar]
+    change (∫ ω, (X ω - m) ^ 2 ∂μ) ≤ ∫ ω, (X ω - a) ^ 2 ∂μ
+    rw [hcost a, hcost m]
+    nlinarith [sq_nonneg (a - m)]
 
 end FateXWork.Questions.Items02E620D532
