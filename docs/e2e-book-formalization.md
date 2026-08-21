@@ -71,6 +71,24 @@ Workers operate on distinct item targets. Shared-library promotion remains a
 separate verified transaction; workers propose reusable declarations locally
 instead of concurrently editing a shared module.
 
+Production waves can separately cap model workers and Lean-heavy subprocesses,
+and route routine work to cheaper models before escalation:
+
+```bash
+python -m leanflow_cli.formalization.corpus_campaign_runner \
+  BookFormalization/campaign.json --project-root . --execute \
+  --workers 8 --lean-slots 3 --reserve-usd 3 \
+  --statement-model gpt-5.6-terra --proof-model gpt-5.6-terra \
+  --escalation-model gpt-5.6-sol --escalate-after-failures 2
+```
+
+The runner refreshes declared dependencies from `book-manifest.json` before
+leasing. A statement enters the frontier after every declared predecessor has
+an agent-approved statement; its proof enters only after those predecessor
+proofs are kernel-checked. Inferred shared-concept edges remain retrieval hints
+and never serialize otherwise independent work. Infrastructure failures do not
+count toward strong-model escalation.
+
 ## Stage boundaries
 
 1. The parser emits immutable QA JSON with page-aligned provenance.

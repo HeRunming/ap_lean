@@ -29,6 +29,34 @@ def _lease_is_active(batch: Mapping[str, Any], *, now: datetime | None = None) -
     return expires is not None and expires > (now or datetime.now(UTC))
 
 
+def _batch_dependencies_ready(
+    batch: Mapping[str, Any],
+    *,
+    stage: str,
+    label_statuses: Mapping[str, str],
+) -> bool:
+    """Return whether every declared predecessor reached the required agent stage."""
+    required = _STATEMENT_COMPLETE_STATUSES if stage == "statements" else _TERMINAL_BATCH_STATUSES
+    return all(
+        label_statuses.get(str(label), "pending") in required
+        for label in batch.get("dependency_labels", []) or []
+    )
+
+
+def _batch_soft_dependencies_ready(
+    batch: Mapping[str, Any],
+    *,
+    stage: str,
+    label_statuses: Mapping[str, str],
+) -> bool:
+    """Return whether inferred foundations are available for reuse this wave."""
+    required = _STATEMENT_COMPLETE_STATUSES if stage == "statements" else _TERMINAL_BATCH_STATUSES
+    return all(
+        label_statuses.get(str(label), "pending") in required
+        for label in batch.get("soft_dependency_labels", []) or []
+    )
+
+
 def _attempt_provenance(attempt: Mapping[str, Any]) -> str:
     """Classify historical attempts without rewriting append-only records."""
     explicit = str(attempt.get("provenance", "") or "").strip()
@@ -142,6 +170,18 @@ def build_campaign(
     positions = {
         str(label): index + 1 for index, label in enumerate(execution.get("order", []) or [])
     }
+    declared_dependencies: dict[str, set[str]] = {}
+    soft_dependencies: dict[str, set[str]] = {}
+    for edge in corpus_plan.get("dependency_edges", []) or []:
+        if not isinstance(edge, Mapping):
+            continue
+        dependencies = None
+        if edge.get("status") == "declared_unverified":
+            dependencies = declared_dependencies
+        elif edge.get("status") == "candidate":
+            dependencies = soft_dependencies
+        if dependencies is not None:
+            dependencies.setdefault(str(edge.get("from", "")), set()).add(str(edge.get("to", "")))
     batches: list[dict[str, Any]] = []
     for source_batch in _source_batches_for_limit(corpus_plan, batch_item_limit):
         if not isinstance(source_batch, Mapping):
@@ -150,6 +190,48 @@ def build_campaign(
         labels = [str(value) for value in source_batch.get("labels", []) or []]
         labels.sort(key=lambda label: positions.get(label, len(positions) + 1))
         previous = prior_batches.get(batch_id, {})
+        label_set = set(labels)
+        derived_dependencies = {
+            dependency
+            for label in labels
+            for dependency in declared_dependencies.get(label, set())
+            if dependency and dependency not in label_set
+        }
+        if not derived_dependencies:
+            derived_dependencies = {
+                str(value)
+                for value in (
+                    source_batch.get("dependency_labels", previous.get("dependency_labels", []))
+                    or []
+                )
+                if str(value) and str(value) not in label_set
+            }
+        dependency_labels = sorted(
+            derived_dependencies,
+            key=lambda label: positions.get(label, len(positions) + 1),
+        )
+        derived_soft_dependencies = {
+            dependency
+            for label in labels
+            for dependency in soft_dependencies.get(label, set())
+            if dependency and dependency not in label_set
+        }
+        if not derived_soft_dependencies:
+            derived_soft_dependencies = {
+                str(value)
+                for value in (
+                    source_batch.get(
+                        "soft_dependency_labels",
+                        previous.get("soft_dependency_labels", []),
+                    )
+                    or []
+                )
+                if str(value) and str(value) not in label_set
+            }
+        soft_dependency_labels = sorted(
+            derived_soft_dependencies,
+            key=lambda label: positions.get(label, len(positions) + 1),
+        )
         attempts = list(previous.get("attempts", []) or [])
         successful_stages = _successful_stages(attempts)
         agent_stages = _successful_stages(attempts, provenance="agent")
@@ -173,6 +255,8 @@ def build_campaign(
                     or "batch"
                 ),
                 "labels": labels,
+                "dependency_labels": dependency_labels,
+                "soft_dependency_labels": soft_dependency_labels,
                 "count": len(labels),
                 "status": status,
                 "agent_status": _status_from_stages(agent_stages),
@@ -243,14 +327,30 @@ def next_campaign_batch(
     )
     if stage not in {"statements", "proofs"}:
         raise ValueError(f"unknown campaign stage: {stage}")
-    for batch in campaign.get("batches", []) or []:
+    batches = [batch for batch in campaign.get("batches", []) or [] if isinstance(batch, Mapping)]
+    label_statuses = {
+        str(label): str(batch.get("agent_status", batch.get("status", "pending")))
+        for batch in batches
+        for label in batch.get("labels", []) or []
+    }
+    frontier = [
+        batch
+        for batch in batches
         if (
-            isinstance(batch, Mapping)
-            and batch.get("agent_status", batch.get("status")) in eligible
+            batch.get("agent_status", batch.get("status")) in eligible
             and not _lease_is_active(batch)
-        ):
-            return dict(batch)
-    return None
+            and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
+        )
+    ]
+    selected = next(
+        (
+            batch
+            for batch in frontier
+            if _batch_soft_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
+        ),
+        frontier[0] if frontier else None,
+    )
+    return dict(selected) if selected is not None else None
 
 
 def lease_campaign_batches(
@@ -272,15 +372,26 @@ def lease_campaign_batches(
         if stage == "statements"
         else {"statements_completed", "proof_retry"}
     )
+    label_statuses = {
+        str(label): str(batch.get("agent_status", batch.get("status", "pending")))
+        for batch in updated["batches"]
+        for label in batch.get("labels", []) or []
+    }
     for worker_id in worker_ids:
+        frontier = [
+            batch
+            for batch in updated["batches"]
+            if batch.get("agent_status", batch.get("status")) in eligible
+            and not _lease_is_active(batch, now=moment)
+            and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
+        ]
         selected = next(
             (
                 batch
-                for batch in updated["batches"]
-                if batch.get("agent_status", batch.get("status")) in eligible
-                and not _lease_is_active(batch, now=moment)
+                for batch in frontier
+                if _batch_soft_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
             ),
-            None,
+            frontier[0] if frontier and not leased else None,
         )
         if selected is None:
             break

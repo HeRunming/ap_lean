@@ -43,6 +43,48 @@ class CampaignAction:
     target_file: str = ""
 
 
+@dataclass(frozen=True)
+class CampaignModelPolicy:
+    """Route routine stages cheaply and escalate only after concrete failures."""
+
+    statement_model: str = ""
+    proof_model: str = ""
+    escalation_model: str = ""
+    escalate_after_failures: int = 2
+
+
+def select_campaign_model(
+    campaign: Mapping[str, Any],
+    action: CampaignAction,
+    *,
+    fallback_model: str,
+    policy: CampaignModelPolicy | None,
+) -> str:
+    """Return the stage model, escalating from durable same-stage failures."""
+    if policy is None:
+        return fallback_model
+    batch = next(
+        (
+            item
+            for item in campaign.get("batches", []) or []
+            if isinstance(item, Mapping) and str(item.get("id", "")) == action.batch_id
+        ),
+        {},
+    )
+    failures = sum(
+        1
+        for attempt in batch.get("attempts", []) or []
+        if isinstance(attempt, Mapping)
+        and str(attempt.get("stage", "proofs") or "proofs") == action.stage
+        and not bool(attempt.get("success", False))
+        and str(attempt.get("failure_class", "")) != "infrastructure"
+    )
+    if policy.escalation_model and failures >= max(1, policy.escalate_after_failures):
+        return policy.escalation_model
+    stage_model = policy.statement_model if action.stage == "statements" else policy.proof_model
+    return stage_model or fallback_model
+
+
 def _batch_target_file(batch: Mapping[str, Any]) -> str:
     """Return the statement stage's generated Lean target when durably recorded."""
     outcome = dict(batch.get("last_outcome", {}) or {})
@@ -137,7 +179,12 @@ def lease_next_campaign_actions(
     if worker_count <= 0:
         raise CampaignExecutionBlocked("worker count must be positive")
 
+    manifest_path = Path(campaign_path).expanduser().resolve().with_name("book-manifest.json")
+    corpus_plan = read_campaign(manifest_path) if manifest_path.is_file() else None
+
     def claim(current: Mapping[str, Any]):
+        if corpus_plan is not None:
+            current = build_campaign(corpus_plan, existing=current)
         budget = current.get("budget_usd")
         if budget is None:
             raise CampaignExecutionBlocked("campaign has no explicit budget")
@@ -264,13 +311,22 @@ def execute_next_campaign_action(
     reserve_usd: float,
     provider: str = "",
     model: str = "",
+    model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute exactly one admitted action; the native runner commits its outcome."""
     path = Path(campaign_path).expanduser().resolve()
-    campaign = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(campaign, dict):
-        raise CampaignExecutionBlocked("campaign JSON must contain an object")
+    manifest_path = path.with_name("book-manifest.json")
+
+    def refresh(current: Mapping[str, Any]):
+        updated = (
+            build_campaign(read_campaign(manifest_path), existing=current)
+            if manifest_path.is_file()
+            else dict(current)
+        )
+        return updated, updated
+
+    campaign = update_campaign_file(path, refresh)
     action = plan_next_campaign_action(campaign, python_executable=python_executable)
     if action is None:
         return {"executed": False, "reason": "campaign has no remaining action"}
@@ -285,7 +341,7 @@ def execute_next_campaign_action(
         project_root=project_root,
         reserve_usd=reserve_usd,
         provider=provider,
-        model=model,
+        model=select_campaign_model(campaign, action, fallback_model=model, policy=model_policy),
         environ=environ,
     )
 
@@ -379,6 +435,7 @@ def execute_campaign_wave(
     reserve_usd: float,
     provider: str = "",
     model: str = "",
+    model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     lease_ttl_seconds: int = 7200,
 ) -> list[dict[str, Any]]:
@@ -396,17 +453,22 @@ def execute_campaign_wave(
 
     def run_claim(worker_id: str, action: CampaignAction) -> dict[str, Any]:
         snapshot = read_campaign(path)
+        selected_model = select_campaign_model(
+            snapshot, action, fallback_model=model, policy=model_policy
+        )
         try:
-            return _execute_campaign_action(
+            result = _execute_campaign_action(
                 action,
                 campaign_path=path,
                 campaign=snapshot,
                 project_root=project_root,
                 reserve_usd=reserve_usd,
                 provider=provider,
-                model=model,
+                model=selected_model,
                 environ={**dict(environ or os.environ), "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id},
             )
+            result["model"] = selected_model
+            return result
         finally:
             # A normal native finalization removes the lease as part of its ledger
             # transaction.  This is the crash-before-finalization fallback.
@@ -636,10 +698,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--reserve-usd", type=float, default=None)
     parser.add_argument("--provider", default="")
     parser.add_argument("--model", default="")
+    parser.add_argument("--statement-model", default="")
+    parser.add_argument("--proof-model", default="")
+    parser.add_argument("--escalation-model", default="")
+    parser.add_argument("--escalate-after-failures", type=int, default=2)
     parser.add_argument("--batch-item-limit", type=int, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--lean-slots", type=int, default=1)
     parser.add_argument("--lease-ttl-seconds", type=int, default=7200)
     parser.add_argument("--accept-local-statement", default="")
     parser.add_argument("--accept-agent-reviewed-statement", default="")
@@ -710,6 +777,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--execute requires --reserve-usd")
         if args.workers <= 0:
             parser.error("--workers must be positive")
+        if not 1 <= args.lean_slots <= 8:
+            parser.error("--lean-slots must be between 1 and 8")
+        execution_env = {
+            **os.environ,
+            "LEANFLOW_PROJECT_LEAN_CAPACITY": str(args.lean_slots),
+        }
+        if args.escalate_after_failures <= 0:
+            parser.error("--escalate-after-failures must be positive")
+        model_policy = CampaignModelPolicy(
+            statement_model=args.statement_model,
+            proof_model=args.proof_model,
+            escalation_model=args.escalation_model,
+            escalate_after_failures=args.escalate_after_failures,
+        )
         if args.workers == 1:
             outcome = execute_next_campaign_action(
                 campaign_path,
@@ -718,6 +799,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reserve_usd=args.reserve_usd,
                 provider=args.provider,
                 model=args.model,
+                model_policy=model_policy,
+                environ=execution_env,
             )
         else:
             results = execute_campaign_wave(
@@ -728,6 +811,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reserve_usd=args.reserve_usd,
                 provider=args.provider,
                 model=args.model,
+                model_policy=model_policy,
+                environ=execution_env,
                 lease_ttl_seconds=args.lease_ttl_seconds,
             )
             outcome = {

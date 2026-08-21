@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -115,6 +116,43 @@ def test_project_gate_blocks_a_second_process_until_the_holder_releases(tmp_path
             child.kill()
     assert child.returncode == 0
     assert ready.read_text(encoding="utf-8") == "entered"
+
+
+def test_configured_project_capacity_admits_two_threads_and_blocks_third(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Bound parallel Lean-heavy work by the explicit project slot count."""
+    monkeypatch.setenv("LEANFLOW_PROJECT_LEAN_CAPACITY", "2")
+    entered = threading.Barrier(3)
+    release = threading.Event()
+    paths: list[str] = []
+
+    def worker() -> None:
+        with project_lean_heavy_admission(tmp_path) as slot:
+            paths.append(slot.lock_path)
+            entered.wait(timeout=3)
+            release.wait(timeout=3)
+
+    first = threading.Thread(target=worker)
+    second = threading.Thread(target=worker)
+    first.start()
+    second.start()
+    entered.wait(timeout=3)
+    third_entered = threading.Event()
+
+    def third_worker() -> None:
+        with project_lean_heavy_admission(tmp_path):
+            third_entered.set()
+
+    third = threading.Thread(target=third_worker)
+    third.start()
+    assert third_entered.wait(timeout=0.1) is False
+    assert len(set(paths)) == 2
+    release.set()
+    first.join(timeout=3)
+    second.join(timeout=3)
+    assert third_entered.wait(timeout=3)
+    third.join(timeout=3)
 
 
 @pytest.mark.skipif(admission.fcntl is None, reason="foreground priority requires flock")

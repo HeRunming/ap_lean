@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TextIO
 
 from core.filesystem import ensure_directory
+from core.project_lean_capacity import acquire_project_lean_capacity, project_lean_capacity
 from core.runtime_modes import dispatch_worker_enabled
 
 try:  # ``flock`` is the cross-process authority on the supported POSIX hosts.
@@ -610,6 +611,25 @@ def project_lean_heavy_admission(
     dispatch-worker processes until the actual Lean-heavy operation finishes.
     """
     root = canonical_lean_project_root(project_root)
+    if project_lean_capacity() > 1:
+        lease = acquire_project_lean_capacity(root)
+        state = _AdmissionState()
+        capacity_admission = ProjectLeanAdmission(
+            project_root=str(root),
+            lock_path=lease.lock_path,
+            waited_s=lease.waited_s,
+            contended=lease.waited_s >= 0.01,
+            nested=lease._references > 1,
+            enforced=fcntl is not None,
+            _state=state,
+        )
+        try:
+            yield capacity_admission
+        finally:
+            if capacity_admission._state.retained:
+                lease.retain_until_process_exit()
+            lease.release()
+        return
     path = _lock_path(root)
     key = str(path)
     held = _held_gates()

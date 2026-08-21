@@ -17,15 +17,19 @@ from leanflow_cli.formalization.corpus_campaign import (
     record_campaign_outcome,
 )
 from leanflow_cli.formalization.corpus_campaign_runner import (
+    CampaignAction,
     CampaignExecutionBlocked,
+    CampaignModelPolicy,
     accept_agent_reviewed_statement,
     accept_locally_verified_proof,
     accept_locally_verified_statement,
     campaign_execution_admitted,
     describe_next_campaign_action,
+    execute_campaign_wave,
     execute_next_campaign_action,
     lease_next_campaign_actions,
     plan_next_campaign_action,
+    select_campaign_model,
     validate_campaign_action_paths,
 )
 
@@ -89,6 +93,42 @@ def test_parallel_claim_is_atomic_and_reserves_total_wave_budget(tmp_path):
     assert len([item for item in persisted["batches"] if item.get("lease")]) == 2
 
 
+def test_campaign_model_policy_escalates_only_non_infrastructure_failures():
+    action = CampaignAction("proofs", "a", ("1.1",), ("python",))
+    policy = CampaignModelPolicy(
+        statement_model="cheap-statements",
+        proof_model="cheap-proofs",
+        escalation_model="strong",
+        escalate_after_failures=2,
+    )
+    campaign = {
+        "batches": [
+            {
+                "id": "a",
+                "attempts": [
+                    {
+                        "stage": "proofs",
+                        "success": False,
+                        "failure_class": "infrastructure",
+                    },
+                    {"stage": "proofs", "success": False},
+                ],
+            }
+        ]
+    }
+    assert (
+        select_campaign_model(campaign, action, fallback_model="fallback", policy=policy)
+        == "cheap-proofs"
+    )
+    campaign["batches"][0]["attempts"].append(
+        {"stage": "proofs", "success": False, "failure_class": "proof_incomplete"}
+    )
+    assert (
+        select_campaign_model(campaign, action, fallback_model="fallback", policy=policy)
+        == "strong"
+    )
+
+
 def test_campaign_store_preserves_concurrent_outcomes(tmp_path):
     campaign_path = tmp_path / "campaign.json"
     plan = {
@@ -124,6 +164,67 @@ def test_campaign_store_preserves_concurrent_outcomes(tmp_path):
     assert persisted["spent_usd"] == 2.0
     assert persisted["statement_completed_batch_count"] == 2
     assert [len(batch["attempts"]) for batch in persisted["batches"]] == [1, 1]
+
+
+def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_path, monkeypatch):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    target = tmp_path / "Book" / "A" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("import Mathlib\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0,
+                "budget_usd": 10,
+                "batches": [
+                    {
+                        "id": "proof",
+                        "labels": ["1.1"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/A/Main.lean"},
+                    },
+                    {"id": "statement", "labels": ["1.2"], "status": "pending"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    class FakeProcess:
+        pid = 123
+
+        def wait(self, timeout=None):
+            return 0
+
+        def poll(self):
+            return 0
+
+    def fake_popen(argv, **kwargs):
+        calls.append(tuple(argv))
+        return FakeProcess()
+
+    monkeypatch.setattr(corpus_campaign_runner.subprocess, "Popen", fake_popen)
+    results = execute_campaign_wave(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        worker_count=2,
+        reserve_usd=2,
+        provider="openai-codex",
+        model_policy=CampaignModelPolicy(
+            statement_model="cheap-statements", proof_model="cheap-proofs"
+        ),
+    )
+
+    assert {item["batch_id"] for item in results} == {"proof", "statement"}
+    assert {item["model"] for item in results} == {"cheap-proofs", "cheap-statements"}
+    assert any(command[-2:] == ("--model", "cheap-proofs") for command in calls)
+    assert any(command[-2:] == ("--model", "cheap-statements") for command in calls)
+    persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert all("lease" not in batch for batch in persisted["batches"])
 
 
 from leanflow_cli.formalization.corpus_planning import build_corpus_plan
@@ -293,6 +394,69 @@ def test_campaign_can_reshard_book_batches_into_single_item_actions():
         "items-1.1",
     ]
     assert all(batch["selection_kind"] == "items" for batch in campaign["batches"])
+
+
+def test_campaign_frontier_waits_for_declared_agent_dependencies():
+    plan = {
+        "source": "book.json",
+        "item_count": 3,
+        "execution_plan": {"order": ["1.1", "1.2", "1.3"]},
+        "dependency_edges": [
+            {"from": "1.2", "to": "1.1", "status": "declared_unverified"},
+            {"from": "1.3", "to": "1.1", "status": "candidate"},
+        ],
+        "source_batches": [
+            {"id": "a", "chapter": "1", "labels": ["1.1"]},
+            {"id": "b", "chapter": "1", "labels": ["1.2"]},
+            {"id": "c", "chapter": "1", "labels": ["1.3"]},
+        ],
+    }
+    campaign = build_campaign(plan)
+    assert campaign["batches"][1]["dependency_labels"] == ["1.1"]
+    assert campaign["batches"][2]["dependency_labels"] == []
+    assert campaign["batches"][2]["soft_dependency_labels"] == ["1.1"]
+
+    leased, frontier = lease_campaign_batches(
+        campaign,
+        stage="statements",
+        worker_ids=["w1", "w2", "w3"],
+    )
+    assert [item["id"] for item in frontier] == ["a"]
+
+    leased = record_campaign_outcome(
+        leased,
+        batch_id="a",
+        outcome={
+            "stage": "statements",
+            "success": True,
+            "cost_usd": 0,
+            "provenance": "agent",
+        },
+    )
+    assert next_campaign_batch(leased, stage="statements")["id"] == "b"
+    assert next_campaign_batch(leased, stage="proofs")["id"] == "a"
+
+    leased = record_campaign_outcome(
+        leased,
+        batch_id="a",
+        outcome={
+            "stage": "proofs",
+            "success": True,
+            "cost_usd": 0,
+            "provenance": "agent",
+        },
+    )
+    leased = record_campaign_outcome(
+        leased,
+        batch_id="b",
+        outcome={
+            "stage": "statements",
+            "success": True,
+            "cost_usd": 0,
+            "provenance": "agent",
+        },
+    )
+    assert next_campaign_batch(leased, stage="proofs")["id"] == "b"
 
 
 def test_campaign_tracks_statement_and_proof_stages_separately():

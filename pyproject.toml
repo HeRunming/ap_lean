@@ -126,6 +126,7 @@ files = [
   "core/filesystem.py",
   "core/process_identity.py",
   "core/project_resource_admission.py",
+  "core/project_lean_capacity.py",
   "core/provider_availability.py",
   "core/provider_capacity.py",
   "core/runtime_modes.py",

@@ -178,7 +178,10 @@ tool is reachable through the public registry.
   and can lease a budget-bounded wave to distinct workers. `campaign_store.py`
   serializes read-modify-write ledger transactions across processes so concurrent
   completions cannot overwrite one another. Paid execution remains gated by an
-  explicit budget and per-action reservation.
+  explicit budget and per-action reservation. Campaign waves schedule the
+  source-declared dependency frontier, route models from durable failure history,
+  and use `core/project_lean_capacity.py` for an opt-in bounded pool of Lean-heavy
+  subprocess slots; the default project admission behavior remains single-slot.
 - `workflows/` owns proof queues, verification transactions, persistent
   plan/graph state, orchestration, research portfolios, decomposition,
   the durable foreground-verified helper priority and bounded promotion queue
