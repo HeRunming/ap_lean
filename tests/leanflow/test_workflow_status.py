@@ -37,6 +37,18 @@ from leanflow_cli.workflows.workflow_state import (
     workflow_run_metadata_path,
     workflow_runs_root,
 )
+from leanflow_cli.workflows.workflow_state_paths import workflow_state_root
+
+
+def test_campaign_worker_uses_namespaced_project_workflow_state(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_WORKFLOW_STATE_NAMESPACE", "campaign/worker 1")
+
+    assert workflow_state_root() == (
+        project / ".leanflow" / "workflow-state" / "workers" / "campaign-worker-1"
+    )
 
 
 def _owned_process(process_id: int) -> dict[str, object]:

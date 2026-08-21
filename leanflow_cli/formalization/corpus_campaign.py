@@ -89,9 +89,6 @@ def classify_campaign_failure(attempt: Mapping[str, Any]) -> str:
     """Return a stable coarse failure class for campaign diagnostics."""
     if bool(attempt.get("success", False)):
         return ""
-    explicit = str(attempt.get("failure_class", "") or "").strip()
-    if explicit:
-        return explicit
     reason = str(attempt.get("reason", "") or "").lower()
     if "cost limit" in reason or "budget" in reason:
         return "budget_limit"
@@ -109,9 +106,15 @@ def classify_campaign_failure(attempt: Mapping[str, Any]) -> str:
             "apierror",
             "rate limit",
             "too many requests",
+            "cannot claim workflow live status",
+            "workflow live owner",
+            "owner conflict",
         )
     ):
         return "infrastructure"
+    explicit = str(attempt.get("failure_class", "") or "").strip()
+    if explicit:
+        return explicit
     stage = str(attempt.get("stage", "proofs") or "proofs")
     return "statement_generation_incomplete" if stage == "statements" else "proof_incomplete"
 

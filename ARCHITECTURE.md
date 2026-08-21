@@ -182,6 +182,8 @@ tool is reachable through the public registry.
   source-declared dependency frontier, route models from durable failure history,
   and use `core/project_lean_capacity.py` for an opt-in bounded pool of Lean-heavy
   subprocess slots; the default project admission behavior remains single-slot.
+  Each campaign worker receives its own namespaced workflow-state root, while
+  the campaign ledger remains the single transactionally updated authority.
 - `workflows/` owns proof queues, verification transactions, persistent
   plan/graph state, orchestration, research portfolios, decomposition,
   the durable foreground-verified helper priority and bounded promotion queue

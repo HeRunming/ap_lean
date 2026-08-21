@@ -21,6 +21,7 @@ from core.utils import atomic_json_write
 from leanflow_cli.formalization.campaign_store import read_campaign, update_campaign_file
 from leanflow_cli.formalization.corpus_campaign import (
     build_campaign,
+    classify_campaign_failure,
     lease_campaign_batches,
     next_campaign_batch,
     record_campaign_outcome,
@@ -77,7 +78,7 @@ def select_campaign_model(
         if isinstance(attempt, Mapping)
         and str(attempt.get("stage", "proofs") or "proofs") == action.stage
         and not bool(attempt.get("success", False))
-        and str(attempt.get("failure_class", "")) != "infrastructure"
+        and classify_campaign_failure(attempt) != "infrastructure"
     )
     if policy.escalation_model and failures >= max(1, policy.escalate_after_failures):
         return policy.escalation_model
@@ -385,6 +386,9 @@ def _execute_campaign_action(
             ),
         }
     )
+    worker_id = str(child_env.get("LEANFLOW_CAMPAIGN_WORKER_ID", "") or "").strip()
+    if worker_id:
+        child_env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] = worker_id
     action_argv = action.argv
     action_argv = action.argv
     if provider.strip():

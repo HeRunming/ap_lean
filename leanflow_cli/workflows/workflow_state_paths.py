@@ -9,11 +9,13 @@ its functions.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from core.home import leanflow_home
 
 PROJECT_STATE_DIRNAME = ".leanflow"
+WORKFLOW_STATE_NAMESPACE_ENV = "LEANFLOW_WORKFLOW_STATE_NAMESPACE"
 
 
 def _leanflow_home() -> Path:
@@ -42,7 +44,14 @@ def _project_state_root() -> Path | None:
     project_root = _project_root_from_env() or _discover_project_root()
     if project_root is None:
         return None
-    return project_root / PROJECT_STATE_DIRNAME / "workflow-state"
+    root = project_root / PROJECT_STATE_DIRNAME / "workflow-state"
+    namespace = str(os.getenv(WORKFLOW_STATE_NAMESPACE_ENV, "") or "").strip()
+    if not namespace:
+        return root
+    safe_namespace = re.sub(r"[^A-Za-z0-9_.-]+", "-", namespace).strip("-.")[:96]
+    if not safe_namespace:
+        return root
+    return root / "workers" / safe_namespace
 
 
 def workflow_state_root() -> Path:

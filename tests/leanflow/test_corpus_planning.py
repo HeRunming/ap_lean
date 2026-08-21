@@ -203,7 +203,7 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
             return 0
 
     def fake_popen(argv, **kwargs):
-        calls.append(tuple(argv))
+        calls.append((tuple(argv), dict(kwargs["env"])))
         return FakeProcess()
 
     monkeypatch.setattr(corpus_campaign_runner.subprocess, "Popen", fake_popen)
@@ -221,8 +221,11 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
 
     assert {item["batch_id"] for item in results} == {"proof", "statement"}
     assert {item["model"] for item in results} == {"cheap-proofs", "cheap-statements"}
-    assert any(command[-2:] == ("--model", "cheap-proofs") for command in calls)
-    assert any(command[-2:] == ("--model", "cheap-statements") for command in calls)
+    assert any(command[-2:] == ("--model", "cheap-proofs") for command, _ in calls)
+    assert any(command[-2:] == ("--model", "cheap-statements") for command, _ in calls)
+    namespaces = {env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] for _, env in calls}
+    assert len(namespaces) == 2
+    assert all(value.startswith("campaign-") for value in namespaces)
     persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert all("lease" not in batch for batch in persisted["batches"])
 
@@ -522,6 +525,17 @@ def test_campaign_failure_taxonomy_is_reported_without_counting_successes():
 
     assert campaign["failure_class_counts"] == {"budget_limit": 1}
     assert campaign["batches"][0]["last_outcome"]["failure_class"] == "budget_limit"
+
+    assert (
+        corpus_campaign_runner.classify_campaign_failure(
+            {
+                "success": False,
+                "failure_class": "statement_generation_incomplete",
+                "reason": "runtime failure: Cannot claim workflow live status while verified live owner",
+            }
+        )
+        == "infrastructure"
+    )
 
 
 def test_campaign_runner_closes_proofs_before_drafting_next_batch(tmp_path):
