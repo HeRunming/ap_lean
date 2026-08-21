@@ -1,11 +1,11 @@
 {
-  "agent_e2e_completed_batch_count": 0,
+  "agent_e2e_completed_batch_count": 1,
   "agent_e2e_statement_completed_batch_count": 1,
   "batch_count": 366,
   "batch_item_limit": 1,
   "batches": [
     {
-      "agent_status": "statements_completed",
+      "agent_status": "proofs_completed",
       "attempts": [
         {
           "cost_scope": "primary_agent_only",
@@ -549,10 +549,28 @@
             "prompt_tokens": 729818,
             "total_tokens": 745347
           }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 4.8235,
+          "exit_code": 0,
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "verified completion",
+          "recorded_at": "2026-08-21T06:39:08+00:00",
+          "stage": "proofs",
+          "success": true,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 10950,
+            "prompt_tokens": 449500,
+            "total_tokens": 460450
+          }
         }
       ],
       "chapter": "0",
-      "completion_provenance": "manual_gold",
+      "completion_provenance": "agent_e2e",
       "count": 1,
       "id": "items-0.1",
       "labels": [
@@ -561,20 +579,19 @@
       "last_outcome": {
         "cost_scope": "primary_agent_only",
         "cost_source": "estimated",
-        "cost_usd": 7.7641,
-        "exit_code": 2,
-        "failure_class": "budget_limit",
+        "cost_usd": 4.8235,
+        "exit_code": 0,
         "proof_obligations": 0,
         "provenance": "agent",
-        "reason": "Per-action USD cost limit reached before the next provider request",
-        "recorded_at": "2026-08-21T06:14:42+00:00",
+        "reason": "verified completion",
+        "recorded_at": "2026-08-21T06:39:08+00:00",
         "stage": "proofs",
-        "success": false,
+        "success": true,
         "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
         "usage": {
-          "completion_tokens": 15529,
-          "prompt_tokens": 729818,
-          "total_tokens": 745347
+          "completion_tokens": 10950,
+          "prompt_tokens": 449500,
+          "total_tokens": 460450
         }
       },
       "selection_kind": "items",
@@ -5753,15 +5770,15 @@
     "stop_before_batch_when_budget_would_be_exceeded": true
   },
   "failure_class_counts": {
-    "budget_limit": 6,
-    "infrastructure": 5,
+    "budget_limit": 7,
+    "infrastructure": 4,
     "statement_generation_incomplete": 15
   },
   "item_count": 366,
-  "manual_gold_completed_batch_count": 2,
+  "manual_gold_completed_batch_count": 1,
   "schema_version": "2",
   "source": "HDP/source/full/qa/questions.json",
-  "spent_usd": 49.52408,
+  "spent_usd": 54.34758,
   "statement_completed_batch_count": 2,
   "status": "active"
 }

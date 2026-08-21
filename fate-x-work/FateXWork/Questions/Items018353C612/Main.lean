@@ -116,6 +116,18 @@ theorem variance_identity_realN
     _ = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - ‖(∫ η, Z η ∂μ)‖ ^ 2 := by
       simp [m]
 
+private theorem identDistrib_integral_norm_sq_realN
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (Z Zcopy : Ω → RealN n)
+    (hZ_sq : Integrable (fun ω => ‖Z ω‖ ^ 2) μ)
+    (hZcopy_sq : Integrable (fun ω => ‖Zcopy ω‖ ^ 2) μ)
+    (h_ident : IdentDistrib Z Zcopy μ μ) :
+    (∫ ω, ‖Zcopy ω‖ ^ 2 ∂μ) = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) := by
+  have hnorm : IdentDistrib (fun ω => ‖Z ω‖ ^ 2) (fun ω => ‖Zcopy ω‖ ^ 2) μ μ := by
+    exact h_ident.comp ((continuous_norm.pow 2).measurable)
+  symm
+  exact hnorm.integral_eq
+
 /--
 No separate source proof text for part (b) is available beyond the item 0.1
 Euclidean expansion hint.
@@ -138,6 +150,59 @@ theorem variance_identity_independent_copy_realN
     (h_ident : IdentDistrib Z Zcopy μ μ) :
     (∫ ω, ‖Z ω - (∫ η, Z η ∂μ)‖ ^ 2 ∂μ)
       = (1 / 2 : ℝ) * (∫ ω, ‖Z ω - Zcopy ω‖ ^ 2 ∂μ) := by
-  sorry
+  let m : RealN n := ∫ η, Z η ∂μ
+  let A : ℝ := ∫ ω, ‖Z ω‖ ^ 2 ∂μ
+  let B : ℝ := ∫ ω, ‖Zcopy ω‖ ^ 2 ∂μ
+  have h_mean : (∫ ω, Zcopy ω ∂μ) = m := by
+    change (∫ ω, Zcopy ω ∂μ) = (∫ η, Z η ∂μ)
+    symm
+    exact h_ident.integral_eq
+  have h_sq : B = A := by
+    exact identDistrib_integral_norm_sq_realN Z Zcopy hZ_sq hZcopy_sq h_ident
+  have h_inner_int : (∫ ω, inner ℝ (Z ω) (Zcopy ω) ∂μ) = inner ℝ m m := by
+    calc
+      (∫ ω, inner ℝ (Z ω) (Zcopy ω) ∂μ)
+          = inner ℝ (∫ ω, Z ω ∂μ) (∫ ω, Zcopy ω ∂μ) := by
+            exact integral_inner_eq_inner_integral_of_indepFun hZ hZcopy h_indep
+      _ = inner ℝ m m := by
+            simp [m, h_mean]
+  have h_inner_integrable : Integrable (fun ω => inner ℝ (Z ω) (Zcopy ω)) μ :=
+    integrable_inner_of_indepFun hZ hZcopy h_indep
+  have h_two_inner : Integrable (fun ω => 2 * inner ℝ (Z ω) (Zcopy ω)) μ :=
+    h_inner_integrable.const_mul 2
+  have h_expand : (fun ω => ‖Z ω - Zcopy ω‖ ^ 2)
+      = (fun ω => ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) (Zcopy ω) + ‖Zcopy ω‖ ^ 2) := by
+    funext ω
+    exact norm_sub_sq_realN (Z ω) (Zcopy ω)
+  have h_diff_integral :
+      (∫ ω, ‖Z ω - Zcopy ω‖ ^ 2 ∂μ)
+        = (A - 2 * inner ℝ m m) + B := by
+    calc
+      (∫ ω, ‖Z ω - Zcopy ω‖ ^ 2 ∂μ)
+          = ∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) (Zcopy ω) + ‖Zcopy ω‖ ^ 2 ∂μ := by
+            rw [h_expand]
+      _ = (∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) (Zcopy ω) ∂μ)
+            + ∫ ω, ‖Zcopy ω‖ ^ 2 ∂μ := by
+            simpa only [Pi.add_apply, Pi.sub_apply] using
+              (integral_add (hZ_sq.sub h_two_inner) hZcopy_sq)
+      _ = ((∫ ω, ‖Z ω‖ ^ 2 ∂μ) - (∫ ω, 2 * inner ℝ (Z ω) (Zcopy ω) ∂μ))
+            + ∫ ω, ‖Zcopy ω‖ ^ 2 ∂μ := by
+            rw [integral_sub hZ_sq h_two_inner]
+      _ = ((∫ ω, ‖Z ω‖ ^ 2 ∂μ) - 2 * (∫ ω, inner ℝ (Z ω) (Zcopy ω) ∂μ))
+            + ∫ ω, ‖Zcopy ω‖ ^ 2 ∂μ := by
+            rw [integral_const_mul]
+      _ = (A - 2 * inner ℝ m m) + B := by
+            simp [A, B, h_inner_int]
+  have h_var :
+      (∫ ω, ‖Z ω - (∫ η, Z η ∂μ)‖ ^ 2 ∂μ) = A - ‖m‖ ^ 2 := by
+    simpa [A, m] using variance_identity_realN Z hZ hZ_sq
+  calc
+    (∫ ω, ‖Z ω - (∫ η, Z η ∂μ)‖ ^ 2 ∂μ)
+        = A - ‖m‖ ^ 2 := h_var
+    _ = (1 / 2 : ℝ) * (∫ ω, ‖Z ω - Zcopy ω‖ ^ 2 ∂μ) := by
+      rw [h_diff_integral]
+      have hm : inner ℝ m m = ‖m‖ ^ 2 := by simp
+      rw [h_sq, hm]
+      ring
 
 end FateXWork.Questions.Items018353C612
