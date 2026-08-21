@@ -127,7 +127,15 @@ def test_blueprint_fidelity_field_unresolved_flags_unresolved_markers():
     assert fdr._blueprint_fidelity_field_unresolved("fully covered, verified") is False
     # Any of the unresolved markers (case-insensitive) flips it to True.
     assert fdr._blueprint_fidelity_field_unresolved("statement is UNVERIFIED") is True
-    assert fdr._blueprint_fidelity_field_unresolved("omitted for now") is True
+    # Explicit scope-change disclosures are resolved decisions, not placeholders.
+    assert fdr._blueprint_fidelity_field_unresolved("no source assumption is omitted") is False
+    assert (
+        fdr._blueprint_fidelity_field_unresolved(
+            "partial: the source's topological qualifier is not formalized"
+        )
+        is False
+    )
+    assert fdr._blueprint_fidelity_field_unresolved("weakened intentionally") is False
     # An empty/placeholder value is unresolved via the block-missing path.
     assert fdr._blueprint_fidelity_field_unresolved("_pending_") is True
 

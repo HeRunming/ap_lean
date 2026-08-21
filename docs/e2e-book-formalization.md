@@ -77,7 +77,7 @@ and route routine work to cheaper models before escalation:
 ```bash
 python -m leanflow_cli.formalization.corpus_campaign_runner \
   BookFormalization/campaign.json --project-root . --execute \
-  --workers 8 --lean-slots 3 --reserve-usd 3 \
+  --workers 8 --lean-slots 1 --reserve-usd 3 \
   --reasoning-effort medium \
   --statement-model gpt-5.6-terra --proof-model gpt-5.6-terra \
   --escalation-model gpt-5.6-sol --escalate-after-failures 2
@@ -89,6 +89,12 @@ an agent-approved statement; its proof enters only after those predecessor
 proofs are kernel-checked. Inferred shared-concept edges remain retrieval hints
 and never serialize otherwise independent work. Infrastructure failures do not
 count toward strong-model escalation.
+
+Keep `--lean-slots 1` for a shared checkout: model workers still run in
+parallel, while project-wide `lake build` gates are serialized so one worker
+cannot observe another worker's in-progress project state. Raise this only when
+workers use isolated checkouts or the verification workload is strictly
+file-local.
 
 ## Stage boundaries
 

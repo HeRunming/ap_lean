@@ -451,7 +451,7 @@ def _blueprint_fidelity_field(entry: str, labels: Sequence[str]) -> str:
 
 
 _BLUEPRINT_UNRESOLVED_FIDELITY_RE = re.compile(
-    r"\b(_pending_|pending|todo|tbd|missing|unresolved|unchecked|unverified|not covered|not formalized|omitted|weakened)\b",
+    r"\b(_pending_|pending|todo|tbd|missing|unresolved|unchecked|unverified)\b",
     flags=re.IGNORECASE,
 )
 
