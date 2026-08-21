@@ -17586,6 +17586,11 @@ def _held_lock_count(owner_id: str) -> int:
 
 def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str:
     workflow_kind = workflow_kind.strip().lower()
+    formalization_waiting_for_review = (
+        workflow_kind == "formalize"
+        and _document_formalization_requested()
+        and _document_formalization_blueprint_waiting_for_review()
+    )
     guidance_map = {
         "prove": (
             "autonomous proving session",
@@ -17609,7 +17614,11 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         ),
         "formalize": (
             "autonomous formalization session",
-            "Load the native formalization contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, and use `lean_search` before redrafting blindly; the live queue, route decision, and verification gate below are the state for this turn.",
+            (
+                "Resume directly at the independent statement/source review gate. The drafted theorem/lemma `sorry` declarations are expected proof placeholders, not proof assignments: do not search for or fill their proofs. Run only the missing deterministic Lean/project readiness checks, report the pending review blocker, and let the harness launch the independent reviewer."
+                if formalization_waiting_for_review
+                else "Load the native formalization contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, and use `lean_search` before redrafting blindly; the live queue, route decision, and verification gate below are the state for this turn."
+            ),
         ),
     }
     label, detail = guidance_map.get(

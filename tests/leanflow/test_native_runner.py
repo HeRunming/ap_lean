@@ -30769,6 +30769,29 @@ def test_document_formalization_review_gate_stops_before_proving(monkeypatch, tm
     assert "do not fill theorem/lemma `sorry` proofs" in prompt
 
 
+def test_formalization_startup_guidance_routes_pending_review_without_proof_search(
+    monkeypatch, tmp_path
+):
+    project = tmp_path / "Demo"
+    blueprint = project / "Demo" / "Paper" / "Blueprint.md"
+    blueprint.parent.mkdir(parents=True)
+    blueprint.write_text(
+        "## Source Statement Inventory\n\n"
+        "### thm:demo\n"
+        "- Statement verification status: awaiting independent statement/source verification.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
+    guidance = runner._workflow_startup_guidance("formalize", "/formalize docs/paper.tex")
+
+    assert "Resume directly at the independent statement/source review gate" in guidance
+    assert "do not search for or fill their proofs" in guidance
+    assert "use `lean_search` before redrafting" not in guidance
+
+
 def test_document_formalization_pending_blueprint_blocks_final_sweep(monkeypatch, tmp_path):
     project = tmp_path / "Demo"
     active = project / "Demo" / "Paper" / "Main.lean"
