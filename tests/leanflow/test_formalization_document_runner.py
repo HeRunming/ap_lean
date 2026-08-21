@@ -8,6 +8,7 @@ to the same object on ``native_runner`` so existing callers resolve them without
 """
 
 from leanflow_cli.formalization import formalization_document_runner as fdr
+from leanflow_cli.formalization import formalization_generated_lean as fgl
 from leanflow_cli.lean.lean_module_paths import _lean_decl_names_from_planned_value
 from leanflow_cli.native import native_runner
 
@@ -138,6 +139,31 @@ def test_blueprint_fidelity_field_unresolved_flags_unresolved_markers():
     assert fdr._blueprint_fidelity_field_unresolved("weakened intentionally") is False
     # An empty/placeholder value is unresolved via the block-missing path.
     assert fdr._blueprint_fidelity_field_unresolved("_pending_") is True
+
+
+def test_blueprint_inventory_accepts_fully_qualified_planned_name(monkeypatch):
+    monkeypatch.setattr(
+        fgl,
+        "_document_formalization_manifest_blocks",
+        lambda: [{"label": "0.3", "kind": "theorem", "has_proof": False}],
+    )
+    blueprint = """## Source Statement Inventory
+
+### 0.3
+- Source locator: `questions.json:0.3`
+- Planned Lean declarations: `Demo.Book.result`
+- Formal statement review: exact source translation
+- Source qualifiers: closed proposition
+- Lean coverage: full
+- Scope changes: none
+- Statement verification status: approved
+"""
+    issues = fgl._document_formalization_blueprint_inventory_issues(
+        blueprint,
+        "namespace Demo.Book\n\ntheorem result : True := by trivial\n\nend Demo.Book\n",
+    )
+
+    assert not any("declarations missing" in issue for issue in issues)
 
 
 def test_blueprint_checklist_item_checked_tristate():

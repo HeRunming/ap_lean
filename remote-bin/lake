@@ -11,7 +11,8 @@ done
 # The local checkout is authoritative for agent edits. Synchronize source and
 # project metadata before invoking the remote verifier so file-level gates can
 # never inspect a stale remote copy. Build products and workflow state remain
-# remote/local respectively.
+# remote/local respectively. Campaign ledger updates use short-lived atomic
+# temp files; exclude them because they can vanish during an rsync walk.
 /usr/bin/rsync -az \
   --exclude=.git \
   --exclude=.git/ \
@@ -19,6 +20,7 @@ done
   --exclude=.lake/ \
   --exclude=.leanflow \
   --exclude=.leanflow/ \
+  --exclude='.campaign_*.tmp' \
   --exclude=.venv \
   --exclude=.venv/ \
   -e '/usr/bin/ssh -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 -p 49322 -o BatchMode=yes -o ControlMaster=auto -o ControlPersist=300 -o ControlPath=/tmp/leanflow-lake-%r@%h:%p' \

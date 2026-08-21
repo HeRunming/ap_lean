@@ -428,7 +428,16 @@ def _document_formalization_blueprint_inventory_issues(
             if not planned_names:
                 issues.append(f"blueprint entry `{label}` planned declarations are not parseable")
             else:
-                missing = [name for name in planned_names if name not in target_decl_names]
+                # Generated declaration parsing returns the lexical name written
+                # after `def`/`theorem` (normally unqualified inside a namespace),
+                # while blueprints may intentionally record the fully-qualified
+                # public name.  Treat the final component as the same declaration.
+                missing = [
+                    name
+                    for name in planned_names
+                    if name not in target_decl_names
+                    and name.rsplit(".", 1)[-1] not in target_decl_names
+                ]
                 if missing:
                     issues.append(
                         f"blueprint entry `{label}` names declarations missing from generated Lean files: "
