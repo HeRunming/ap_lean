@@ -388,6 +388,10 @@ def _execute_campaign_action(
             ),
         }
     )
+    # Campaign review calls are retryable infrastructure stages. A shorter
+    # deadline prevents one stalled auxiliary reviewer from pinning a model
+    # worker for the general interactive default of three minutes.
+    child_env.setdefault("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")
     worker_id = str(child_env.get("LEANFLOW_CAMPAIGN_WORKER_ID", "") or "").strip()
     if worker_id:
         child_env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] = worker_id

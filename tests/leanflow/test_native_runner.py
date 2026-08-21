@@ -30955,6 +30955,47 @@ def test_configured_command_blueprint_verifier_runs_without_review_agent(monkeyp
     assert "document_formalization_review_signature" in autonomy_state
 
 
+def test_configured_blueprint_verifier_timeout_pauses_as_infrastructure(monkeypatch, tmp_path):
+    project = tmp_path / "Demo"
+    active = project / "Demo" / "Paper" / "Main.lean"
+    active.parent.mkdir(parents=True)
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(tmp_path / "Blueprint.md"))
+    monkeypatch.setenv("AUXILIARY_BLUEPRINT_VERIFICATION_PROVIDER", "codex")
+    live_state = {
+        "active_file": str(active),
+        "active_file_label": "Demo/Paper/Main.lean",
+        "document_formalization_handoff": {
+            "ok": False,
+            "issues": ["statement/source verification is not approved"],
+        },
+    }
+    monkeypatch.setattr(
+        runner,
+        "_run_advisory_verification_review",
+        lambda **kwargs: {
+            "task": "blueprint_verification",
+            "provider": "codex",
+            "mode": "model",
+            "status": "timeout",
+            "response": "",
+            "error": "auxiliary call exceeded 90 seconds",
+        },
+    )
+    monkeypatch.setattr(runner, "_record_agent_activity", lambda *args, **kwargs: None)
+
+    autonomy_state = {}
+    runner._run_configured_blueprint_verification(
+        _FakeAgent(), "system", live_state, autonomy_state
+    )
+
+    assert autonomy_state["operational_pause"] == "paused_infrastructure"
+    assert "reviewer timeout" in autonomy_state["operational_pause_reason"]
+    assert runner._autonomous_stop_reason([], live_state, autonomy_state) == "infrastructure-pause"
+
+
 def test_configured_blueprint_verifier_block_queues_drafting_feedback(monkeypatch, tmp_path):
     project = tmp_path / "Demo"
     active = project / "Demo" / "Paper" / "Main.lean"

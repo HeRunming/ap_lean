@@ -20669,6 +20669,18 @@ def _run_configured_blueprint_verification(
         )
         autonomy_state["document_formalization_review_feedback_message"] = "\n".join(lines)
         autonomy_state["document_formalization_review_feedback_pending"] = True
+    elif str(result.get("status", "") or "").strip().lower() in {
+        "error",
+        "no_answer",
+        "timeout",
+        "unavailable",
+    }:
+        status = str(result.get("status", "") or "verification failure").strip()
+        error = _single_line(str(result.get("error", "") or ""), 320)
+        autonomy_state["operational_pause"] = "paused_infrastructure"
+        autonomy_state["operational_pause_reason"] = (
+            f"independent statement/source reviewer {status}" + (f": {error}" if error else "")
+        )
     _record_agent_activity(
         parent_agent,
         "formalization-review-complete",
@@ -20679,6 +20691,7 @@ def _run_configured_blueprint_verification(
         mode=str(result.get("mode", "") or ""),
         decision=decision,
         approval_stamped=approval_stamped,
+        operational_pause=str(autonomy_state.get("operational_pause", "") or ""),
     )
     return {"messages": [], "interrupted": False, "verification_review": result}
 
