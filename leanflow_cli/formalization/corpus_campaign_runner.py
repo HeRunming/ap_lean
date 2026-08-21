@@ -78,7 +78,9 @@ def select_campaign_model(
         if isinstance(attempt, Mapping)
         and str(attempt.get("stage", "proofs") or "proofs") == action.stage
         and not bool(attempt.get("success", False))
-        and classify_campaign_failure(attempt) != "infrastructure"
+        and classify_campaign_failure(attempt)
+        in {"statement_generation_incomplete", "proof_incomplete", "verification_timeout"}
+        and "signal interrupt" not in str(attempt.get("reason", "") or "").lower()
     )
     if policy.escalation_model and failures >= max(1, policy.escalate_after_failures):
         return policy.escalation_model
@@ -706,6 +708,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--proof-model", default="")
     parser.add_argument("--escalation-model", default="")
     parser.add_argument("--escalate-after-failures", type=int, default=2)
+    parser.add_argument("--reasoning-effort", default="")
     parser.add_argument("--batch-item-limit", type=int, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--execute", action="store_true")
@@ -787,6 +790,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             **os.environ,
             "LEANFLOW_PROJECT_LEAN_CAPACITY": str(args.lean_slots),
         }
+        if args.reasoning_effort:
+            execution_env["LEANFLOW_CODEX_REASONING_EFFORT"] = args.reasoning_effort
         if args.escalate_after_failures <= 0:
             parser.error("--escalate-after-failures must be positive")
         model_policy = CampaignModelPolicy(

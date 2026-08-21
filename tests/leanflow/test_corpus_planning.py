@@ -121,6 +121,13 @@ def test_campaign_model_policy_escalates_only_non_infrastructure_failures():
         == "cheap-proofs"
     )
     campaign["batches"][0]["attempts"].append(
+        {"stage": "proofs", "success": False, "failure_class": "budget_limit"}
+    )
+    assert (
+        select_campaign_model(campaign, action, fallback_model="fallback", policy=policy)
+        == "cheap-proofs"
+    )
+    campaign["batches"][0]["attempts"].append(
         {"stage": "proofs", "success": False, "failure_class": "proof_incomplete"}
     )
     assert (

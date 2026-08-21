@@ -60,6 +60,31 @@ def test_blueprint_plan_allows_only_independent_review_status_to_remain_pending(
     assert fdr._document_formalization_needs_blueprint_plan() is False
 
 
+def test_blueprint_plan_accepts_common_agent_heading_variant(tmp_path, monkeypatch):
+    blueprint = tmp_path / "Blueprint.md"
+    blueprint.write_text(
+        "# Formalization Blueprint\n\n"
+        "## Source Inventory\n\n"
+        "### Source Entry 0.4 — Balancing vectors\n\n"
+        "- Planned Lean declarations: `balancing_vectors_exists`\n\n"
+        "#### Formal statement review\n\n"
+        "The quantified Lean signature covers the source claim.\n\n"
+        "- Source qualifiers: finite vectors and signs.\n"
+        "- Lean coverage: all source clauses are represented.\n"
+        "- Scope changes: none.\n"
+        "- Statement verification status: awaiting independent review.\n\n"
+        "#### Source proof / prover notes\n\n"
+        "Use independent random signs and expand the squared norm.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "book/questions.json")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
+
+    assert list(fdr._blueprint_source_inventory_entries(blueprint.read_text())) == ["0.4"]
+    assert fdr._document_formalization_needs_blueprint_plan() is False
+
+
 def test_planned_declaration_parser_ignores_markdown_lean_fence_language():
     planned = """```lean
 lemma helper : True

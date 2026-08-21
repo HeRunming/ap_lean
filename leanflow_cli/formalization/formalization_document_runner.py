@@ -358,7 +358,7 @@ def _document_formalization_manifest_blocks() -> list[dict[str, Any]]:
 
 def _blueprint_source_inventory_entries(text: str) -> dict[str, str]:
     section = re.search(
-        r"^##\s+Source Statement Inventory\s*$\n(?P<body>.*?)(?=^##\s+|\Z)",
+        r"^##\s+Source(?: Statement)? Inventory\s*$\n(?P<body>.*?)(?=^##\s+|\Z)",
         str(text or ""),
         flags=re.MULTILINE | re.DOTALL | re.IGNORECASE,
     )
@@ -377,6 +377,13 @@ def _blueprint_source_inventory_entries(text: str) -> dict[str, str]:
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
         label = str(match.group("label") or "").strip()
+        normalized = re.match(
+            r"^(?:Source\s+Entry\s+)?(?P<label>[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)\b",
+            label,
+            flags=re.IGNORECASE,
+        )
+        if normalized:
+            label = str(normalized.group("label") or label)
         if label:
             entries[label] = body[start:end].strip()
     return entries
@@ -393,7 +400,7 @@ def _blueprint_bullet_value(entry: str, label: str) -> str:
 
 def _blueprint_first_bullet_value(entry: str, labels: Sequence[str]) -> str:
     for label in labels:
-        value = _blueprint_bullet_value(entry, label)
+        value = _blueprint_bullet_block(entry, label) or _blueprint_bullet_value(entry, label)
         if value:
             return value
     return ""
@@ -407,7 +414,12 @@ def _blueprint_bullet_block(entry: str, label: str) -> str:
         flags=re.MULTILINE | re.IGNORECASE,
     )
     if not match:
-        return ""
+        heading = re.search(
+            rf"^####\s+{re.escape(label)}\s*$\n(?P<value>.*?)(?=^####?\s+|\Z)",
+            text,
+            flags=re.MULTILINE | re.DOTALL | re.IGNORECASE,
+        )
+        return str(heading.group("value") or "").strip() if heading else ""
     start = match.start()
     next_match = re.search(
         r"^-\s*[A-Za-z][A-Za-z0-9 /_-]{0,80}\s*:\s*",

@@ -78,6 +78,7 @@ and route routine work to cheaper models before escalation:
 python -m leanflow_cli.formalization.corpus_campaign_runner \
   BookFormalization/campaign.json --project-root . --execute \
   --workers 8 --lean-slots 3 --reserve-usd 3 \
+  --reasoning-effort medium \
   --statement-model gpt-5.6-terra --proof-model gpt-5.6-terra \
   --escalation-model gpt-5.6-sol --escalate-after-failures 2
 ```
