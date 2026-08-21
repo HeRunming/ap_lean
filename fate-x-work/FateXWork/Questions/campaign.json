@@ -1,0 +1,5729 @@
+{
+  "schema_version": "2",
+  "source": "HDP/source/full/qa/questions.json",
+  "status": "active",
+  "batch_count": 366,
+  "completed_batch_count": 2,
+  "agent_e2e_completed_batch_count": 0,
+  "manual_gold_completed_batch_count": 2,
+  "agent_e2e_statement_completed_batch_count": 1,
+  "failure_class_counts": {
+    "statement_generation_incomplete": 15,
+    "budget_limit": 6,
+    "infrastructure": 3
+  },
+  "statement_completed_batch_count": 2,
+  "item_count": 366,
+  "batch_item_limit": 1,
+  "spent_usd": 41.75998,
+  "budget_usd": 207.09587,
+  "cost_policy": {
+    "full_run_requires_explicit_budget": true,
+    "default_pilot_batch_limit": 2,
+    "stop_before_batch_when_budget_would_be_exceeded": true
+  },
+  "batches": [
+    {
+      "id": "items-0.1",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.1"
+      ],
+      "count": 1,
+      "status": "proofs_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "manual_gold",
+      "attempts": [
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 3.1412,
+          "exit_code": 2,
+          "proof_obligations": 0,
+          "reason": "",
+          "recorded_at": "2026-08-20T04:53:44+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 9038,
+            "prompt_tokens": 287006,
+            "total_tokens": 296044
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 3.95467,
+          "exit_code": 2,
+          "proof_obligations": 0,
+          "reason": "",
+          "recorded_at": "2026-08-20T05:00:14+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 4475,
+            "prompt_tokens": 382042,
+            "total_tokens": 386517
+          }
+        },
+        {
+          "cost_scope": "no_provider_call",
+          "cost_source": "local",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 1,
+          "reason": "locally verified statement repair",
+          "recorded_at": "2026-08-20T05:13:54+00:00",
+          "stage": "statements",
+          "success": true,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "no_provider_call",
+          "cost_source": "local",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 0,
+          "reason": "locally verified proofs repair",
+          "recorded_at": "2026-08-20T05:33:41+00:00",
+          "stage": "proofs",
+          "success": true,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.0,
+          "exit_code": 2,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "",
+          "recorded_at": "2026-08-20T06:18:44+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 2.80241,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-20T06:28:36+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 3545,
+            "prompt_tokens": 269606,
+            "total_tokens": 273151
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 5.52296,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-20T06:40:14+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 13403,
+            "prompt_tokens": 512087,
+            "total_tokens": 525490
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 3.73521,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-20T06:51:02+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 6936,
+            "prompt_tokens": 352713,
+            "total_tokens": 359649
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 3.63561,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-20T07:03:47+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 4187,
+            "prompt_tokens": 351000,
+            "total_tokens": 355187
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.36174,
+          "exit_code": 2,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "headless early exit",
+          "recorded_at": "2026-08-20T07:26:31+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 766,
+            "prompt_tokens": 33876,
+            "total_tokens": 34642
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 4.48997,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-20T07:38:06+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 4055,
+            "prompt_tokens": 436832,
+            "total_tokens": 440887
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 2.7344,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-20T07:58:53+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 6557,
+            "prompt_tokens": 253769,
+            "total_tokens": 260326
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "runtime failure: SSH connection failed: ssh: connect to host 140.143.244.199 port 49322: Operation not permitted",
+          "recorded_at": "2026-08-20T07:59:18+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-20T08:31:01+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-20T08:32:28+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "runtime failure: SSH connection to hrm@140.143.244.199 timed out",
+          "recorded_at": "2026-08-20T08:57:06+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "runtime failure: SSH connection failed: Connection closed by 140.143.244.199 port 49322",
+          "recorded_at": "2026-08-20T09:00:36+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "infrastructure",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "normalized SystemExit request: 'leanflow-native: provider credentials are incomplete'",
+          "recorded_at": "2026-08-20T09:06:47+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.0,
+          "exit_code": 1,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "runtime failure: SSH connection to hrm@140.143.244.199 timed out",
+          "recorded_at": "2026-08-20T09:13:33+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 2.93424,
+          "exit_code": 2,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "explicit interactive exit",
+          "recorded_at": "2026-08-20T09:29:03+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 4164,
+            "prompt_tokens": 280932,
+            "total_tokens": 285096
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 1.81648,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-20T09:45:04+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 2799,
+            "prompt_tokens": 173251,
+            "total_tokens": 176050
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 1.44047,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-20T10:02:19+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 1331,
+            "prompt_tokens": 140054,
+            "total_tokens": 141385
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.9741,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-20T10:09:55+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 1479,
+            "prompt_tokens": 92973,
+            "total_tokens": 94452
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 1.18912,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-20T10:19:48+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 1231,
+            "prompt_tokens": 115219,
+            "total_tokens": 116450
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 2.74606,
+          "exit_code": 2,
+          "failure_class": "budget_limit",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "recorded_at": "2026-08-21T03:59:03+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 1882,
+            "prompt_tokens": 268960,
+            "total_tokens": 270842
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.28134,
+          "exit_code": 130,
+          "failure_class": "statement_generation_incomplete",
+          "proof_obligations": 0,
+          "provenance": "agent",
+          "reason": "signal interrupt",
+          "recorded_at": "2026-08-21T04:20:24+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "usage": {
+            "completion_tokens": 229,
+            "prompt_tokens": 27447,
+            "total_tokens": 27676
+          }
+        },
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "recovered independently reviewed agent statement handoff",
+          "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+          "proof_obligations": 3,
+          "cost_usd": 0.0,
+          "cost_source": "review_reuse",
+          "cost_scope": "no_provider_call",
+          "provenance": "agent",
+          "review_evidence": "FateXWork/Questions/Items018353C612/IndependentReview.md",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "recorded_at": "2026-08-21T04:23:36+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": true,
+        "exit_code": 0,
+        "reason": "recovered independently reviewed agent statement handoff",
+        "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
+        "proof_obligations": 3,
+        "cost_usd": 0.0,
+        "cost_source": "review_reuse",
+        "cost_scope": "no_provider_call",
+        "provenance": "agent",
+        "review_evidence": "FateXWork/Questions/Items018353C612/IndependentReview.md",
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "recorded_at": "2026-08-21T04:23:36+00:00"
+      }
+    },
+    {
+      "id": "items-0.2",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.2"
+      ],
+      "count": 1,
+      "status": "proofs_completed",
+      "agent_status": "pending",
+      "completion_provenance": "manual_gold",
+      "attempts": [
+        {
+          "cost_scope": "no_provider_call",
+          "cost_source": "local",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 0,
+          "provenance": "manual_gold",
+          "reason": "locally verified statements repair",
+          "recorded_at": "2026-08-20T05:47:33+00:00",
+          "stage": "statements",
+          "success": true,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "no_provider_call",
+          "cost_source": "local",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 0,
+          "provenance": "manual_gold",
+          "reason": "locally verified proofs repair",
+          "recorded_at": "2026-08-20T05:48:34+00:00",
+          "stage": "proofs",
+          "success": true,
+          "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      ],
+      "last_outcome": {
+        "cost_scope": "no_provider_call",
+        "cost_source": "local",
+        "cost_usd": 0.0,
+        "exit_code": 0,
+        "proof_obligations": 0,
+        "provenance": "manual_gold",
+        "reason": "locally verified proofs repair",
+        "recorded_at": "2026-08-20T05:48:34+00:00",
+        "stage": "proofs",
+        "success": true,
+        "target_file": "FateXWork/Questions/Items02E620D532/Main.lean",
+        "usage": {
+          "completion_tokens": 0,
+          "prompt_tokens": 0,
+          "total_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "items-0.3",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.4",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.5",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.6",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.7",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.8",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-0.9",
+      "chapter": "0",
+      "selection_kind": "items",
+      "labels": [
+        "0.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.1",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.2",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.3",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.4",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.5",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.6",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.7",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.8",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.9",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.10",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.11",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.12",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.13",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.14",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.15",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.16",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.17",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.18",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-1.19",
+      "chapter": "1",
+      "selection_kind": "items",
+      "labels": [
+        "1.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.1",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.2",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.3",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.4",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.5",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.6",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.7",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.8",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.9",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.10",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.11",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.12",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.13",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.14",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.15",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.16",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.17",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.18",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.19",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.20",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.21",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.22",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.23",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.24",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.25",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.26",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.27",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.28",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.29",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.30",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.31",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.32",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.33",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.34",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.35",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.36",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.37",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.38",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.39",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.39"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.40",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.40"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.41",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.41"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.42",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.42"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.43",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.43"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.44",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.44"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.45",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.45"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.46",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.46"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.47",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.47"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-2.48",
+      "chapter": "2",
+      "selection_kind": "items",
+      "labels": [
+        "2.48"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.1",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.2",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.3",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.4",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.5",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.6",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.7",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.8",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.9",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.10",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.11",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.12",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.13",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.14",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.15",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.16",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.17",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.18",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.19",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.20",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.21",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.22",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.23",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.24",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.25",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.26",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.27",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.28",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.29",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.30",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.31",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.32",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.33",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.34",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.35",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.36",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.37",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.38",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.39",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.39"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.40",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.40"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.41",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.41"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.42",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.42"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.43",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.43"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.44",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.44"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.45",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.45"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.46",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.46"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.47",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.47"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.48",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.48"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.49",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.49"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.50",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.50"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.51",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.51"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.52",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.52"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.53",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.53"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.54",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.54"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.55",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.55"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.56",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.56"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.57",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.57"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-3.58",
+      "chapter": "3",
+      "selection_kind": "items",
+      "labels": [
+        "3.58"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.1",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.2",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.3",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.4",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.5",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.6",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.7",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.8",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.9",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.10",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.11",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.12",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.13",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.14",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.15",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.16",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.17",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.18",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.19",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.20",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.21",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.22",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.23",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.24",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.25",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.26",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.27",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.28",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.29",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.30",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.31",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.32",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.33",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.34",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.35",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.36",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.37",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.38",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.39",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.39"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.40",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.40"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.41",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.41"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.42",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.42"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.43",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.43"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.44",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.44"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.45",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.45"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.46",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.46"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.47",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.47"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.48",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.48"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.49",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.49"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.50",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.50"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-4.51",
+      "chapter": "4",
+      "selection_kind": "items",
+      "labels": [
+        "4.51"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.1",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.2",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.3",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.4",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.5",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.6",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.7",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.8",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.9",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.10",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.11",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.12",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.13",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.14",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.15",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.16",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.17",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.18",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.19",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.20",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.21",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.22",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.23",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.24",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.25",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.26",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.27",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.28",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.29",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.30",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.31",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-5.32",
+      "chapter": "5",
+      "selection_kind": "items",
+      "labels": [
+        "5.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.1",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.2",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.3",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.4",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.5",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.6",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.7",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.8",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.9",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.10",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.11",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.12",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.13",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.14",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.15",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.16",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.17",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.18",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.19",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.20",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.21",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.22",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.23",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.24",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.25",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.26",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.27",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.28",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.29",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.30",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.31",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.32",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.33",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.34",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.35",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.36",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.37",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-6.38",
+      "chapter": "6",
+      "selection_kind": "items",
+      "labels": [
+        "6.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.1",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.2",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.3",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.4",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.5",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.6",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.7",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.8",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.9",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.10",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.11",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.12",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.13",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.14",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.15",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.16",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.17",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.18",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.19",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.20",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.21",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.22",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.23",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.24",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.25",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.26",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-7.27",
+      "chapter": "7",
+      "selection_kind": "items",
+      "labels": [
+        "7.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.1",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.2",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.3",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.4",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.5",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.6",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.7",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.8",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.9",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.10",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.11",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.12",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.13",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.14",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.15",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.16",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.17",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.18",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.19",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.20",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.21",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.22",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.23",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.24",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.25",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.26",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.27",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.28",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.29",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.30",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.31",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.32",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.33",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.34",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.35",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.36",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.37",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.38",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.39",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.39"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.40",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.40"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-8.41",
+      "chapter": "8",
+      "selection_kind": "items",
+      "labels": [
+        "8.41"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.1",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.1"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.2",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.2"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.3",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.3"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.4",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.4"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.5",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.5"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.6",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.6"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.7",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.7"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.8",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.8"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.9",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.9"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.10",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.10"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.11",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.11"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.12",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.12"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.13",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.13"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.14",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.14"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.15",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.15"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.16",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.16"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.17",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.17"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.18",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.18"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.19",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.19"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.20",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.20"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.21",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.21"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.22",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.22"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.23",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.23"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.24",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.24"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.25",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.25"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.26",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.26"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.27",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.27"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.28",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.28"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.29",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.29"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.30",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.30"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.31",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.31"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.32",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.32"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.33",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.33"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.34",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.34"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.35",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.35"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.36",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.36"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.37",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.37"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.38",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.38"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.39",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.39"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.40",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.40"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.41",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.41"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.42",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.42"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    },
+    {
+      "id": "items-9.43",
+      "chapter": "9",
+      "selection_kind": "items",
+      "labels": [
+        "9.43"
+      ],
+      "count": 1,
+      "status": "pending",
+      "agent_status": "pending",
+      "completion_provenance": "none",
+      "attempts": [],
+      "last_outcome": {}
+    }
+  ]
+}

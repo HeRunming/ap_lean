@@ -1,0 +1,31 @@
+{
+  "batch_count": 1,
+  "batches": [
+    {
+      "attempts": [],
+      "chapter": "1",
+      "count": 2,
+      "id": "chapter-1-batch-1",
+      "labels": [
+        "1.1",
+        "1.2"
+      ],
+      "last_outcome": {},
+      "selection_kind": "batch",
+      "status": "pending"
+    }
+  ],
+  "budget_usd": null,
+  "completed_batch_count": 0,
+  "cost_policy": {
+    "default_pilot_batch_limit": 2,
+    "full_run_requires_explicit_budget": true,
+    "stop_before_batch_when_budget_would_be_exceeded": true
+  },
+  "item_count": 2,
+  "schema_version": "2",
+  "source": "HDP/source/pilot_questions.json",
+  "spent_usd": 0,
+  "statement_completed_batch_count": 0,
+  "status": "active"
+}

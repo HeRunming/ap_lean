@@ -485,7 +485,14 @@ def _get_env_config() -> dict[str, Any]:
     # If Docker cwd passthrough is explicitly enabled, remap the host path to
     # /workspace and track the original host path separately. Otherwise keep the
     # normal sandbox behavior and discard host paths.
-    cwd = os.getenv("TERMINAL_CWD", default_cwd)
+    if env_type == "ssh":
+        # Workflow launchers legitimately rewrite TERMINAL_CWD to the local
+        # project root. Keep the remote checkout root in a dedicated setting
+        # so hybrid local-agent/remote-Lean runs do not attempt to cd into a
+        # host-only path on the SSH machine.
+        cwd = os.getenv("TERMINAL_SSH_CWD", os.getenv("TERMINAL_CWD", default_cwd))
+    else:
+        cwd = os.getenv("TERMINAL_CWD", default_cwd)
     host_cwd = None
     host_prefixes = ("/Users/", "/home/", "C:\\", "C:/")
     if env_type in ("singularity", "daytona") and cwd:

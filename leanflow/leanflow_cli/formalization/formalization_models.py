@@ -26,7 +26,7 @@ class FormalizationDocumentContext:
     metadata: dict[str, Any]
 
     def to_env(self) -> dict[str, str]:
-        return {
+        env = {
             "LEANFLOW_FORMALIZATION_DOCUMENT": str(self.source_path),
             "LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE": self.source_relative,
             "LEANFLOW_FORMALIZATION_REQUEST_KIND": str(
@@ -46,6 +46,13 @@ class FormalizationDocumentContext:
             "LEANFLOW_FORMALIZATION_EXTRACTED_TEXT": str(self.extracted_text_path),
             "LEANFLOW_FORMALIZATION_TARGET_FILE": self.target_lean_relative,
         }
+        campaign_path = str(self.metadata.get("corpus_campaign_path", "") or "").strip()
+        qa_batch = str(self.metadata.get("qa_batch", "") or "").strip()
+        if campaign_path:
+            env["LEANFLOW_FORMALIZATION_CAMPAIGN"] = campaign_path
+        if qa_batch:
+            env["LEANFLOW_FORMALIZATION_QA_BATCH"] = qa_batch
+        return env
 
 
 @dataclass(frozen=True)

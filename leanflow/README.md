@@ -16,7 +16,7 @@ leanflow workflow prove Main.lean --provider rcp --model zai-org/GLM-5.2
 ## Features
 
 - **Proof repair** — completes and fixes Lean proofs one declaration at a time, re-verifying with Lean after every edit (warm LeanProbe incremental checks, with Lake as the final gate). A run is "done" only when the code builds with no open goals and no `sorry`.
-- **Formalization** — turns a LaTeX/PDF source document or TeX project into a buildable, statement-verified Lean draft with source-linked declarations, then hands off to proof repair.
+- **Formalization** — turns a LaTeX/PDF source document, TeX project, or parser-produced QA JSON manifest into a buildable, statement-verified Lean draft with source-linked declarations, then hands off to proof repair.
 - **Whole-project verification** — scans a project for remaining `sorry`s, ranks the files by dependency and difficulty, and works them in order until the project is clean.
 - **Resumable** — every run records activity, logs, checkpoints, file locks, and its work queue under the project, so long sessions resume without starting blind.
 - **Grounded research** — research mode combines Lean and mathlib search with
@@ -56,6 +56,7 @@ cd /path/to/lean-project
 leanflow project init                  # registers the project (and sets up Lean acceleration when safe)
 leanflow workflow prove Main.lean      # repair proofs in a file
 leanflow workflow formalize paper.tex  # formalize a source document
+leanflow workflow formalize book.qa.json  # consume extracted QA items
 ```
 
 Or use the interactive shell (the leading `/` is optional):
@@ -110,7 +111,7 @@ LeanFlow reaches that by working in small, Lean-verified steps rather than one b
 - **`prove --human-review`** explicitly permits the orchestrator to park an
   ambiguous goal for human review. Without this flag, uncertainty is recorded
   and the workflow continues autonomously without changing the source statement.
-- **`formalize` / `autoformalize`** turn a LaTeX/PDF source into a buildable Lean draft with source-linked statements and intentional `sorry`s. The draft is handed off once it builds and its statement/source review is approved; you then run `/prove` to fill in the proofs.
+- **`formalize` / `autoformalize`** turn a LaTeX/PDF source or QA JSON manifest into a buildable Lean draft with source-linked statements and intentional `sorry`s. Natural-language solutions in QA JSON are optional prover hints, not proof-fidelity constraints. The draft is handed off once it builds and its statement/source review is approved; you then run `/prove` to fill in the proofs.
 
 Headless proof outcomes are explicit: `0` means verified, `3` means an authoritatively promoted
 main-goal disproof, `2` means unresolved but checkpointed/resumable, `1` is a startup/runtime

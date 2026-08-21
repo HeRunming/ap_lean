@@ -1,0 +1,46 @@
+{
+  "edges": [
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.2",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    }
+  ],
+  "nodes": [
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.1",
+      "ordinal": 1,
+      "source_locator": "pilot_questions.json:pdf-pages-28"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "convexity",
+        "finite-family",
+        "pointwise-operations",
+        "maximum"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.2",
+      "ordinal": 2,
+      "source_locator": "pilot_questions.json:pdf-pages-28"
+    }
+  ],
+  "schema_version": "1",
+  "source": "HDP/source/pilot_questions.json"
+}

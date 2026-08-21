@@ -32,6 +32,7 @@ class TokenAccounter:
         self._turn_start_completion_tokens: int = 0
         self._turn_start_total_tokens: int = 0
         self._turn_start_api_calls: int = 0
+        self._turn_start_reported_cost_usd: float = 0.0
 
     def start_turn(self) -> None:
         """Snapshot the session counters as the turn-start baseline."""
@@ -39,6 +40,7 @@ class TokenAccounter:
         self._turn_start_completion_tokens = self.session_completion_tokens
         self._turn_start_total_tokens = self.session_total_tokens
         self._turn_start_api_calls = self.session_api_calls
+        self._turn_start_reported_cost_usd = float(self.session_reported_cost_usd or 0.0)
 
     def record_usage(
         self,
@@ -118,6 +120,11 @@ class TokenAccounter:
             else None
         )
         reported_cost = self.session_reported_cost_usd
+        turn_reported_cost = (
+            max(0.0, float(reported_cost) - self._turn_start_reported_cost_usd)
+            if reported_cost is not None
+            else None
+        )
         if reported_cost is not None:
             cost_source = "provider_reported"
             total_cost = reported_cost
@@ -150,6 +157,7 @@ class TokenAccounter:
                 "estimated_total_usd": estimated_cost,
                 "estimated_turn_usd": turn_estimated_cost,
                 "provider_reported_total_usd": reported_cost,
+                "provider_reported_turn_usd": turn_reported_cost,
                 "pricing_known": known_pricing,
             },
         }

@@ -1,0 +1,31 @@
+{
+  "basic_module": "FateXWork.PilotQuestions.Shared.Basic",
+  "contract": {
+    "cross_domain_dependencies_require_project_verification": true,
+    "imports_require_verified_declarations": true,
+    "scaffolds_are_not_auto_imported": true
+  },
+  "modules": [
+    {
+      "auto_import": false,
+      "concepts": [
+        "convexity"
+      ],
+      "consumer_count": 2,
+      "domain": "Convexity",
+      "labels": [
+        "1.1",
+        "1.2"
+      ],
+      "module": "FateXWork.PilotQuestions.Shared.Convexity",
+      "routing_concepts": [
+        "convexity",
+        "convex-hull",
+        "pointwise-operations"
+      ],
+      "status": "scaffold"
+    }
+  ],
+  "schema_version": "1",
+  "unassigned_recurring_concepts": []
+}

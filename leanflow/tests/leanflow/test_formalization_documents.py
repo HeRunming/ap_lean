@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,137 @@ def _write_sample_tex(path: Path) -> None:
 """.strip(),
         encoding="utf-8",
     )
+
+
+def test_prepare_qa_json_context_normalizes_parser_output(tmp_path):
+    project = tmp_path / "Demo"
+    (project / "Demo").mkdir(parents=True)
+    source = project / "book" / "qa.json"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "book_title": "Tiny Book",
+                "qa_pairs": [
+                    {
+                        "id": "exercise-1",
+                        "page": 12,
+                        "question": "Prove that zero plus n equals n.",
+                        "solution": "Use the additive identity law.",
+                        "dependencies": ["definition-addition"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = prepare_formalization_document_context(
+        project_root=project,
+        cwd=project,
+        workflow_args="book/qa.json",
+        project_label="Demo",
+    )
+
+    assert context.source_kind == "qa_json"
+    assert context.metadata["qa_item_count"] == 1
+    assert context.metadata["qa_batches"][0]["labels"] == ["exercise-1"]
+    block = context.metadata["theorem_blocks"][0]
+    assert block["label"] == "exercise-1"
+    assert block["statement"] == "Prove that zero plus n equals n."
+    assert block["proof"] == "Use the additive identity law."
+    assert block["uses"] == ["definition-addition"]
+    assert "Reference solution (optional hint)" in context.extracted_text_path.read_text()
+    assert "exercise-1" in context.blueprint_path.read_text()
+
+
+def test_prepare_qa_json_context_merges_legacy_provenance_sidecars(tmp_path):
+    project = tmp_path / "Demo"
+    (project / "Demo").mkdir(parents=True)
+    qa_dir = project / "book" / "qa"
+    qa_dir.mkdir(parents=True)
+    (qa_dir / "questions.json").write_text(
+        json.dumps(
+            [
+                {
+                    "label": "0.1",
+                    "question": "Prove the variance identity.",
+                    "solution": "Expand the squared norm.",
+                    "sources": [["0", 0], ["1", 2]],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (qa_dir / "visual_correction_audit.json").write_text(
+        json.dumps([{"label": "0.1", "pages": [13, 14], "uncertain_spans": []}]),
+        encoding="utf-8",
+    )
+    (qa_dir.parent / "crop_manifest.json").write_text(
+        json.dumps(
+            {"0.1": {"specs": [{"page_idx": 12, "pdf_page": 13, "bbox_1000": [1, 2, 3, 4]}]}}
+        ),
+        encoding="utf-8",
+    )
+
+    context = prepare_formalization_document_context(
+        project_root=project,
+        cwd=project,
+        workflow_args="book/qa/questions.json",
+        project_label="Demo",
+    )
+
+    block = context.metadata["theorem_blocks"][0]
+    assert block["source_locator"] == "questions.json:pdf-pages-13,14"
+    assert block["statement_sources"] == [
+        {"pdf_page": 13, "page_idx": 12, "bbox_1000": [1, 2, 3, 4]}
+    ]
+    assert "pdf-pages-13,14" in context.blueprint_path.read_text()
+
+
+def test_prepare_qa_json_context_scopes_one_batch_and_preserves_master(tmp_path):
+    project = tmp_path / "Demo"
+    (project / "Demo").mkdir(parents=True)
+    source = project / "book" / "questions.json"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        json.dumps(
+            [{"label": f"1.{index}", "question": f"Question {index}"} for index in range(1, 27)]
+        ),
+        encoding="utf-8",
+    )
+
+    context = prepare_formalization_document_context(
+        project_root=project,
+        cwd=project,
+        workflow_args="book/questions.json",
+        project_label="Demo",
+        qa_batch="chapter-1-batch-2",
+    )
+
+    assert context.metadata["qa_item_count"] == 2
+    assert [block["label"] for block in context.metadata["theorem_blocks"]] == [
+        "1.25",
+        "1.26",
+    ]
+    assert context.target_lean_relative.startswith("Demo/Questions/Chapter1Batch2")
+    assert context.target_lean_relative.endswith("/Main.lean")
+    assert "1.25" in context.blueprint_path.read_text()
+    assert "1.1" not in context.blueprint_path.read_text()
+    master = context.manifest_path.parents[2] / "master-manifest.json"
+    assert len(json.loads(master.read_text())["theorem_blocks"]) == 26
+
+    pilot = prepare_formalization_document_context(
+        project_root=project,
+        cwd=project,
+        workflow_args="book/questions.json",
+        project_label="Demo",
+        qa_items=("1.1", "1.2"),
+    )
+    assert pilot.metadata["qa_item_count"] == 2
+    assert pilot.target_lean_relative.startswith("Demo/Questions/Items1112")
+    assert pilot.target_lean_relative.endswith("/Main.lean")
 
 
 def test_prepare_formalization_document_context_creates_planner_artifacts(tmp_path):

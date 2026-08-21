@@ -1,7 +1,10 @@
 """SSH remote execution environment with ControlMaster connection persistence."""
 
 import contextlib
+import hashlib
 import logging
+import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -57,10 +60,19 @@ class SSHEnvironment(PersistentShellMixin, BaseEnvironment):
         self.port = port
         self.key_path = key_path
         self.persistent = persistent
+        self.remote_root = cwd
 
-        self.control_dir = Path(tempfile.gettempdir()) / "leanflow-ssh"
-        self.control_dir.mkdir(parents=True, exist_ok=True)
-        self.control_socket = self.control_dir / f"{user}@{host}:{port}.sock"
+        socket_root = Path("/tmp") if Path("/tmp").is_dir() else Path(tempfile.gettempdir())
+        local_uid = getattr(os, "getuid", lambda: 0)()
+        self.control_dir = socket_root / f"leanflow-ssh-{local_uid}"
+        self.control_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.control_dir.chmod(0o700)
+        # macOS temp roots can already consume most of the Unix-domain socket
+        # path limit. Hash the endpoint instead of embedding it verbatim so
+        # ControlMaster works consistently across local platforms.
+        endpoint = f"{user}@{host}:{port}"
+        endpoint_id = hashlib.sha256(endpoint.encode("utf-8")).hexdigest()[:20]
+        self.control_socket = self.control_dir / f"ssh-{endpoint_id}.sock"
         _ensure_ssh_available()
         self._establish_connection()
 
@@ -84,16 +96,121 @@ class SSHEnvironment(PersistentShellMixin, BaseEnvironment):
         cmd.append(f"{self.user}@{self.host}")
         return cmd
 
-    def _establish_connection(self):
-        cmd = self._build_ssh_command()
-        cmd.append("echo 'SSH connection established'")
+    def _map_host_project_paths(self, command: str) -> str:
+        """Map workflow-local absolute project paths into the remote checkout."""
+        host_root = str(os.getenv("LEANFLOW_PROJECT_ROOT", "") or "").rstrip("/")
+        remote_root = str(self.remote_root or "").rstrip("/")
+        if not host_root or not remote_root or host_root == remote_root:
+            return command
+        mapped = command.replace(shlex.quote(host_root), shlex.quote(remote_root))
+        return mapped.replace(host_root, remote_root)
+
+    def _map_host_project_path(self, path: str) -> str:
+        """Map one cwd/file path rooted in the local workflow checkout."""
+        value = str(path or "")
+        host_root = str(os.getenv("LEANFLOW_PROJECT_ROOT", "") or "").rstrip("/")
+        remote_root = str(self.remote_root or "").rstrip("/")
+        if not host_root or not remote_root:
+            return value
+        if value == host_root:
+            return remote_root
+        if value.startswith(host_root + "/"):
+            return remote_root + value[len(host_root) :]
+        return value
+
+    def _map_remote_project_paths(self, output: str) -> str:
+        """Present remote checkout paths using the local workflow identity."""
+        host_root = str(os.getenv("LEANFLOW_PROJECT_ROOT", "") or "").rstrip("/")
+        remote_root = str(self.remote_root or "").rstrip("/")
+        if not host_root or not remote_root or host_root == remote_root:
+            return output
+        return str(output or "").replace(remote_root, host_root)
+
+    def execute(
+        self,
+        command: str,
+        cwd: str = "",
+        *,
+        timeout: int | None = None,
+        stdin_data: str | None = None,
+    ) -> dict:
+        sync_error = self._sync_project_to_remote()
+        if sync_error:
+            return {"output": sync_error, "returncode": 1}
+        result = super().execute(command, cwd, timeout=timeout, stdin_data=stdin_data)
+        result["output"] = self._map_remote_project_paths(str(result.get("output", "") or ""))
+        return result
+
+    def _sync_project_to_remote(self) -> str:
+        """Synchronize local project sources before remote verification commands."""
+        enabled = str(os.getenv("TERMINAL_SSH_SYNC_PROJECT", "") or "").strip().lower()
+        if enabled not in {"1", "true", "yes", "on"}:
+            return ""
+        host_root = Path(str(os.getenv("LEANFLOW_PROJECT_ROOT", "") or "")).resolve()
+        remote_root = str(self.remote_root or "").rstrip("/")
+        if not host_root.is_dir() or not remote_root:
+            return "SSH project sync requires valid local and remote project roots"
+        if not shutil.which("rsync"):
+            return "SSH project sync requires rsync on the local host"
+        ssh_parts = ["ssh", "-o", f"ControlPath={self.control_socket}"]
+        if self.port != 22:
+            ssh_parts.extend(["-p", str(self.port)])
+        if self.key_path:
+            ssh_parts.extend(["-i", self.key_path])
+        command = [
+            "rsync",
+            "-az",
+            "--exclude=.git",
+            "--exclude=.git/",
+            "--exclude=.lake",
+            "--exclude=.lake/",
+            "--exclude=.leanflow",
+            "--exclude=.leanflow/",
+            "--exclude=.venv",
+            "--exclude=.venv/",
+            "-e",
+            shlex.join(ssh_parts),
+            f"{host_root}/",
+            f"{self.user}@{self.host}:{remote_root}/",
+        ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            if result.returncode != 0:
-                error_msg = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(f"SSH connection failed: {error_msg}")
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(f"SSH connection to {self.user}@{self.host} timed out") from exc
+            completed = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return f"SSH project sync failed before verification: {exc}"
+        if completed.returncode != 0:
+            detail = completed.stderr.strip() or completed.stdout.strip()
+            return f"SSH project sync failed before verification: {detail}"
+        return ""
+
+    def _establish_connection(self):
+        """Establish the shared connection, retrying transient banner/socket failures."""
+        try:
+            attempts = max(1, int(os.getenv("TERMINAL_SSH_CONNECT_ATTEMPTS", "3")))
+        except ValueError:
+            attempts = 3
+        last_error = ""
+        last_timeout: subprocess.TimeoutExpired | None = None
+        for attempt in range(1, attempts + 1):
+            cmd = self._build_ssh_command()
+            cmd.append("echo 'SSH connection established'")
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                if result.returncode == 0:
+                    return
+                last_error = result.stderr.strip() or result.stdout.strip()
+                last_timeout = None
+            except subprocess.TimeoutExpired as exc:
+                last_timeout = exc
+                last_error = f"SSH connection to {self.user}@{self.host} timed out"
+            if attempt < attempts:
+                # A dead ControlMaster socket can otherwise poison every probe in
+                # the action. Remove only this endpoint's socket before retrying.
+                with contextlib.suppress(OSError):
+                    self.control_socket.unlink()
+                time.sleep(min(2.0, 0.5 * attempt))
+        if last_timeout is not None:
+            raise RuntimeError(last_error) from last_timeout
+        raise RuntimeError(f"SSH connection failed after {attempts} attempts: {last_error}")
 
     _poll_interval: float = 0.15
 
@@ -166,8 +283,8 @@ class SSHEnvironment(PersistentShellMixin, BaseEnvironment):
         stdin_data: str | None = None,
     ) -> dict:
         """Execute a single SSH command, streaming output via background reader thread and handling interruption/timeout. Returns dict with combined stdout/stderr and exit code; returns 130 if interrupted, or calls _timeout_result() if the effective timeout is exceeded."""
-        work_dir = cwd or self.cwd
-        exec_command, sudo_stdin = self._prepare_command(command)
+        work_dir = self._map_host_project_path(cwd or self.cwd)
+        exec_command, sudo_stdin = self._prepare_command(self._map_host_project_paths(command))
         wrapped = f"cd {work_dir} && {exec_command}"
         effective_timeout = timeout or self.timeout
 

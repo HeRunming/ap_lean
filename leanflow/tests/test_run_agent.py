@@ -2473,6 +2473,23 @@ class TestRunConversation:
         assert result["final_response"] == "Final answer"
         assert result["completed"] is True
 
+    def test_action_cost_limit_reserves_next_request_before_sending(self, agent, monkeypatch):
+        self._setup_agent(agent)
+        agent.model = "gpt-5"
+        monkeypatch.setenv("LEANFLOW_ACTION_COST_LIMIT_USD", "0.0001")
+
+        with (
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("A prompt whose request cost exceeds the tiny cap.")
+
+        agent.client.chat.completions.create.assert_not_called()
+        assert result["completed"] is False
+        assert result["action_cost_limit_reached"] is True
+        assert "before the next provider request" in result["error"]
+
     def test_non_quiet_logging_reports_prompt_preview_and_usage(self, agent, capsys):
         self._setup_agent(agent)
         agent.quiet_mode = False

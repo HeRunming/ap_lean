@@ -78,6 +78,22 @@ def _render_context_markdown(
     excerpt = str(
         metadata.get("text_excerpt", "") or metadata.get("extracted_text", "") or ""
     ).strip()
+    selected_scope = dict(metadata.get("qa_selected_batch", {}) or {})
+    corpus_planning_instruction = (
+        "0. For this scoped QA run, use the embedded Corpus-Level Reuse Plan below. Do not open "
+        "the whole-book blueprint, dependency graph, library architecture, reuse registry, or "
+        "declaration-placement JSON unless one exact unresolved fact is absent; if needed, use a "
+        "label-scoped search and read only the matching lines."
+        if selected_scope
+        else "0. Read the corpus blueprint and typed dependency graph when present. Reuse verified shared declarations; candidate edges are retrieval hints until Lean verification confirms them."
+    )
+    source_read_instruction = (
+        f"1. Treat `{extracted_text_path}` plus the detected blocks in this context as the complete "
+        "authoritative source slice. The preflight manifest is metadata already summarized here; "
+        "do not read it or the full QA JSON."
+        if selected_scope
+        else "1. Read the source document, nearby PDFs/figures/support files from this manifest, and this preflight manifest before drafting Lean."
+    )
     lines = [
         "# LeanFlow Document Formalization Context",
         "",
@@ -89,13 +105,16 @@ def _render_context_markdown(
         f"Planner blueprint: `{blueprint_path}`",
         f"Extracted text cache: `{extracted_text_path}`",
         f"Preflight manifest: `{manifest_path}`",
+        f"Artifact provenance lane: `{metadata.get('artifact_provenance', '') or 'unspecified'}`",
         "",
         "## Hard Workflow Contract",
         "",
         "This is a document formalization run. Do not treat the request as a proof-only repair.",
+        "Held-out `FateXWork/Gold` proofs are forbidden in the agent provenance lane. Do not read, search, import, or reproduce them; shared verified library declarations remain admissible.",
         "",
         "Required planner phase:",
-        "1. Read the source document, nearby PDFs/figures/support files from this manifest, and this preflight manifest before drafting Lean.",
+        corpus_planning_instruction,
+        source_read_instruction,
         "2. Use `read_pdf` to read project-local PDF text, and use `formalization_document_inspect` for deterministic re-inspection when the source is a .tex or .pdf file.",
         "3. Search local project facts and Mathlib before inventing names or definitions.",
         "4. Use web search only for references or surrounding literature that the source document actually points to.",
@@ -144,6 +163,75 @@ def _render_context_markdown(
         "",
         _render_blocks_for_markdown(blocks),
     ]
+    if selected_scope:
+        lines[10:10] = [
+            "## Scoped QA Input Contract",
+            "",
+            f"This run is restricted to QA scope `{selected_scope.get('id', '[unknown]')}`.",
+            f"Read `{extracted_text_path}` and the detected blocks below as the authoritative bounded source slice.",
+            "Do not read or dump the full original QA JSON, master manifest, or whole-corpus artifact into model context.",
+            "Do not open the batch manifest or whole-book planning artifacts merely to confirm information already embedded in this context.",
+            "Consult corpus artifacts only with a label/path-scoped search for one missing dependency or reusable declaration, and read only the matching lines.",
+            "The original QA JSON remains provenance, not normal model input for this scoped run.",
+            "",
+        ]
+    corpus_blueprint = str(metadata.get("corpus_blueprint_path", "") or "").strip()
+    if corpus_blueprint:
+        corpus_context = dict(metadata.get("corpus_context", {}) or {})
+        shared_library = dict(corpus_context.get("shared_library", {}) or {})
+        positions = dict(corpus_context.get("execution_positions", {}) or {})
+        recommended_modules = list(corpus_context.get("recommended_shared_modules", []) or [])
+        placement_context = dict(metadata.get("corpus_placement_context", {}) or {})
+        campaign_context = dict(metadata.get("corpus_campaign_context", {}) or {})
+        lines.extend(
+            [
+                "",
+                "## Corpus-Level Reuse Plan",
+                "",
+                f"- Corpus blueprint: `{corpus_blueprint}`",
+                f"- Corpus manifest: `{metadata.get('corpus_manifest_path', '')}`",
+                f"- Typed dependency graph: `{metadata.get('corpus_dependency_graph_path', '')}`",
+                f"- Library architecture: `{metadata.get('corpus_library_architecture_path', '')}`",
+                f"- Shared declaration registry: `{metadata.get('corpus_reuse_registry_path', '')}`",
+                f"- Shared provenance registry: `{metadata.get('corpus_shared_provenance_path', '')}`",
+                f"- Declaration placement report: `{metadata.get('corpus_declaration_placement_path', '')}`",
+                f"- Whole-book campaign: `{metadata.get('corpus_campaign_path', '')}`",
+                f"- Shared Lean module: `{shared_library.get('module', '')}`",
+                f"- Selected execution positions: `{positions or '[none]'}`",
+                "- Recommended shared modules: "
+                + (
+                    ", ".join(
+                        f"`{module.get('module', '')}`"
+                        for module in recommended_modules
+                        if isinstance(module, Mapping)
+                    )
+                    or "[none]"
+                ),
+                "- Verified shared declaration interfaces: "
+                + (
+                    ", ".join(
+                        f"`{item.get('name', '')}` ({item.get('provenance', 'unknown')})"
+                        for item in metadata.get("corpus_verified_shared_declarations", []) or []
+                        if isinstance(item, Mapping)
+                    )
+                    or "[none]"
+                ),
+                "- During statement drafting, the embedded shared interfaces and recommended module names are sufficient. Do not read shared implementation bodies; import the recommended module and use `lean_outline` only if an interface is still unclear.",
+                "- Do not turn a `candidate` edge into a theorem dependency or import without checking it.",
+                "- Do not move declarations into the shared module until the reuse registry records either two project-verified consumers or an explicit source definition plus project verification.",
+                "- Current target placement decisions: "
+                + (
+                    "; ".join(
+                        f"`{item.get('name', '')}` → {', '.join(item.get('recommended_modules', []) or []) or 'local'} [{item.get('status', '')}]"
+                        for item in placement_context.get("target_declarations", []) or []
+                        if isinstance(item, Mapping)
+                    )
+                    or "[none yet]"
+                ),
+                f"- Campaign progress (artifacts): {campaign_context.get('completed_batch_count', 0)}/{campaign_context.get('batch_count', 0)} batches; agent E2E: {campaign_context.get('agent_e2e_completed_batch_count', 0)}; manual gold: {campaign_context.get('manual_gold_completed_batch_count', 0)}; spent ${campaign_context.get('spent_usd', 0)}; budget {campaign_context.get('budget_usd', '[not set]')}",
+                f"- Failure taxonomy: {campaign_context.get('failure_class_counts', {})}",
+            ]
+        )
     if discovery_summary:
         included_tex = list(metadata.get("tex_project_included_tex_files", []) or [])
         bibliography_files = list(metadata.get("tex_project_bibliography_files", []) or [])

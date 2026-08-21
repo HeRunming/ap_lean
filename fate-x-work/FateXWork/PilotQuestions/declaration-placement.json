@@ -1,0 +1,66 @@
+{
+  "contract": {
+    "approved_for_promotion_requires_registry_evidence": true,
+    "automatic_move": false,
+    "final_authority": "project_verification",
+    "transactions_require_closed_local_dependencies": true
+  },
+  "placements": [
+    {
+      "automatic_move": false,
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declaration_digest": "198756593f16fa36",
+      "dependency_blockers": [],
+      "file": "Items1152CE4D1A/Main.lean",
+      "kind": "abbrev",
+      "line": 8,
+      "local_dependencies": [],
+      "name": "RealN",
+      "namespace": [
+        "FateXWork",
+        "PilotQuestions",
+        "Items1152CE4D1A"
+      ],
+      "qualified_name": "FateXWork.PilotQuestions.Items1152CE4D1A.RealN",
+      "recommended_modules": [],
+      "status": "local_default"
+    },
+    {
+      "automatic_move": false,
+      "concepts": [
+        "convex-hull"
+      ],
+      "declaration_digest": "13b745d2cb8c41be",
+      "dependency_blockers": [
+        {
+          "name": "RealN",
+          "recommended_modules": [],
+          "status": "local_default"
+        }
+      ],
+      "file": "Items1152CE4D1A/Main.lean",
+      "kind": "abbrev",
+      "line": 11,
+      "local_dependencies": [
+        "RealN"
+      ],
+      "name": "convHullInRealN",
+      "namespace": [
+        "FateXWork",
+        "PilotQuestions",
+        "Items1152CE4D1A"
+      ],
+      "pre_block_status": "placement_review",
+      "qualified_name": "FateXWork.PilotQuestions.Items1152CE4D1A.convHullInRealN",
+      "recommended_modules": [
+        "FateXWork.PilotQuestions.Shared.Convexity"
+      ],
+      "status": "blocked_local_dependency"
+    }
+  ],
+  "schema_version": "1",
+  "transaction_candidates": [],
+  "workspace": "/Users/blackbox/m2f/fate-x-work/FateXWork/PilotQuestions"
+}

@@ -172,6 +172,22 @@ def test_solution_clean_room_blocks_sibling_benchmark_files(monkeypatch, tmp_pat
     assert "sibling benchmark task" in policy.clean_room_path_block_reason(sibling_helper)
 
 
+def test_solution_clean_room_blocks_held_out_gold_tree_and_ancestor_scan(monkeypatch, tmp_path):
+    project = tmp_path / "formalization"
+    gold = project / "FateXWork" / "Gold"
+    gold.mkdir(parents=True)
+    proof = gold / "Answer.lean"
+    proof.write_text("theorem hidden : True := by trivial\n", encoding="utf-8")
+    monkeypatch.setenv(policy.DISABLE_SOLUTION_RESEARCH_ENV, "1")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv(policy.CLEAN_ROOM_DENY_PATHS_ENV, "FateXWork/Gold")
+
+    assert "held-out gold" in policy.clean_room_path_block_reason(proof)
+    assert "held-out gold" in policy.clean_room_path_block_reason("FateXWork/Gold")
+    assert "held-out gold" in policy.clean_room_terminal_path_block_reason(project)
+    assert policy.clean_room_path_block_reason("FateXWork/Questions/Target.lean") == ""
+
+
 def test_clean_room_search_filters_sibling_benchmark_matches(monkeypatch, tmp_path):
     project = tmp_path / "formalization"
     benchmark = project / "IMO2026"

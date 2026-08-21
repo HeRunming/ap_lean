@@ -504,6 +504,7 @@ def test_direct_verify_reclaims_preexisting_incremental_session(monkeypatch, tmp
 
     probe = _Probe()
     commands = []
+    monkeypatch.delenv("LEANFLOW_FORMALIZATION_TARGET_FILE", raising=False)
     monkeypatch.setenv("LEANFLOW_PROJECT_LEAN_ADMISSION", "1")
     monkeypatch.setattr(lean_incremental, "_PROBE", probe)
     monkeypatch.setattr(lean_services, "_project_root", lambda cwd=None: (project, ""))
@@ -518,6 +519,55 @@ def test_direct_verify_reclaims_preexisting_incremental_session(monkeypatch, tmp
     assert result.ok is True
     assert probe.closed is True
     assert commands == [["lake", "build"]]
+
+
+def test_capability_probe_degrades_when_remote_ssh_is_temporarily_unavailable(
+    monkeypatch, tmp_path
+):
+    """Keep planning alive until a remote verifier is actually required."""
+    monkeypatch.setenv("TERMINAL_ENV", "ssh")
+    monkeypatch.setattr(lean_services, "_project_root", lambda cwd=None: (tmp_path, ""))
+    monkeypatch.setattr(
+        lean_services,
+        "_run_command",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("banner timeout")),
+    )
+    monkeypatch.setattr(lean_services, "_discover_lean_mcp_tools", lambda: {})
+
+    report = lean_services.probe_capabilities(tmp_path)
+
+    assert any(
+        "remote Lean capability probe unavailable" in reason and "banner timeout" in reason
+        for reason in report.degraded_reasons
+    )
+
+
+def test_project_verify_builds_owning_formalization_library(monkeypatch, tmp_path):
+    """Avoid unrelated default Lake libraries while retaining root-library coverage."""
+    project = tmp_path / "Demo"
+    project.mkdir()
+    (project / "lakefile.lean").write_text("import Lake\n", encoding="utf-8")
+    (project / "FateXWork.lean").write_text(
+        "import FateXWork.Questions.Item.Main\n", encoding="utf-8"
+    )
+    commands = []
+    monkeypatch.setenv(
+        "LEANFLOW_FORMALIZATION_TARGET_FILE",
+        "FateXWork/Questions/Item/Main.lean",
+    )
+    monkeypatch.setattr(lean_services, "_project_root", lambda cwd=None: (project, ""))
+    monkeypatch.setattr(
+        type(lean_services._BACKEND),
+        "run_command",
+        lambda self, command, cwd=None: (commands.append((command, cwd)) or 0, "ok"),
+    )
+
+    result = lean_services.lean_verify(cwd=project, mode="project")
+
+    assert result.ok is True
+    assert result.mode == "project"
+    assert result.command == "lake build FateXWork"
+    assert commands == [(["lake", "build", "FateXWork"], project)]
 
 
 def test_direct_verify_does_not_spawn_after_incremental_close_failure(monkeypatch, tmp_path):
@@ -711,12 +761,18 @@ def test_lean_search_marks_semantic_provider_fallback(monkeypatch, tmp_path):
             {"file": "Demo/Main.lean", "line": 12, "preview": "theorem map_id"}
         ],
     )
+    monkeypatch.setattr(
+        lean_services,
+        "_leansearch_direct_search",
+        lambda query, *, limit=8: ([], "LeanSearch unavailable in test"),
+    )
 
     result = lean_services.lean_search("map_id", cwd=project)
 
-    assert result.attempted_providers == ["project-rg"]
+    assert result.attempted_providers == ["leansearch.net", "project-rg"]
     assert result.results[0]["provider"] == "project-rg"
-    assert "semantic providers unavailable" in result.degraded_reasons
+    assert "LeanSearch unavailable in test" in result.degraded_reasons
+    assert "semantic providers unavailable" not in result.degraded_reasons
 
 
 def test_lean_search_uses_leanexplore_summary_results(monkeypatch, tmp_path):
@@ -1157,6 +1213,55 @@ def test_lean_search_uses_direct_leansearch_for_natural_language(monkeypatch, tm
 
     assert result.attempted_providers == ["leansearch.net"]
     assert result.results[0]["name"] == "Fintype.all_card_le_filter_rel_iff_exists_injective"
+
+
+@pytest.mark.parametrize("mode", ["auto", "semantic"])
+def test_lean_search_uses_direct_leansearch_as_semantic_fallback(monkeypatch, tmp_path, mode):
+    project = tmp_path / "Demo"
+    project.mkdir()
+    monkeypatch.setattr(
+        lean_services,
+        "probe_capabilities",
+        lambda cwd=None: LeanCapabilityReport(
+            cwd=str(project),
+            project_root=str(project),
+            project_valid=True,
+            project_error="",
+            binaries={"lean": True, "lake": True, "elan": True, "git": True, "rg": True},
+            mcp_tools={},
+            search_providers=["project-rg"],
+            helper_tools={"search_fallback": True},
+            workers=[],
+            degraded_reasons=[],
+        ),
+    )
+    monkeypatch.setattr(
+        lean_services,
+        "_leansearch_direct_search",
+        lambda query, *, limit=8: (
+            [
+                {
+                    "provider": "leansearch.net",
+                    "name": "IsCoprime.pow",
+                    "module": "Mathlib.Algebra.GCDMonoid.Basic",
+                    "statement": "IsCoprime x y -> IsCoprime (x ^ m) (y ^ n)",
+                }
+            ],
+            "",
+        ),
+    )
+    monkeypatch.setattr(lean_services, "_rg_search", lambda *args, **kwargs: [])
+
+    result = lean_services.lean_search(
+        "coprime powers of non-associated primes",
+        cwd=project,
+        mode=mode,
+        limit=3,
+    )
+
+    assert result.attempted_providers == ["leansearch.net"]
+    assert result.results[0]["name"] == "IsCoprime.pow"
+    assert "semantic providers unavailable" not in result.degraded_reasons
 
 
 def test_lean_search_prefers_local_leanexplore_before_api_and_mcp(monkeypatch, tmp_path):

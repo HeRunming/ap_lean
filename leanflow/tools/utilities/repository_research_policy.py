@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 DISABLE_REPOSITORY_RESEARCH_ENV = "LEANFLOW_DISABLE_REPOSITORY_RESEARCH"
 DISABLE_SOLUTION_RESEARCH_ENV = "LEANFLOW_DISABLE_SOLUTION_RESEARCH"
 CLEAN_ROOM_TASK_LABELS_ENV = "LEANFLOW_CLEAN_ROOM_TASK_LABELS"
+CLEAN_ROOM_DENY_PATHS_ENV = "LEANFLOW_CLEAN_ROOM_DENY_PATHS"
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _REPOSITORY_HOSTS = frozenset(
@@ -64,6 +65,19 @@ def clean_room_task_labels() -> tuple[str, ...]:
     """Return non-empty task labels whose appearance identifies solution research."""
     raw = str(os.getenv(CLEAN_ROOM_TASK_LABELS_ENV, "") or "")
     return tuple(label.strip() for label in raw.split("|") if label.strip())
+
+
+def clean_room_deny_paths(*, cwd: str | Path | None = None) -> tuple[Path, ...]:
+    """Return canonical project paths containing held-out solutions or gold proofs."""
+    root = clean_room_project_root(cwd=cwd)
+    raw = str(os.getenv(CLEAN_ROOM_DENY_PATHS_ENV, "") or "")
+    resolved: list[Path] = []
+    for value in (part.strip() for part in raw.split("|") if part.strip()):
+        candidate = Path(value).expanduser()
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        resolved.append(candidate.resolve(strict=False))
+    return tuple(resolved)
 
 
 def _compact_research_text(value: str) -> str:
@@ -208,10 +222,30 @@ def clean_room_path_block_reason(
     except (OSError, RuntimeError) as exc:
         return f"Clean-room path could not be resolved safely: {exc}"
     if resolved != root and root not in resolved.parents:
+        # Lake package caches are frequently symlinked to a shared project
+        # cache. They remain trusted dependencies, not sibling benchmark
+        # solutions, when the lexical path explicitly enters
+        # <project>/.lake/packages/.
+        lexical = Path(os.path.abspath(candidate))
+        try:
+            lexical_relative = lexical.relative_to(root)
+        except ValueError:
+            lexical_relative = None
+        if lexical_relative is not None:
+            parts = lexical_relative.parts
+            if len(parts) >= 2 and parts[0] == ".lake" and parts[1] == "packages":
+                return ""
         return (
             "Clean-room file access is confined to the active project; "
             f"refusing path {str(path)!r} because it resolves outside {str(root)!r}"
         )
+    if solution_research_disabled():
+        for denied in clean_room_deny_paths(cwd=cwd):
+            if resolved == denied or denied in resolved.parents:
+                return (
+                    "Clean-room file access cannot read held-out gold artifacts; "
+                    f"refusing {str(path)!r}"
+                )
     if not solution_research_disabled() or not resolved.is_file():
         return ""
     active = _active_clean_room_file(root)
@@ -244,6 +278,12 @@ def clean_room_terminal_path_block_reason(
     base_reason = clean_room_path_block_reason(resolved, cwd=cwd)
     if base_reason or not solution_research_disabled() or not resolved.is_dir():
         return base_reason
+    for denied in clean_room_deny_paths(cwd=cwd):
+        if resolved == denied or resolved in denied.parents:
+            return (
+                "Clean-room terminal access cannot scan a directory containing "
+                f"held-out gold artifacts: {denied}"
+            )
     active = _active_clean_room_file(root)
     if active is None:
         return ""

@@ -1,0 +1,149 @@
+{
+  "batch_count": 1,
+  "batches": [
+    {
+      "attempts": [
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "unavailable",
+          "cost_usd": 0.7939,
+          "exit_code": 1,
+          "proof_obligations": 0,
+          "reason": "",
+          "recorded_at": "2026-08-18T08:10:38+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 1662,
+            "prompt_tokens": 74406,
+            "total_tokens": 76068
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 2.44138,
+          "exit_code": 130,
+          "proof_obligations": 0,
+          "reason": "operator_interrupt_after_unbounded_source_read",
+          "recorded_at": "2026-08-18T08:37:13+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 5214,
+            "prompt_tokens": 228496,
+            "total_tokens": 233710
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 0.0,
+          "exit_code": 2,
+          "proof_obligations": 0,
+          "reason": "",
+          "recorded_at": "2026-08-18T09:11:28+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "estimated",
+          "cost_usd": 10.18601,
+          "exit_code": 130,
+          "proof_obligations": 0,
+          "reason": "",
+          "recorded_at": "2026-08-20T04:02:17+00:00",
+          "stage": "statements",
+          "success": false,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 11470,
+            "prompt_tokens": 984191,
+            "total_tokens": 995661
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "local_verification",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 1,
+          "reason": "statement_fidelity_reviewed_and_target_module_verified",
+          "recorded_at": "2026-08-20T04:20:00+00:00",
+          "stage": "statements",
+          "success": true,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        {
+          "cost_scope": "primary_agent_only",
+          "cost_source": "local_verification",
+          "cost_usd": 0.0,
+          "exit_code": 0,
+          "proof_obligations": 0,
+          "reason": "kernel_checked_local_proof_and_module_build_passed",
+          "recorded_at": "2026-08-20T04:20:00+00:00",
+          "stage": "proofs",
+          "success": true,
+          "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 0,
+            "total_tokens": 0
+          }
+        }
+      ],
+      "chapter": "1",
+      "count": 1,
+      "id": "items-1.2",
+      "labels": [
+        "1.2"
+      ],
+      "last_outcome": {
+        "cost_scope": "primary_agent_only",
+        "cost_source": "local_verification",
+        "cost_usd": 0.0,
+        "exit_code": 0,
+        "proof_obligations": 0,
+        "reason": "kernel_checked_local_proof_and_module_build_passed",
+        "recorded_at": "2026-08-20T04:20:00+00:00",
+        "stage": "proofs",
+        "success": true,
+        "target_file": "FateXWork/PilotQuestions/Items1261D0ADA8/Main.lean",
+        "usage": {
+          "completion_tokens": 0,
+          "prompt_tokens": 0,
+          "total_tokens": 0
+        }
+      },
+      "selection_kind": "items",
+      "status": "proofs_completed"
+    }
+  ],
+  "budget_usd": 20.0,
+  "completed_batch_count": 1,
+  "cost_policy": {
+    "default_pilot_batch_limit": 2,
+    "full_run_requires_explicit_budget": true,
+    "stop_before_batch_when_budget_would_be_exceeded": true
+  },
+  "item_count": 1,
+  "schema_version": "2",
+  "source": "HDP/source/pilot_questions.json",
+  "spent_usd": 13.42129,
+  "statement_completed_batch_count": 1,
+  "status": "completed"
+}

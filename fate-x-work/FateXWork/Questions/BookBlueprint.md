@@ -1,0 +1,522 @@
+# Corpus Blueprint: HDP/source/full/qa/questions.json
+
+- Items: 366
+- Shared Lean module: `FateXWork.Questions.Shared.Basic`
+- Candidate edges are retrieval hints, not verified Lean dependencies.
+- Promote code only after two verified consumers or an explicit source-level definition.
+
+## Execution Plan
+
+- Policy: `declared_dependencies_only_with_source_order_ties`
+- Schedulable: `true`
+- Order: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11, … (366 items total; see book-manifest.json for full order)
+- Cycles: [none]
+
+## Library Architecture
+
+- `FateXWork.Questions.Shared.Convexity`: 34 candidate consumers; concepts convex-hull, convexity, pointwise-operations [not auto-imported]
+- `FateXWork.Questions.Shared.Probability`: 231 candidate consumers; concepts expectation, independence, probability, variance [not auto-imported]
+- `FateXWork.Questions.Shared.LinearAlgebra`: 115 candidate consumers; concepts matrix [not auto-imported]
+- `FateXWork.Questions.Shared.Analysis`: 196 candidate consumers; concepts euclidean-space, maximum, norm [not auto-imported]
+
+## Shared Concept Candidates
+
+- `probability`: 179 items (0.1, 0.2, 0.3, 0.4, 0.8, 1.3, 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14, 1.15, 1.16, 2.1, 2.7, 2.8, 2.9, 2.10, 2.12, 2.14, 2.15, 2.17, 2.18, 2.19, 2.20, 2.21, 2.23, 2.24, 2.26, 2.27, 2.28, 2.29, 2.30, 2.31, 2.32, 2.33, 2.34, 2.35, 2.36, 2.37, 2.38, 2.39, 2.40, 2.42, 2.45, 2.46, 2.47, 2.48, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.15, 3.16, 3.17, 3.20, 3.21, 3.22, 3.23, 3.24, 3.25, 3.26, 3.27, 3.28, 3.31, 3.32, 3.34, 3.36, 3.37, 3.38, 3.39, 3.40, 3.41, 3.42, 3.43, 3.44, 3.45, 3.46, 3.48, 3.53, 3.54, 3.56, 4.4, 4.6, 4.27, 4.28, 4.29, 4.39, 4.40, 4.42, 4.43, 4.45, 4.47, 4.49, 5.6, 5.7, 5.9, 5.10, 5.11, 5.14, 5.20, 5.24, 5.25, 5.26, 5.28, 5.29, 5.30, 5.31, 5.32, 6.2, 6.3, 6.4, 6.5, 6.6, 6.8, 6.9, 6.10, 6.11, 6.12, 6.13, 6.14, 6.17, 6.18, 6.19, 6.21, 6.22, 6.23, 6.24, 6.26, 6.27, 6.30, 6.32, 6.34, 6.35, 6.36, 7.1, 7.2, 7.3, 7.6, 7.8, 7.11, 7.13, 7.24, 8.1, 8.2, 8.10, 8.11, 8.25, 8.26, 8.27, 8.30, 8.35, 8.37, 8.38, 8.40, 9.7, 9.9, 9.10, 9.13, 9.16, 9.32, 9.35, 9.36, 9.38, 9.39, 9.41, 9.42)
+- `euclidean-space`: 125 items (0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 0.8, 0.9, 1.1, 1.3, 1.4, 1.6, 1.17, 1.18, 1.19, 2.17, 2.31, 2.34, 2.46, 3.1, 3.2, 3.3, 3.4, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14, 3.15, 3.16, 3.20, 3.23, 3.24, 3.25, 3.26, 3.27, 3.28, 3.29, 3.31, 3.32, 3.33, 3.34, 3.35, 3.39, 3.40, 3.41, 3.42, 3.43, 3.44, 3.45, 3.46, 3.47, 3.49, 3.55, 3.56, 4.3, 4.4, 4.11, 4.12, 4.16, 4.27, 4.29, 4.34, 4.35, 4.38, 4.48, 5.1, 5.13, 5.15, 5.29, 5.30, 6.3, 6.9, 6.10, 6.11, 6.12, 6.13, 6.14, 6.23, 6.24, 6.27, 6.34, 6.35, 6.36, 7.3, 7.5, 7.8, 7.10, 7.17, 7.20, 7.21, 7.25, 7.26, 7.27, 8.4, 8.5, 8.6, 8.10, 8.17, 8.25, 8.26, 8.27, 8.37, 8.38, 8.39, 9.1, 9.4, 9.6, 9.7, 9.12, 9.14, 9.15, 9.18, 9.20, 9.21, 9.23, 9.25, 9.32, 9.33, 9.38, 9.39, 9.43)
+- `expectation`: 116 items (0.1, 0.2, 0.3, 0.8, 1.3, 1.10, 1.13, 1.14, 1.15, 1.16, 2.1, 2.4, 2.8, 2.9, 2.14, 2.22, 2.23, 2.26, 2.28, 2.31, 2.36, 2.38, 2.39, 2.40, 2.42, 2.47, 2.48, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.12, 3.13, 3.26, 3.54, 3.56, 3.58, 4.4, 4.41, 4.42, 4.48, 5.5, 5.6, 5.7, 5.9, 5.10, 5.20, 5.23, 5.24, 5.29, 6.1, 6.3, 6.4, 6.9, 6.11, 6.14, 6.18, 6.19, 6.20, 6.22, 6.23, 6.24, 6.27, 6.28, 6.29, 6.30, 6.33, 6.34, 6.35, 6.36, 7.1, 7.2, 7.3, 7.7, 7.8, 7.9, 7.11, 7.12, 7.13, 7.14, 7.25, 7.26, 7.27, 8.7, 8.8, 8.10, 8.11, 8.25, 8.26, 8.27, 8.31, 8.36, 8.37, 8.38, 8.39, 8.41, 9.2, 9.3, 9.4, 9.5, 9.6, 9.12, 9.14, 9.17, 9.19, 9.20, 9.21, 9.24, 9.26, 9.28, 9.35)
+- `matrix`: 115 items (3.4, 3.10, 3.11, 3.16, 3.18, 3.19, 3.20, 3.29, 3.33, 3.34, 3.47, 3.49, 3.50, 3.51, 3.52, 3.57, 3.58, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 4.10, 4.12, 4.13, 4.14, 4.15, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22, 4.36, 4.37, 4.41, 4.42, 4.43, 4.44, 4.45, 4.46, 4.47, 4.48, 4.50, 4.51, 5.14, 5.16, 5.17, 5.18, 5.19, 5.20, 5.21, 5.22, 5.23, 5.24, 5.25, 5.28, 5.29, 5.31, 5.32, 6.1, 6.4, 6.6, 6.8, 6.9, 6.10, 6.11, 6.12, 6.13, 6.28, 6.29, 6.30, 6.31, 6.32, 6.33, 7.5, 7.10, 7.11, 7.13, 7.18, 7.19, 7.23, 7.24, 7.25, 7.27, 8.26, 8.27, 8.39, 8.41, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 9.10, 9.13, 9.19, 9.20, 9.21, 9.22, 9.29, 9.32, 9.35, 9.36, 9.37, 9.38, 9.39)
+- `independence`: 96 items (0.1, 0.3, 0.4, 1.7, 1.8, 1.9, 1.13, 2.1, 2.7, 2.14, 2.15, 2.17, 2.19, 2.30, 2.31, 2.32, 2.34, 2.36, 2.37, 2.38, 2.39, 2.40, 2.45, 2.46, 2.48, 3.1, 3.2, 3.3, 3.5, 3.6, 3.7, 3.12, 3.13, 3.17, 3.18, 3.19, 3.20, 3.21, 3.22, 3.23, 3.24, 3.26, 3.34, 3.35, 3.36, 3.37, 3.39, 3.40, 3.41, 4.39, 4.40, 4.42, 4.43, 4.44, 5.9, 5.23, 5.24, 5.31, 6.2, 6.3, 6.4, 6.6, 6.8, 6.11, 6.13, 6.14, 6.17, 6.18, 6.21, 6.22, 6.23, 6.24, 6.26, 6.28, 6.29, 6.32, 6.33, 6.35, 6.36, 7.2, 7.3, 7.8, 7.11, 7.13, 7.25, 8.11, 8.18, 8.26, 8.30, 8.38, 8.41, 9.4, 9.7, 9.20, 9.21, 9.35)
+- `norm`: 94 items (0.4, 1.6, 1.11, 1.12, 1.13, 1.14, 1.18, 2.22, 2.31, 2.32, 2.33, 2.34, 2.35, 2.36, 2.40, 2.42, 2.43, 2.45, 3.5, 3.6, 3.13, 3.26, 3.28, 3.32, 3.33, 3.34, 3.35, 3.37, 3.38, 3.39, 3.40, 3.43, 3.44, 3.45, 3.55, 4.2, 4.3, 4.4, 4.6, 4.7, 4.12, 4.18, 4.19, 4.20, 4.21, 4.22, 4.29, 4.35, 4.37, 4.41, 4.42, 4.44, 4.50, 5.10, 5.13, 5.14, 5.16, 5.25, 5.29, 5.30, 5.32, 6.4, 6.9, 6.10, 6.13, 6.15, 6.18, 6.20, 6.23, 6.24, 6.25, 6.27, 6.28, 6.38, 7.10, 7.12, 7.17, 7.18, 7.19, 7.27, 8.36, 8.38, 8.41, 9.2, 9.10, 9.18, 9.19, 9.20, 9.21, 9.23, 9.37, 9.38, 9.39, 9.40)
+- `maximum`: 53 items (1.2, 1.4, 1.13, 1.19, 2.19, 2.30, 2.36, 2.38, 2.39, 2.45, 2.46, 3.5, 3.6, 3.13, 3.23, 3.34, 3.36, 3.49, 3.50, 3.52, 3.54, 3.58, 4.3, 4.7, 4.8, 4.12, 4.18, 4.19, 4.20, 4.21, 4.22, 4.37, 4.42, 4.43, 4.44, 4.47, 5.9, 5.32, 6.8, 6.13, 6.14, 6.28, 6.29, 6.30, 6.33, 6.34, 7.13, 7.18, 8.41, 9.7, 9.12, 9.20, 9.21)
+- `variance`: 47 items (0.1, 0.2, 0.3, 1.16, 2.17, 2.30, 2.36, 2.40, 3.1, 3.2, 3.3, 3.4, 3.10, 3.11, 3.16, 3.18, 3.19, 3.33, 3.40, 3.53, 4.44, 4.48, 4.49, 4.51, 5.9, 5.26, 5.27, 5.28, 5.30, 5.31, 5.32, 6.7, 6.12, 6.13, 6.14, 6.23, 6.25, 6.34, 7.1, 7.5, 7.9, 7.13, 7.15, 7.21, 7.24, 9.6, 9.9)
+- `convexity`: 31 items (0.5, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.14, 2.8, 2.28, 2.42, 2.44, 3.23, 3.47, 3.49, 3.50, 4.19, 4.20, 4.38, 4.40, 6.3, 6.20, 6.35, 6.38, 8.16, 9.20, 9.21, 9.23, 9.27, 9.40, 9.42)
+- `convex-hull`: 14 items (0.5, 1.1, 1.4, 1.5, 1.6, 3.23, 4.19, 4.38, 4.40, 9.25, 9.27, 9.40, 9.42, 9.43)
+- `vc`: 11 items (8.12, 8.13, 8.14, 8.15, 8.16, 8.17, 8.18, 8.21, 8.22, 8.24, 8.32)
+- `diameter`: 7 items (7.25, 7.26, 8.6, 9.7, 9.12, 9.14, 9.28)
+- `unif`: 5 items (3.24, 3.41, 5.5, 5.11, 9.8)
+- `vol`: 5 items (0.9, 4.27, 4.28, 4.29, 4.30)
+- `ber`: 3 items (2.24, 6.17, 6.30)
+- `finite-family`: 3 items (1.2, 3.23, 7.22)
+- `rad`: 3 items (8.37, 8.39, 9.3)
+- `sign`: 3 items (3.28, 3.56, 8.26)
+- `tr`: 3 items (6.11, 6.12, 6.34)
+- `binom`: 2 items (2.12, 2.33)
+- `dist`: 2 items (3.28, 6.14)
+- `pointwise-operations`: 2 items (1.2, 8.21)
+- `rank`: 2 items (4.17, 4.20)
+
+## Typed Dependency Candidates
+
+- `1.2` → `1.1`: shared_foundation [candidate]
+- `1.3` → `1.2`: shared_foundation [candidate]
+- `1.3` → `1.1`: shared_foundation [candidate]
+- `1.4` → `1.1`: shared_foundation [candidate]
+- `1.4` → `1.3`: shared_foundation [candidate]
+- `1.4` → `1.2`: shared_foundation [candidate]
+- `1.5` → `1.4`: shared_foundation [candidate]
+- `1.5` → `1.1`: shared_foundation [candidate]
+- `1.5` → `1.3`: shared_foundation [candidate]
+- `1.6` → `1.5`: shared_foundation [candidate]
+- `1.6` → `1.4`: shared_foundation [candidate]
+- `1.6` → `1.1`: shared_foundation [candidate]
+- `1.14` → `1.6`: shared_foundation [candidate]
+- `1.14` → `1.5`: shared_foundation [candidate]
+- `1.14` → `1.4`: shared_foundation [candidate]
+- `2.28` → `2.8`: shared_foundation [candidate]
+- `2.33` → `2.12`: shared_foundation [candidate]
+- `2.42` → `2.28`: shared_foundation [candidate]
+- `2.42` → `2.8`: shared_foundation [candidate]
+- `2.44` → `2.42`: shared_foundation [candidate]
+- `2.44` → `2.28`: shared_foundation [candidate]
+- `2.44` → `2.8`: shared_foundation [candidate]
+- `3.41` → `3.24`: shared_foundation [candidate]
+- `3.47` → `3.23`: shared_foundation [candidate]
+- `3.49` → `3.47`: shared_foundation [candidate]
+- `3.49` → `3.23`: shared_foundation [candidate]
+- `3.50` → `3.49`: shared_foundation [candidate]
+- `3.50` → `3.47`: shared_foundation [candidate]
+- `3.50` → `3.23`: shared_foundation [candidate]
+- `3.56` → `3.28`: shared_foundation [candidate]
+- `4.20` → `4.19`: shared_foundation [candidate]
+- `4.20` → `4.17`: shared_foundation [candidate]
+- `4.28` → `4.27`: shared_foundation [candidate]
+- `4.29` → `4.28`: shared_foundation [candidate]
+- `4.29` → `4.27`: shared_foundation [candidate]
+- `4.30` → `4.29`: shared_foundation [candidate]
+- `4.30` → `4.28`: shared_foundation [candidate]
+- `4.30` → `4.27`: shared_foundation [candidate]
+- `4.38` → `4.19`: shared_foundation [candidate]
+- `4.38` → `4.20`: shared_foundation [candidate]
+- `4.40` → `4.38`: shared_foundation [candidate]
+- `4.40` → `4.19`: shared_foundation [candidate]
+- `4.40` → `4.20`: shared_foundation [candidate]
+- `5.11` → `5.5`: shared_foundation [candidate]
+- `6.12` → `6.11`: shared_foundation [candidate]
+- `6.20` → `6.3`: shared_foundation [candidate]
+- `6.30` → `6.17`: shared_foundation [candidate]
+- `6.34` → `6.12`: shared_foundation [candidate]
+- `6.34` → `6.11`: shared_foundation [candidate]
+- `6.35` → `6.20`: shared_foundation [candidate]
+- `6.35` → `6.3`: shared_foundation [candidate]
+- `6.38` → `6.35`: shared_foundation [candidate]
+- `6.38` → `6.20`: shared_foundation [candidate]
+- `6.38` → `6.3`: shared_foundation [candidate]
+- `7.26` → `7.25`: shared_foundation [candidate]
+- `8.13` → `8.12`: shared_foundation [candidate]
+- `8.14` → `8.13`: shared_foundation [candidate]
+- `8.14` → `8.12`: shared_foundation [candidate]
+- `8.15` → `8.14`: shared_foundation [candidate]
+- `8.15` → `8.13`: shared_foundation [candidate]
+- `8.15` → `8.12`: shared_foundation [candidate]
+- `8.16` → `8.15`: shared_foundation [candidate]
+- `8.16` → `8.14`: shared_foundation [candidate]
+- `8.16` → `8.13`: shared_foundation [candidate]
+- `8.17` → `8.16`: shared_foundation [candidate]
+- `8.17` → `8.15`: shared_foundation [candidate]
+- `8.17` → `8.14`: shared_foundation [candidate]
+- `8.18` → `8.17`: shared_foundation [candidate]
+- `8.18` → `8.16`: shared_foundation [candidate]
+- `8.18` → `8.15`: shared_foundation [candidate]
+- `8.21` → `8.18`: shared_foundation [candidate]
+- `8.21` → `8.17`: shared_foundation [candidate]
+- `8.21` → `8.16`: shared_foundation [candidate]
+- `8.22` → `8.21`: shared_foundation [candidate]
+- `8.22` → `8.18`: shared_foundation [candidate]
+- `8.22` → `8.17`: shared_foundation [candidate]
+- `8.24` → `8.22`: shared_foundation [candidate]
+- `8.24` → `8.21`: shared_foundation [candidate]
+- `8.24` → `8.18`: shared_foundation [candidate]
+- `8.32` → `8.24`: shared_foundation [candidate]
+- `8.32` → `8.22`: shared_foundation [candidate]
+- `8.32` → `8.21`: shared_foundation [candidate]
+- `8.39` → `8.37`: shared_foundation [candidate]
+- `9.12` → `9.7`: shared_foundation [candidate]
+- `9.14` → `9.12`: shared_foundation [candidate]
+- `9.14` → `9.7`: shared_foundation [candidate]
+- `9.21` → `9.20`: shared_foundation [candidate]
+- `9.23` → `9.21`: shared_foundation [candidate]
+- `9.23` → `9.20`: shared_foundation [candidate]
+- `9.27` → `9.25`: shared_foundation [candidate]
+- `9.27` → `9.23`: shared_foundation [candidate]
+- `9.27` → `9.21`: shared_foundation [candidate]
+- `9.28` → `9.14`: shared_foundation [candidate]
+- `9.28` → `9.12`: shared_foundation [candidate]
+- `9.28` → `9.7`: shared_foundation [candidate]
+- `9.40` → `9.27`: shared_foundation [candidate]
+- `9.40` → `9.25`: shared_foundation [candidate]
+- `9.40` → `9.23`: shared_foundation [candidate]
+- `9.42` → `9.40`: shared_foundation [candidate]
+- `9.42` → `9.27`: shared_foundation [candidate]
+- `9.42` → `9.25`: shared_foundation [candidate]
+- `9.43` → `9.42`: shared_foundation [candidate]
+- `9.43` → `9.40`: shared_foundation [candidate]
+- `9.43` → `9.27`: shared_foundation [candidate]
+
+## Item Inventory
+
+- `0.1` (chapter 0): euclidean-space, probability, expectation, variance, independence
+- `0.2` (chapter 0): euclidean-space, probability, expectation, variance
+- `0.3` (chapter 0): euclidean-space, probability, expectation, variance, independence
+- `0.4` (chapter 0): euclidean-space, probability, norm, independence
+- `0.5` (chapter 0): euclidean-space, convex-hull, convexity
+- `0.6` (chapter 0): [none]
+- `0.7` (chapter 0): euclidean-space
+- `0.8` (chapter 0): euclidean-space, probability, expectation
+- `0.9` (chapter 0): euclidean-space, vol
+- `1.1` (chapter 1): euclidean-space, convex-hull, convexity
+- `1.2` (chapter 1): convexity, finite-family, pointwise-operations, maximum
+- `1.3` (chapter 1): euclidean-space, convexity, probability, expectation
+- `1.4` (chapter 1): euclidean-space, convex-hull, convexity, maximum
+- `1.5` (chapter 1): convex-hull, convexity
+- `1.6` (chapter 1): euclidean-space, convex-hull, convexity, norm
+- `1.7` (chapter 1): probability, independence
+- `1.8` (chapter 1): probability, independence
+- `1.9` (chapter 1): probability, independence
+- `1.10` (chapter 1): probability, expectation
+- `1.11` (chapter 1): probability, norm
+- `1.12` (chapter 1): probability, norm
+- `1.13` (chapter 1): maximum, probability, expectation, norm, independence
+- `1.14` (chapter 1): convexity, probability, expectation, norm
+- `1.15` (chapter 1): probability, expectation
+- `1.16` (chapter 1): probability, expectation, variance
+- `1.17` (chapter 1): euclidean-space
+- `1.18` (chapter 1): euclidean-space, norm
+- `1.19` (chapter 1): euclidean-space, maximum
+- `2.1` (chapter 2): probability, expectation, independence
+- `2.2` (chapter 2): [none]
+- `2.3` (chapter 2): [none]
+- `2.4` (chapter 2): expectation
+- `2.5` (chapter 2): [none]
+- `2.6` (chapter 2): [none]
+- `2.7` (chapter 2): probability, independence
+- `2.8` (chapter 2): convexity, probability, expectation
+- `2.9` (chapter 2): probability, expectation
+- `2.10` (chapter 2): probability
+- `2.11` (chapter 2): [none]
+- `2.12` (chapter 2): probability, binom
+- `2.13` (chapter 2): pois
+- `2.14` (chapter 2): probability, expectation, independence
+- `2.15` (chapter 2): probability, independence
+- `2.16` (chapter 2): [none]
+- `2.17` (chapter 2): euclidean-space, probability, variance, independence
+- `2.18` (chapter 2): probability
+- `2.19` (chapter 2): maximum, probability, independence
+- `2.20` (chapter 2): probability
+- `2.21` (chapter 2): probability
+- `2.22` (chapter 2): expectation, norm
+- `2.23` (chapter 2): probability, expectation
+- `2.24` (chapter 2): probability, ber
+- `2.25` (chapter 2): [none]
+- `2.26` (chapter 2): probability, expectation
+- `2.27` (chapter 2): probability
+- `2.28` (chapter 2): convexity, probability, expectation
+- `2.29` (chapter 2): probability
+- `2.30` (chapter 2): maximum, probability, variance, independence
+- `2.31` (chapter 2): euclidean-space, probability, expectation, norm, independence
+- `2.32` (chapter 2): probability, norm, independence
+- `2.33` (chapter 2): probability, norm, binom
+- `2.34` (chapter 2): euclidean-space, probability, norm, independence
+- `2.35` (chapter 2): probability, norm
+- `2.36` (chapter 2): maximum, probability, expectation, variance, norm, independence
+- `2.37` (chapter 2): probability, independence
+- `2.38` (chapter 2): maximum, probability, expectation, independence
+- `2.39` (chapter 2): maximum, probability, expectation, independence
+- `2.40` (chapter 2): probability, expectation, variance, norm, independence
+- `2.41` (chapter 2): [none]
+- `2.42` (chapter 2): convexity, probability, expectation, norm
+- `2.43` (chapter 2): norm
+- `2.44` (chapter 2): convexity
+- `2.45` (chapter 2): maximum, probability, norm, independence
+- `2.46` (chapter 2): euclidean-space, maximum, probability, independence
+- `2.47` (chapter 2): probability, expectation
+- `2.48` (chapter 2): probability, expectation, independence
+- `3.1` (chapter 3): euclidean-space, probability, expectation, variance, independence
+- `3.2` (chapter 3): euclidean-space, probability, expectation, variance, independence
+- `3.3` (chapter 3): euclidean-space, probability, expectation, variance, independence
+- `3.4` (chapter 3): euclidean-space, probability, expectation, variance, matrix
+- `3.5` (chapter 3): maximum, probability, expectation, norm, independence
+- `3.6` (chapter 3): maximum, probability, expectation, norm, independence
+- `3.7` (chapter 3): euclidean-space, probability, expectation, independence
+- `3.8` (chapter 3): euclidean-space, probability, expectation
+- `3.9` (chapter 3): euclidean-space, probability, expectation
+- `3.10` (chapter 3): euclidean-space, probability, variance, matrix
+- `3.11` (chapter 3): euclidean-space, probability, variance, matrix
+- `3.12` (chapter 3): euclidean-space, probability, expectation, independence
+- `3.13` (chapter 3): euclidean-space, maximum, probability, expectation, norm, independence
+- `3.14` (chapter 3): euclidean-space
+- `3.15` (chapter 3): euclidean-space, probability
+- `3.16` (chapter 3): euclidean-space, probability, variance, matrix
+- `3.17` (chapter 3): probability, independence
+- `3.18` (chapter 3): variance, matrix, independence
+- `3.19` (chapter 3): variance, matrix, independence
+- `3.20` (chapter 3): euclidean-space, probability, matrix, independence
+- `3.21` (chapter 3): probability, independence
+- `3.22` (chapter 3): probability, independence
+- `3.23` (chapter 3): euclidean-space, convex-hull, convexity, finite-family, maximum, probability, independence
+- `3.24` (chapter 3): euclidean-space, probability, independence, unif
+- `3.25` (chapter 3): euclidean-space, probability
+- `3.26` (chapter 3): euclidean-space, probability, expectation, norm, independence
+- `3.27` (chapter 3): euclidean-space, probability
+- `3.28` (chapter 3): euclidean-space, probability, norm, sign, dist
+- `3.29` (chapter 3): euclidean-space, matrix
+- `3.30` (chapter 3): [none]
+- `3.31` (chapter 3): euclidean-space, probability
+- `3.32` (chapter 3): euclidean-space, probability, norm
+- `3.33` (chapter 3): euclidean-space, variance, norm, matrix
+- `3.34` (chapter 3): euclidean-space, maximum, probability, norm, matrix, independence
+- `3.35` (chapter 3): euclidean-space, norm, independence
+- `3.36` (chapter 3): maximum, probability, independence
+- `3.37` (chapter 3): probability, norm, independence
+- `3.38` (chapter 3): probability, norm
+- `3.39` (chapter 3): euclidean-space, probability, norm, independence
+- `3.40` (chapter 3): euclidean-space, probability, variance, norm, independence
+- `3.41` (chapter 3): euclidean-space, probability, independence, unif
+- `3.42` (chapter 3): euclidean-space, probability
+- `3.43` (chapter 3): euclidean-space, probability, norm
+- `3.44` (chapter 3): euclidean-space, probability, norm
+- `3.45` (chapter 3): euclidean-space, probability, norm
+- `3.46` (chapter 3): euclidean-space, probability
+- `3.47` (chapter 3): euclidean-space, convexity, matrix
+- `3.48` (chapter 3): probability
+- `3.49` (chapter 3): euclidean-space, convexity, maximum, matrix
+- `3.50` (chapter 3): convexity, maximum, matrix
+- `3.51` (chapter 3): matrix
+- `3.52` (chapter 3): maximum, matrix
+- `3.53` (chapter 3): probability, variance
+- `3.54` (chapter 3): maximum, probability, expectation
+- `3.55` (chapter 3): euclidean-space, norm
+- `3.56` (chapter 3): euclidean-space, probability, expectation, sign
+- `3.57` (chapter 3): matrix
+- `3.58` (chapter 3): maximum, expectation, matrix, int, sdp
+- `4.1` (chapter 4): matrix
+- `4.2` (chapter 4): norm, matrix
+- `4.3` (chapter 4): euclidean-space, maximum, norm, matrix
+- `4.4` (chapter 4): euclidean-space, probability, expectation, norm, matrix
+- `4.5` (chapter 4): matrix
+- `4.6` (chapter 4): probability, norm, matrix
+- `4.7` (chapter 4): maximum, norm, matrix
+- `4.8` (chapter 4): maximum, matrix
+- `4.9` (chapter 4): matrix
+- `4.10` (chapter 4): matrix
+- `4.11` (chapter 4): euclidean-space
+- `4.12` (chapter 4): euclidean-space, maximum, norm, matrix
+- `4.13` (chapter 4): matrix
+- `4.14` (chapter 4): matrix
+- `4.15` (chapter 4): matrix
+- `4.16` (chapter 4): euclidean-space
+- `4.17` (chapter 4): matrix, rank
+- `4.18` (chapter 4): maximum, norm, matrix
+- `4.19` (chapter 4): convex-hull, convexity, maximum, norm, matrix
+- `4.20` (chapter 4): convexity, maximum, norm, matrix, rank
+- `4.21` (chapter 4): maximum, norm, matrix
+- `4.22` (chapter 4): maximum, norm, matrix
+- `4.23` (chapter 4): [none]
+- `4.24` (chapter 4): [none]
+- `4.25` (chapter 4): [none]
+- `4.26` (chapter 4): [none]
+- `4.27` (chapter 4): euclidean-space, probability, vol
+- `4.28` (chapter 4): probability, vol
+- `4.29` (chapter 4): euclidean-space, probability, norm, vol
+- `4.30` (chapter 4): vol
+- `4.31` (chapter 4): [none]
+- `4.32` (chapter 4): [none]
+- `4.33` (chapter 4): [none]
+- `4.34` (chapter 4): euclidean-space
+- `4.35` (chapter 4): euclidean-space, norm
+- `4.36` (chapter 4): matrix
+- `4.37` (chapter 4): maximum, norm, matrix
+- `4.38` (chapter 4): euclidean-space, convex-hull, convexity
+- `4.39` (chapter 4): probability, independence
+- `4.40` (chapter 4): convex-hull, convexity, probability, independence
+- `4.41` (chapter 4): expectation, norm, matrix
+- `4.42` (chapter 4): maximum, probability, expectation, norm, matrix, independence
+- `4.43` (chapter 4): maximum, probability, matrix, independence
+- `4.44` (chapter 4): maximum, variance, norm, matrix, independence
+- `4.45` (chapter 4): probability, matrix
+- `4.46` (chapter 4): matrix
+- `4.47` (chapter 4): maximum, probability, matrix
+- `4.48` (chapter 4): euclidean-space, expectation, variance, matrix
+- `4.49` (chapter 4): probability, variance
+- `4.50` (chapter 4): norm, matrix
+- `4.51` (chapter 4): variance, matrix
+- `5.1` (chapter 5): euclidean-space
+- `5.2` (chapter 5): [none]
+- `5.3` (chapter 5): [none]
+- `5.4` (chapter 5): [none]
+- `5.5` (chapter 5): expectation, unif
+- `5.6` (chapter 5): probability, expectation
+- `5.7` (chapter 5): probability, expectation
+- `5.8` (chapter 5): [none]
+- `5.9` (chapter 5): maximum, probability, expectation, variance, independence
+- `5.10` (chapter 5): probability, expectation, norm
+- `5.11` (chapter 5): probability, unif
+- `5.12` (chapter 5): [none]
+- `5.13` (chapter 5): euclidean-space, norm
+- `5.14` (chapter 5): probability, norm, matrix
+- `5.15` (chapter 5): euclidean-space
+- `5.16` (chapter 5): norm, matrix
+- `5.17` (chapter 5): matrix
+- `5.18` (chapter 5): matrix
+- `5.19` (chapter 5): matrix
+- `5.20` (chapter 5): probability, expectation, matrix
+- `5.21` (chapter 5): matrix
+- `5.22` (chapter 5): matrix
+- `5.23` (chapter 5): expectation, matrix, independence
+- `5.24` (chapter 5): probability, expectation, matrix, independence
+- `5.25` (chapter 5): probability, norm, matrix
+- `5.26` (chapter 5): probability, variance
+- `5.27` (chapter 5): variance
+- `5.28` (chapter 5): probability, variance, matrix
+- `5.29` (chapter 5): euclidean-space, probability, expectation, norm, matrix
+- `5.30` (chapter 5): euclidean-space, probability, variance, norm
+- `5.31` (chapter 5): probability, variance, matrix, independence
+- `5.32` (chapter 5): maximum, probability, variance, norm, matrix
+- `6.1` (chapter 6): expectation, matrix
+- `6.2` (chapter 6): probability, independence
+- `6.3` (chapter 6): euclidean-space, convexity, probability, expectation, independence
+- `6.4` (chapter 6): probability, expectation, norm, matrix, independence
+- `6.5` (chapter 6): probability
+- `6.6` (chapter 6): probability, matrix, independence
+- `6.7` (chapter 6): variance
+- `6.8` (chapter 6): maximum, probability, matrix, independence
+- `6.9` (chapter 6): euclidean-space, probability, expectation, norm, matrix
+- `6.10` (chapter 6): euclidean-space, probability, norm, matrix
+- `6.11` (chapter 6): euclidean-space, probability, expectation, matrix, independence, tr
+- `6.12` (chapter 6): euclidean-space, probability, variance, matrix, tr
+- `6.13` (chapter 6): euclidean-space, maximum, probability, variance, norm, matrix, independence
+- `6.14` (chapter 6): euclidean-space, maximum, probability, expectation, variance, independence, dist
+- `6.15` (chapter 6): norm, cut
+- `6.16` (chapter 6): [none]
+- `6.17` (chapter 6): probability, independence, ber, exp, lap
+- `6.18` (chapter 6): probability, expectation, norm, independence
+- `6.19` (chapter 6): probability, expectation
+- `6.20` (chapter 6): convexity, expectation, norm
+- `6.21` (chapter 6): probability, independence
+- `6.22` (chapter 6): probability, expectation, independence
+- `6.23` (chapter 6): euclidean-space, probability, expectation, variance, norm, independence
+- `6.24` (chapter 6): euclidean-space, probability, expectation, norm, independence
+- `6.25` (chapter 6): variance, norm
+- `6.26` (chapter 6): probability, independence
+- `6.27` (chapter 6): euclidean-space, probability, expectation, norm
+- `6.28` (chapter 6): maximum, expectation, norm, matrix, independence
+- `6.29` (chapter 6): maximum, expectation, matrix, independence
+- `6.30` (chapter 6): maximum, probability, expectation, matrix, ber
+- `6.31` (chapter 6): matrix
+- `6.32` (chapter 6): probability, matrix, independence
+- `6.33` (chapter 6): maximum, expectation, matrix, independence
+- `6.34` (chapter 6): euclidean-space, maximum, probability, expectation, variance, tr
+- `6.35` (chapter 6): euclidean-space, convexity, probability, expectation, independence
+- `6.36` (chapter 6): euclidean-space, probability, expectation, independence
+- `6.37` (chapter 6): [none]
+- `6.38` (chapter 6): convexity, norm
+- `7.1` (chapter 7): probability, expectation, variance
+- `7.2` (chapter 7): probability, expectation, independence
+- `7.3` (chapter 7): euclidean-space, probability, expectation, independence
+- `7.4` (chapter 7): [none]
+- `7.5` (chapter 7): euclidean-space, variance, matrix
+- `7.6` (chapter 7): probability
+- `7.7` (chapter 7): expectation
+- `7.8` (chapter 7): euclidean-space, probability, expectation, independence
+- `7.9` (chapter 7): expectation, variance
+- `7.10` (chapter 7): euclidean-space, norm, matrix
+- `7.11` (chapter 7): probability, expectation, matrix, independence
+- `7.12` (chapter 7): expectation, norm
+- `7.13` (chapter 7): maximum, probability, expectation, variance, matrix, independence
+- `7.14` (chapter 7): expectation
+- `7.15` (chapter 7): variance
+- `7.16` (chapter 7): [none]
+- `7.17` (chapter 7): euclidean-space, norm
+- `7.18` (chapter 7): maximum, norm, matrix
+- `7.19` (chapter 7): norm, matrix
+- `7.20` (chapter 7): euclidean-space
+- `7.21` (chapter 7): euclidean-space, variance
+- `7.22` (chapter 7): finite-family
+- `7.23` (chapter 7): matrix
+- `7.24` (chapter 7): probability, variance, matrix
+- `7.25` (chapter 7): euclidean-space, expectation, matrix, independence, diameter
+- `7.26` (chapter 7): euclidean-space, expectation, diameter
+- `7.27` (chapter 7): euclidean-space, expectation, norm, matrix
+- `8.1` (chapter 8): probability
+- `8.2` (chapter 8): probability
+- `8.3` (chapter 8): [none]
+- `8.4` (chapter 8): euclidean-space
+- `8.5` (chapter 8): euclidean-space
+- `8.6` (chapter 8): euclidean-space, diameter
+- `8.7` (chapter 8): expectation
+- `8.8` (chapter 8): expectation
+- `8.9` (chapter 8): [none]
+- `8.10` (chapter 8): euclidean-space, probability, expectation
+- `8.11` (chapter 8): probability, expectation, independence
+- `8.12` (chapter 8): vc
+- `8.13` (chapter 8): vc
+- `8.14` (chapter 8): vc
+- `8.15` (chapter 8): vc
+- `8.16` (chapter 8): convexity, vc
+- `8.17` (chapter 8): euclidean-space, vc
+- `8.18` (chapter 8): independence, vc
+- `8.19` (chapter 8): [none]
+- `8.20` (chapter 8): [none]
+- `8.21` (chapter 8): pointwise-operations, vc
+- `8.22` (chapter 8): vc
+- `8.23` (chapter 8): [none]
+- `8.24` (chapter 8): vc
+- `8.25` (chapter 8): euclidean-space, probability, expectation
+- `8.26` (chapter 8): euclidean-space, probability, expectation, matrix, independence, sign
+- `8.27` (chapter 8): euclidean-space, probability, expectation, matrix
+- `8.28` (chapter 8): [none]
+- `8.29` (chapter 8): [none]
+- `8.30` (chapter 8): probability, independence
+- `8.31` (chapter 8): expectation
+- `8.32` (chapter 8): vc
+- `8.33` (chapter 8): [none]
+- `8.34` (chapter 8): [none]
+- `8.35` (chapter 8): probability
+- `8.36` (chapter 8): expectation, norm
+- `8.37` (chapter 8): euclidean-space, probability, expectation, rad
+- `8.38` (chapter 8): euclidean-space, probability, expectation, norm, independence
+- `8.39` (chapter 8): euclidean-space, expectation, matrix, rad
+- `8.40` (chapter 8): probability
+- `8.41` (chapter 8): maximum, expectation, norm, matrix, independence
+- `9.1` (chapter 9): euclidean-space, matrix
+- `9.2` (chapter 9): expectation, norm, matrix
+- `9.3` (chapter 9): expectation, matrix, rad
+- `9.4` (chapter 9): euclidean-space, expectation, matrix, independence
+- `9.5` (chapter 9): expectation, matrix
+- `9.6` (chapter 9): euclidean-space, expectation, variance, matrix
+- `9.7` (chapter 9): euclidean-space, maximum, probability, matrix, independence, diameter
+- `9.8` (chapter 9): matrix, unif
+- `9.9` (chapter 9): probability, variance, matrix
+- `9.10` (chapter 9): probability, norm, matrix
+- `9.11` (chapter 9): [none]
+- `9.12` (chapter 9): euclidean-space, maximum, expectation, diameter
+- `9.13` (chapter 9): probability, matrix
+- `9.14` (chapter 9): euclidean-space, expectation, diameter
+- `9.15` (chapter 9): euclidean-space
+- `9.16` (chapter 9): probability
+- `9.17` (chapter 9): expectation
+- `9.18` (chapter 9): euclidean-space, norm
+- `9.19` (chapter 9): expectation, norm, matrix
+- `9.20` (chapter 9): euclidean-space, convexity, maximum, expectation, norm, matrix, independence
+- `9.21` (chapter 9): euclidean-space, convexity, maximum, expectation, norm, matrix, independence
+- `9.22` (chapter 9): matrix
+- `9.23` (chapter 9): euclidean-space, convexity, norm
+- `9.24` (chapter 9): expectation
+- `9.25` (chapter 9): euclidean-space, convex-hull
+- `9.26` (chapter 9): expectation
+- `9.27` (chapter 9): convex-hull, convexity
+- `9.28` (chapter 9): expectation, diameter
+- `9.29` (chapter 9): matrix
+- `9.30` (chapter 9): [none]
+- `9.31` (chapter 9): [none]
+- `9.32` (chapter 9): euclidean-space, probability, matrix
+- `9.33` (chapter 9): euclidean-space
+- `9.34` (chapter 9): [none]
+- `9.35` (chapter 9): probability, expectation, matrix, independence
+- `9.36` (chapter 9): probability, matrix
+- `9.37` (chapter 9): norm, matrix
+- `9.38` (chapter 9): euclidean-space, probability, norm, matrix
+- `9.39` (chapter 9): euclidean-space, probability, norm, matrix
+- `9.40` (chapter 9): convex-hull, convexity, norm
+- `9.41` (chapter 9): probability
+- `9.42` (chapter 9): convex-hull, convexity, probability
+- `9.43` (chapter 9): euclidean-space, convex-hull

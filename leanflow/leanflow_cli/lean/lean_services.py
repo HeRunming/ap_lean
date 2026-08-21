@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -510,6 +511,43 @@ def _run_command(
     timeout_s: float | None = None,
 ) -> tuple[int, str]:
     """Run one subprocess with process-tree cleanup and the effective timeout policy."""
+    if str(os.getenv("TERMINAL_ENV", "") or "").strip().lower() == "ssh":
+        from tools.environments.ssh import SSHEnvironment
+        from tools.implementations.terminal_tool import _get_env_config
+
+        config = _get_env_config()
+        remote_root = Path(str(config["cwd"])).as_posix()
+        remote_cwd = remote_root
+        if cwd is not None:
+            host_root_raw = str(os.getenv("LEANFLOW_PROJECT_ROOT", "") or "").strip()
+            if host_root_raw:
+                host_root = Path(host_root_raw).expanduser().resolve()
+                try:
+                    relative = Path(cwd).expanduser().resolve().relative_to(host_root)
+                    remote_cwd = str(Path(remote_root) / relative)
+                except ValueError:
+                    remote_cwd = remote_root
+        environment = SSHEnvironment(
+            host=str(config.get("ssh_host", "")),
+            user=str(config.get("ssh_user", "")),
+            port=int(config.get("ssh_port", 22)),
+            key_path=str(config.get("ssh_key", "")),
+            cwd=remote_root,
+            timeout=int(config.get("timeout", 180)),
+            persistent=False,
+        )
+        effective_timeout = (
+            effective_command_timeout_s(cmd) if timeout_s is None else max(0.01, float(timeout_s))
+        )
+        # A non-interactive SSH command does not source the remote user's
+        # profile, so user-level Elan/Lake would be absent from PATH. Run the
+        # canonical check inside a login shell while retaining remote_cwd.
+        login_command = f"bash -lc {shlex.quote(shlex.join(cmd))}"
+        result = environment.execute(
+            login_command, cwd=remote_cwd, timeout=max(1, int(effective_timeout))
+        )
+        return int(result.get("returncode", 1)), str(result.get("output", "") or "").strip()
+
     process: subprocess.Popen[str] | None = None
     try:
         process = subprocess.Popen(
@@ -784,6 +822,23 @@ def probe_capabilities(cwd: str | os.PathLike[str] | None = None) -> LeanCapabil
     base = Path(cwd or explicit or os.getcwd()).expanduser().resolve()
     project_root, project_error = _project_root(base)
     binaries = {name: bool(shutil.which(name)) for name in ("lean", "lake", "elan", "git", "rg")}
+    ssh_backend = str(os.getenv("TERMINAL_ENV", "") or "").strip().lower() == "ssh"
+    remote_probe_error = ""
+    if ssh_backend:
+        try:
+            status, output = _run_command(
+                ["lake", "--version"], cwd=project_root or base, timeout_s=15
+            )
+            if status == 0:
+                binaries["lean"] = True
+                binaries["lake"] = True
+                binaries["elan"] = True
+            else:
+                remote_probe_error = str(output or "remote lake probe failed").strip()
+        except Exception as exc:
+            # Capability discovery is advisory. A transient remote outage must
+            # not kill statement planning before the verifier is actually used.
+            remote_probe_error = f"{type(exc).__name__}: {exc}"
     mcp_tools = _discover_lean_mcp_tools()
     # These proof-auto surfaces have repeatedly produced low-signal harness
     # failures in managed workflows. Keep the lower-level service functions for
@@ -823,6 +878,8 @@ def probe_capabilities(cwd: str | os.PathLike[str] | None = None) -> LeanCapabil
         if entry.get("managed") and str(entry.get("name", "") or "").strip()
     }
     degraded: list[str] = _apply_disabled_mcp_tools(mcp_tools, cwd=project_root or base)
+    if remote_probe_error:
+        degraded.append(f"remote Lean capability probe unavailable: {remote_probe_error}")
     if not binaries.get("lean"):
         degraded.append("lean binary unavailable")
     if not binaries.get("lake"):
@@ -1217,6 +1274,27 @@ def _module_name_for_file(project_root: Path, file_path: Path) -> str:
     return ".".join(f"\u00ab{part}\u00bb" if part.isdigit() else part for part in parts)
 
 
+def _formalization_project_library_target(root: Path | None) -> str:
+    """Return the root Lean library that owns the active formalization target."""
+    if root is None:
+        return ""
+    raw = str(os.getenv("LEANFLOW_FORMALIZATION_TARGET_FILE", "") or "").strip()
+    if not raw:
+        return ""
+    target = Path(raw)
+    if target.is_absolute():
+        try:
+            target = target.resolve().relative_to(root.resolve())
+        except Exception:
+            return ""
+    if not target.parts:
+        return ""
+    candidate = target.parts[0]
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_']*$", candidate):
+        return ""
+    return candidate if (root / f"{candidate}.lean").is_file() else ""
+
+
 def lean_verify(
     target: str = "",
     *,
@@ -1242,7 +1320,8 @@ def lean_verify(
         command = ["lake", "build", _module_name_for_file(root, target_path)]
     else:
         normalized_mode = "project"
-        command = ["lake", "build"]
+        project_library = _formalization_project_library_target(root)
+        command = ["lake", "build", project_library] if project_library else ["lake", "build"]
 
     def run_verification_command() -> tuple[int, str]:
         """Preserve legacy backend call shapes unless a bounded probe is requested."""
@@ -1359,10 +1438,12 @@ def lean_search(
         report, "leansearch"
     ):
         _append_provider("leansearch", report.mcp_tools["leansearch"])
-    # Keep the public HTTP fallback explicit: ``auto`` remains a low-latency
-    # local/MCP route, while natural-language grounding may pay for a bounded
-    # remote query when the managed LeanSearch tool is unavailable.
-    if normalized_mode in {"natural-language", "natural"}:
+    # Keep the public HTTP fallback behind local/MCP semantic providers, but
+    # make it available to every semantic-capable mode.  In remote-Lean setups
+    # the managed MCP services commonly live only on the Lean host, so limiting
+    # this provider to the explicit ``natural-language`` spelling silently
+    # degraded ordinary ``auto`` and ``semantic`` searches to literal rg.
+    if normalized_mode in {"auto", "semantic", "natural-language", "natural"}:
         _append_provider("leansearch_direct")
     if normalized_mode in {"auto", "type-pattern", "type"} and _BACKEND.is_available(
         report, "loogle"
@@ -1446,7 +1527,11 @@ def lean_search(
         provider in attempted
         for provider in (SEARCH_PROVIDER_LABELS["project_rg"], SEARCH_PROVIDER_LABELS["mathlib_rg"])
     ):
-        if not semantic_provider_labels:
+        semantic_attempt_labels = [
+            *semantic_provider_labels,
+            SEARCH_PROVIDER_LABELS["leansearch_direct"],
+        ]
+        if not any(provider in attempted for provider in semantic_attempt_labels):
             degraded.append("semantic providers unavailable")
         elif normalized_mode in {
             "auto",
@@ -1455,7 +1540,7 @@ def lean_search(
             "natural",
             "type-pattern",
             "type",
-        } and not any(provider in attempted for provider in semantic_provider_labels):
+        } and not any(provider in attempted for provider in semantic_attempt_labels):
             degraded.append("semantic providers skipped; falling back to rg")
     if not results:
         degraded.append("search returned no results")

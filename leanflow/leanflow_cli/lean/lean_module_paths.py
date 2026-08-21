@@ -116,10 +116,22 @@ def _lean_decl_names_from_planned_value(value: str) -> list[str]:
         if re.match(r"^[A-Za-z_][A-Za-z0-9_'.]*$", candidate) and candidate not in names:
             names.append(candidate)
 
-    for span in re.findall(r"`([^`]+)`", str(value or "")):
+    text = str(value or "")
+    # Markdown fenced Lean snippets begin with ```lean. Treating the language
+    # tag as an inline code span invents a declaration named `lean` and makes a
+    # correct blueprint fail its generated-declaration inventory check.
+    for match in re.finditer(
+        r"^\s*(?:theorem|lemma|def|abbrev|opaque|structure|class|instance|example)\s+"
+        r"(?P<name>[A-Za-z_][A-Za-z0-9_'.]*)\b",
+        text,
+        flags=re.MULTILINE,
+    ):
+        _add(match.group("name"))
+    inline_text = re.sub(r"```(?:lean)?", "", text, flags=re.IGNORECASE)
+    for span in re.findall(r"(?<!`)`([^`\n]+)`(?!`)", inline_text):
         _add(span)
     if not names:
-        for chunk in re.split(r"[,;]|\band\b", str(value or "")):
+        for chunk in re.split(r"[,;]|\band\b", inline_text):
             _add(chunk)
     return names
 

@@ -1,0 +1,164 @@
+{
+  "concept_index": [
+    {
+      "concept": "convexity",
+      "item_count": 2,
+      "labels": [
+        "1.1",
+        "1.2"
+      ],
+      "reuse_status": "shared_candidate"
+    },
+    {
+      "concept": "convex-hull",
+      "item_count": 1,
+      "labels": [
+        "1.1"
+      ],
+      "reuse_status": "local"
+    },
+    {
+      "concept": "euclidean-space",
+      "item_count": 1,
+      "labels": [
+        "1.1"
+      ],
+      "reuse_status": "local"
+    },
+    {
+      "concept": "finite-family",
+      "item_count": 1,
+      "labels": [
+        "1.2"
+      ],
+      "reuse_status": "local"
+    },
+    {
+      "concept": "maximum",
+      "item_count": 1,
+      "labels": [
+        "1.2"
+      ],
+      "reuse_status": "local"
+    },
+    {
+      "concept": "pointwise-operations",
+      "item_count": 1,
+      "labels": [
+        "1.2"
+      ],
+      "reuse_status": "local"
+    }
+  ],
+  "dependency_edges": [
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.2",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    }
+  ],
+  "dependency_policy": {
+    "candidate_scope": "same_chapter",
+    "maximum_candidate_predecessors_per_item": 3,
+    "maximum_concept_frequency": 8
+  },
+  "execution_plan": {
+    "cycle_labels": [],
+    "order": [
+      "1.1",
+      "1.2"
+    ],
+    "policy": "declared_dependencies_only_with_source_order_ties",
+    "schedulable": true,
+    "unresolved_dependencies": []
+  },
+  "item_count": 2,
+  "items": [
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.1",
+      "ordinal": 1,
+      "source_locator": "pilot_questions.json:pdf-pages-28"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "convexity",
+        "finite-family",
+        "pointwise-operations",
+        "maximum"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.2",
+      "ordinal": 2,
+      "source_locator": "pilot_questions.json:pdf-pages-28"
+    }
+  ],
+  "library_architecture": {
+    "basic_module": "FateXWork.PilotQuestions.Shared.Basic",
+    "contract": {
+      "cross_domain_dependencies_require_project_verification": true,
+      "imports_require_verified_declarations": true,
+      "scaffolds_are_not_auto_imported": true
+    },
+    "modules": [
+      {
+        "auto_import": false,
+        "concepts": [
+          "convexity"
+        ],
+        "consumer_count": 2,
+        "domain": "Convexity",
+        "labels": [
+          "1.1",
+          "1.2"
+        ],
+        "module": "FateXWork.PilotQuestions.Shared.Convexity",
+        "routing_concepts": [
+          "convexity",
+          "convex-hull",
+          "pointwise-operations"
+        ],
+        "status": "scaffold"
+      }
+    ],
+    "schema_version": "1",
+    "unassigned_recurring_concepts": []
+  },
+  "schema_version": "1",
+  "shared_library": {
+    "candidate_concepts": [
+      "convexity"
+    ],
+    "module": "FateXWork.PilotQuestions.Shared.Basic",
+    "promotion_rule": "promote only after two verified consumers or an explicit source-level definition"
+  },
+  "source": "HDP/source/pilot_questions.json",
+  "source_batches": [
+    {
+      "chapter": "1",
+      "count": 2,
+      "first_label": "1.1",
+      "id": "chapter-1-batch-1",
+      "labels": [
+        "1.1",
+        "1.2"
+      ],
+      "last_label": "1.2"
+    }
+  ]
+}

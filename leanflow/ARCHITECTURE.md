@@ -171,7 +171,12 @@ tool is reachable through the public registry.
   once and exact-checks bounded candidates with LeanProbe before any positional
   LSP fallback.
 - `formalization/` owns source-document extraction, TeX discovery, generated
-  Lean shaping, and the statement-review handoff.
+  Lean shaping, corpus-level concept/dependency planning, shared-library scaffolding,
+  namespace-preserving promotion candidate materialization, the statement-review handoff,
+  and resumable two-stage book campaign state.
+  `corpus_campaign_runner.py` produces one proof-first, path-checked workflow
+  action at a time; paid execution remains gated by an explicit budget and
+  per-action reservation.
 - `workflows/` owns proof queues, verification transactions, persistent
   plan/graph state, orchestration, research portfolios, decomposition,
   the durable foreground-verified helper priority and bounded promotion queue
@@ -257,7 +262,9 @@ leanflow workflow formalize
 ```
 
 Formalization intentionally leaves theorem bodies as `sorry` after statement
-approval. The subsequent `prove` workflow owns proof completion.
+approval. That is a successful statement-stage exit, recorded as
+`statements_completed` rather than mathematical verification. The subsequent
+`prove` workflow owns proof completion and alone records `proofs_completed`.
 
 ### Research Mode
 

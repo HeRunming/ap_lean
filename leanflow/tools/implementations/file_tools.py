@@ -4,6 +4,7 @@
 import errno
 import json
 import logging
+import os
 import threading
 import time
 from typing import Any
@@ -125,9 +126,9 @@ def _clean_room_patch_denial(mode: str, path: str | None, patch: str | None) -> 
 def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
     """Get or create ShellFileOperations for a terminal environment.
 
-    Respects the TERMINAL_ENV setting -- if the task_id doesn't have an
-    environment yet, creates one using the configured backend (local, docker,
-    modal, etc.) rather than always defaulting to local.
+    Respects ``FILE_ENV`` when configured, otherwise follows ``TERMINAL_ENV``.
+    A distinct environment identity keeps local source editing separate from a
+    remote terminal/Lean verifier used by the same workflow task.
 
     Thread-safe: uses the same per-task creation locks as terminal_tool to
     prevent duplicate sandbox creation from concurrent tool calls.
@@ -145,14 +146,17 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
         _start_cleanup_thread,
     )
 
+    file_env_override = str(os.getenv("FILE_ENV", "") or "").strip().lower()
+    environment_task_id = f"{task_id}:files" if file_env_override else task_id
+
     # Fast path: check cache -- but also verify the underlying environment
     # is still alive (it may have been killed by the cleanup thread).
     with _file_ops_lock:
         cached = _file_ops_cache.get(task_id)
     if cached is not None:
         with _env_lock:
-            if task_id in _active_environments:
-                _last_activity[task_id] = time.time()
+            if environment_task_id in _active_environments:
+                _last_activity[environment_task_id] = time.time()
                 return cached
             else:
                 # Environment was cleaned up -- invalidate stale cache entry
@@ -162,16 +166,16 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
     # Need to ensure the environment exists before building file_ops.
     # Acquire per-task lock so only one thread creates the sandbox.
     with _creation_locks_lock:
-        if task_id not in _creation_locks:
-            _creation_locks[task_id] = threading.Lock()
-        task_lock = _creation_locks[task_id]
+        if environment_task_id not in _creation_locks:
+            _creation_locks[environment_task_id] = threading.Lock()
+        task_lock = _creation_locks[environment_task_id]
 
     with task_lock:
         # Double-check: another thread may have created it while we waited
         with _env_lock:
-            if task_id in _active_environments:
-                _last_activity[task_id] = time.time()
-                terminal_env = _active_environments[task_id]
+            if environment_task_id in _active_environments:
+                _last_activity[environment_task_id] = time.time()
+                terminal_env = _active_environments[environment_task_id]
             else:
                 terminal_env = None
 
@@ -179,7 +183,7 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
             from tools.implementations.terminal_tool import _task_env_overrides
 
             config = _get_env_config()
-            env_type = config["env_type"]
+            env_type = file_env_override or config["env_type"]
             overrides = _task_env_overrides.get(task_id, {})
 
             if env_type == "docker":
@@ -194,6 +198,10 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
                 image = ""
 
             cwd = overrides.get("cwd") or config["cwd"]
+            if file_env_override == "local":
+                cwd = str(
+                    os.getenv("FILE_CWD", "") or os.getenv("LEANFLOW_PROJECT_ROOT", "") or cwd
+                )
             logger.info("Creating new %s environment for task %s...", env_type, task_id[:8])
 
             container_config = None
@@ -230,13 +238,13 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
                 ssh_config=ssh_config,
                 container_config=container_config,
                 local_config=local_config,
-                task_id=task_id,
+                task_id=environment_task_id,
                 host_cwd=config.get("host_cwd"),
             )
 
             with _env_lock:
-                _active_environments[task_id] = terminal_env
-                _last_activity[task_id] = time.time()
+                _active_environments[environment_task_id] = terminal_env
+                _last_activity[environment_task_id] = time.time()
 
             _start_cleanup_thread()
             logger.info("%s environment ready for task %s", env_type, task_id[:8])

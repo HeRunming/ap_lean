@@ -18,3 +18,10 @@ require repl from git
 @[default_target]
 lean_lib «FATEX» where
   -- add any library configuration options here
+
+@[default_target]
+lean_lib FateXWork where
+  -- Generated document formalization workspace root.
+
+lean_lib FateXWorkGold where
+  -- Manual calibration proofs, isolated from the agent-generated workspace.

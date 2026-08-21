@@ -411,6 +411,115 @@ def test_lean_search_tool_preserves_provider_provenance(monkeypatch):
     assert payload["results"][0]["provider"] == "mcp-leanfinder"
 
 
+def test_lean_verify_tool_forwards_requested_timeout(monkeypatch):
+    observed: dict = {}
+
+    class _Result:
+        def to_dict(self):
+            return {"ok": True, "mode": "project"}
+
+    def fake_verify(**kwargs):
+        observed.update(kwargs)
+        return _Result()
+
+    monkeypatch.setattr(lean_tool, "lean_verify", fake_verify)
+
+    payload = json.loads(lean_tool.lean_verify_tool(mode="project", timeout_s=300))
+
+    assert payload["ok"] is True
+    assert observed["timeout_s"] == 300
+
+
+def test_lean_verify_tool_gives_project_build_a_corpus_sized_default_timeout(monkeypatch):
+    observed: dict = {}
+
+    class _Result:
+        def to_dict(self):
+            return {"ok": True, "mode": "project"}
+
+    monkeypatch.setattr(
+        lean_tool,
+        "lean_verify",
+        lambda **kwargs: observed.update(kwargs) or _Result(),
+    )
+
+    json.loads(lean_tool.lean_verify_tool(mode="project"))
+
+    assert observed["timeout_s"] == 600.0
+
+
+def test_lean_search_tool_compacts_persistent_semantic_prose(monkeypatch):
+    monkeypatch.setattr(
+        lean_tool,
+        "lean_search",
+        lambda *args, **kwargs: LeanSearchResult(
+            query="variance",
+            mode="semantic",
+            attempted_providers=["leansearch.net"],
+            results=[
+                {
+                    "provider": "leansearch.net",
+                    "name": "variance_def",
+                    "module": "Mathlib.Probability.Moments.Variance",
+                    "kind": "theorem",
+                    "statement": "variance X μ = _",
+                    "informal": "x" * 1000,
+                }
+            ],
+            degraded_reasons=[],
+        ),
+    )
+
+    payload = json.loads(lean_tool.lean_search_tool("variance", mode="semantic"))
+
+    assert payload["results"][0]["statement"] == "variance X μ = _"
+    assert len(payload["results"][0]["informal_preview"]) == 300
+    assert "informal" not in payload["results"][0]
+    assert payload["result_count_returned"] == 1
+
+
+def test_agent_statement_campaign_caps_persistent_search_results(monkeypatch):
+    observed: dict = {}
+
+    def fake_search(*args, **kwargs):
+        observed.update(kwargs)
+        return LeanSearchResult(
+            query="variance",
+            mode="semantic",
+            attempted_providers=["leansearch.net"],
+            results=[{"provider": "leansearch.net", "name": f"result_{i}"} for i in range(10)],
+            degraded_reasons=[],
+        )
+
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_PROVENANCE", "agent")
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setattr(lean_tool, "lean_search", fake_search)
+
+    payload = json.loads(lean_tool.lean_search_tool("variance", mode="semantic", limit=10))
+
+    assert observed["limit"] == 5
+    assert payload["result_count_returned"] == 5
+    assert "capped 10 requested results at 5" in payload["result_limit_note"]
+
+
+def test_lean_tools_deny_held_out_gold_paths_and_modules(monkeypatch, tmp_path):
+    gold = tmp_path / "FateXWork" / "Gold" / "Answer.lean"
+    gold.parent.mkdir(parents=True)
+    gold.write_text("theorem hidden : True := by trivial\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_DISABLE_SOLUTION_RESEARCH", "1")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("LEANFLOW_CLEAN_ROOM_DENY_PATHS", "FateXWork/Gold")
+    monkeypatch.setenv("LEANFLOW_CLEAN_ROOM_DENY_MODULE_PREFIXES", "FateXWork.Gold")
+
+    path_payload = json.loads(lean_tool.lean_inspect_tool(str(gold), cwd=str(tmp_path)))
+    module_payload = json.loads(
+        lean_tool.lean_verify_tool("FateXWork.Gold.HDP.Answer", cwd=str(tmp_path))
+    )
+
+    assert path_payload["status"] == "clean_room_path_denied"
+    assert module_payload["status"] == "clean_room_path_denied"
+
+
 def test_lean_search_tool_filters_sibling_benchmark_matches(monkeypatch, tmp_path):
     benchmark = tmp_path / "IMO2026"
     benchmark.mkdir()

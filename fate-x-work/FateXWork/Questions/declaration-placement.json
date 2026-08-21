@@ -1,0 +1,12 @@
+{
+  "contract": {
+    "approved_for_promotion_requires_registry_evidence": true,
+    "automatic_move": false,
+    "final_authority": "project_verification",
+    "transactions_require_closed_local_dependencies": true
+  },
+  "placements": [],
+  "schema_version": "1",
+  "transaction_candidates": [],
+  "workspace": "/Users/blackbox/m2f/fate-x-work/FateXWork/Questions"
+}

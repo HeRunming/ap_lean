@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import json
+import os
 import re
 import time
 from collections.abc import Mapping
@@ -10,6 +13,20 @@ from pathlib import Path
 from typing import Any
 
 from core.utils import atomic_json_write
+from leanflow_cli.formalization.corpus_campaign import (
+    build_campaign,
+    next_campaign_batch,
+)
+from leanflow_cli.formalization.corpus_planning import (
+    build_corpus_plan,
+    corpus_artifact_paths,
+    render_corpus_blueprint,
+    selected_corpus_context,
+)
+from leanflow_cli.formalization.corpus_reuse import (
+    build_placement_report,
+    build_reuse_registry,
+)
 
 # The text/LaTeX/PDF extraction layer lives in leanflow_cli.formalization.document_extraction. It is
 # re-exported here so every caller and test keeps resolving these names as
@@ -18,6 +35,8 @@ from core.utils import atomic_json_write
 from leanflow_cli.formalization.document_extraction import (  # noqa: F401
     _DEFAULT_LATEX_THEOREM_ENV_KINDS,
     MAX_EXTRACTED_TEXT_CHARS,
+    MAX_QA_BATCH_ITEMS,
+    MAX_QA_ITEMS,
     MAX_REFERENCES,
     MAX_SECTIONS,
     MAX_STATEMENT_CHARS,
@@ -29,6 +48,7 @@ from leanflow_cli.formalization.document_extraction import (  # noqa: F401
     _extract_latex_summary,
     _extract_pdf_summary,
     _extract_plaintext_sections,
+    _extract_qa_json_summary,
     _following_latex_proof,
     _latex_theorem_environment_kinds,
     _line_number,
@@ -72,6 +92,7 @@ from leanflow_cli.formalization.formalization_tex_discovery import (  # noqa: F4
 SUPPORTED_FORMALIZATION_DOCUMENT_EXTENSIONS = {
     ".tex": "latex",
     ".pdf": "pdf",
+    ".json": "qa_json",
 }
 
 
@@ -80,13 +101,13 @@ def _select_formalization_document(
     cwd: str | Path,
     workflow_args: str,
 ) -> _FormalizationDocumentSelection:
-    """Parse and resolve a formalization document path (file or directory) from a user request, validating extension and project locality. Returns a _FormalizationDocumentSelection with resolved source path, kind (latex/pdf), and discovery metadata; raises FormalizationDocumentError on invalid input."""
+    """Resolve a project-local LaTeX, PDF, or parser-produced QA source."""
     root = Path(project_root).expanduser().resolve()
     base = Path(cwd).expanduser().resolve()
     raw = _strip_wrapping_quotes(workflow_args)
     if not raw:
         raise FormalizationDocumentError(
-            "formalize requires a project-local .tex source, .pdf source, or TeX project directory, "
+            "formalize requires a project-local .tex, .pdf, or QA .json source, or TeX project directory, "
             "for example `/formalize docs/paper.tex` or `/autoformalize docs/paper`."
         )
     if raw.startswith("-"):
@@ -97,7 +118,7 @@ def _select_formalization_document(
     raw_suffix = Path(raw).suffix.lower()
     if raw_suffix == ".lean":
         raise FormalizationDocumentError(
-            "formalize now expects a source document (.tex or .pdf) or TeX project directory. Use `/prove` for an existing Lean file "
+            "formalize now expects a source document (.tex, .pdf, or QA .json) or TeX project directory. Use `/prove` for an existing Lean file "
             "or `/draft` for statement-only skeleton work."
         )
     try:
@@ -105,12 +126,12 @@ def _select_formalization_document(
     except FormalizationDocumentError:
         if raw_suffix and raw_suffix not in SUPPORTED_FORMALIZATION_DOCUMENT_EXTENSIONS:
             raise FormalizationDocumentError(
-                "formalize requires a project-local .tex source, .pdf source, or directory containing a TeX project. "
+                "formalize requires a project-local .tex, .pdf, or QA .json source, or a TeX project directory. "
                 f"Unsupported document extension: {raw_suffix}"
             ) from None
         if not raw_suffix:
             raise FormalizationDocumentError(
-                "formalize requires a project-local .tex source, .pdf source, or directory containing a TeX project, "
+                "formalize requires a project-local .tex, .pdf, or QA .json source, or a TeX project directory, "
                 "for example `/formalize docs/paper.tex` or `/autoformalize docs/paper`."
             ) from None
         raise
@@ -120,7 +141,7 @@ def _select_formalization_document(
     suffix = requested_path.suffix.lower()
     if suffix not in SUPPORTED_FORMALIZATION_DOCUMENT_EXTENSIONS:
         raise FormalizationDocumentError(
-            "formalize requires a project-local .tex source, .pdf source, or directory containing a TeX project. "
+            "formalize requires a project-local .tex, .pdf, or QA .json source, or a TeX project directory. "
             f"Unsupported document extension: {suffix or '[none]'}"
         )
     kind = SUPPORTED_FORMALIZATION_DOCUMENT_EXTENSIONS[suffix]
@@ -341,14 +362,27 @@ def _initial_blueprint(
         lines.append(
             "- No theorem-like LaTeX blocks were detected by preflight; inspect the document manually."
         )
-    for block in blocks[:MAX_THEOREM_BLOCKS]:
+    blueprint_limit = (
+        MAX_QA_ITEMS if metadata.get("source_kind") == "qa_json" else MAX_THEOREM_BLOCKS
+    )
+    for block in blocks[:blueprint_limit]:
         label = str(block.get("label", "") or f"line-{block.get('line', '?')}")
+        source_locator = str(block.get("source_locator", "") or "").strip()
+        if not source_locator:
+            page = block.get("page")
+            if page not in (None, "", 0, "0"):
+                source_locator = f"{source_relative}:page-{page}"
+            else:
+                source_locator = (
+                    f"{source_relative}:{block.get('line', '?')}-"
+                    f"{block.get('end_line') or block.get('line', '?')}"
+                )
         lines.extend(
             [
                 f"### {label}",
                 "",
                 f"- Kind: {block.get('kind', 'statement')}",
-                f"- Source locator: `{source_relative}:{block.get('line', '?')}-{block.get('end_line') or block.get('line', '?')}`",
+                f"- Source locator: `{source_locator}`",
                 "- Planned Lean declarations: _pending_",
                 f"- Dependencies: {', '.join(block.get('uses', []) or []) or '_pending_'}",
                 "- Formal statement review: _pending_",
@@ -450,6 +484,8 @@ def prepare_formalization_document_context(
     cwd: str | Path,
     workflow_args: str,
     project_label: str = "",
+    qa_batch: str = "",
+    qa_items: tuple[str, ...] = (),
 ) -> FormalizationDocumentContext:
     """Orchestrate the formalization document intake: resolve source, extract metadata, scaffold state directory (.leanflow/workflow-state), initialize target Lean file and blueprint, register the blueprint skill, and return a FormalizationDocumentContext with paths to context markdown, manifest, extracted text, and blueprint. Writes manifests and initializes the Lean import chain."""
     root = Path(project_root).expanduser().resolve()
@@ -458,19 +494,134 @@ def prepare_formalization_document_context(
     source_path = selection.source_path
     source_relative = selection.source_relative
     source_kind = selection.source_kind
-    metadata = (
-        _extract_latex_summary(source_path)
-        if source_kind == "latex"
-        else _extract_pdf_summary(source_path)
-    )
+    if source_kind == "latex":
+        metadata = _extract_latex_summary(source_path)
+    elif source_kind == "pdf":
+        metadata = _extract_pdf_summary(source_path)
+    else:
+        metadata = _extract_qa_json_summary(source_path)
     metadata.update(selection.discovery_metadata)
+    master_metadata = dict(metadata)
+    document_workspace = _default_document_workspace_path(root, project_label, source_path)
+    shared_module = ".".join((*document_workspace.relative_to(root).parts, "Shared", "Basic"))
+    corpus_plan: dict[str, Any] = {}
+    corpus_artifacts: dict[str, Path] = {}
+    if source_kind == "qa_json":
+        corpus_plan = build_corpus_plan(
+            master_metadata,
+            source_relative=source_relative,
+            shared_module=shared_module,
+        )
+        corpus_artifacts = corpus_artifact_paths(document_workspace)
+    scope_id = qa_batch
+    if qa_batch or qa_items:
+        if source_kind != "qa_json":
+            raise FormalizationDocumentError("QA scopes require a QA JSON source")
+        if qa_batch:
+            selected_scope = next(
+                (
+                    dict(batch)
+                    for batch in metadata.get("qa_batches", [])
+                    if isinstance(batch, Mapping) and str(batch.get("id", "")) == qa_batch
+                ),
+                None,
+            )
+            if selected_scope is None:
+                available = ", ".join(
+                    str(batch.get("id", ""))
+                    for batch in metadata.get("qa_batches", [])
+                    if isinstance(batch, Mapping)
+                )
+                raise FormalizationDocumentError(
+                    f"unknown QA batch `{qa_batch}`; available batches: {available or '[none]'}"
+                )
+        else:
+            scope_id = "items-" + "-".join(qa_items)
+            selected_scope = {
+                "id": scope_id,
+                "kind": "explicit_items",
+                "labels": list(qa_items),
+                "count": len(qa_items),
+            }
+        selected_labels = set(selected_scope.get("labels", []) or [])
+        selected_blocks = [
+            block
+            for block in metadata.get("theorem_blocks", [])
+            if isinstance(block, Mapping) and str(block.get("label", "")) in selected_labels
+        ]
+        found_labels = {str(block.get("label", "")) for block in selected_blocks}
+        missing_labels = [label for label in selected_labels if label not in found_labels]
+        if missing_labels:
+            raise FormalizationDocumentError(
+                "unknown QA item labels: " + ", ".join(sorted(missing_labels))
+            )
+        metadata["theorem_blocks"] = selected_blocks
+        metadata["qa_selected_batch"] = selected_scope
+        metadata["qa_batches"] = [selected_scope]
+        metadata["qa_item_count"] = len(selected_blocks)
+        metadata["extracted_text"] = "\n\n".join(
+            "\n".join(
+                part
+                for part in (
+                    f"[{block.get('label', '')}]",
+                    str(block.get("statement", "") or ""),
+                    (
+                        "Reference solution (optional hint):\n" + str(block.get("proof", "") or "")
+                        if block.get("proof")
+                        else ""
+                    ),
+                )
+                if part
+            )
+            for block in selected_blocks
+        )
+    if corpus_plan:
+        selected_labels = {
+            str(block.get("label", ""))
+            for block in metadata.get("theorem_blocks", [])
+            if isinstance(block, Mapping)
+        }
+        metadata["corpus_context"] = selected_corpus_context(corpus_plan, selected_labels)
+        metadata["corpus_blueprint_path"] = str(corpus_artifacts["blueprint"])
+        metadata["corpus_manifest_path"] = str(corpus_artifacts["manifest"])
+        metadata["corpus_dependency_graph_path"] = str(corpus_artifacts["dependency_graph"])
+        metadata["corpus_reuse_registry_path"] = str(corpus_artifacts["reuse_registry"])
+        metadata["corpus_library_architecture_path"] = str(corpus_artifacts["library_architecture"])
+        metadata["corpus_declaration_placement_path"] = str(
+            corpus_artifacts["declaration_placement"]
+        )
+        shared_provenance_path = document_workspace / "Shared" / "provenance.json"
+        metadata["corpus_shared_provenance_path"] = str(shared_provenance_path)
+        if shared_provenance_path.is_file():
+            with contextlib.suppress(OSError, ValueError):
+                shared_provenance = json.loads(shared_provenance_path.read_text(encoding="utf-8"))
+                if isinstance(shared_provenance, Mapping):
+                    recommended_module_names = {
+                        str(item.get("module", "") or "")
+                        for item in metadata["corpus_context"].get("recommended_shared_modules", [])
+                        if isinstance(item, Mapping)
+                    }
+                    metadata["corpus_verified_shared_declarations"] = [
+                        dict(item)
+                        for item in shared_provenance.get("declarations", []) or []
+                        if isinstance(item, Mapping)
+                        and str(item.get("module", "") or "") in recommended_module_names
+                    ][:20]
+        metadata["corpus_campaign_path"] = str(corpus_artifacts["campaign"])
     metadata["text_excerpt"] = _bounded(
         str(metadata.get("extracted_text", "") or ""), MAX_CONTEXT_EXCERPT_CHARS
     )
 
     slug = _safe_slug(Path(source_relative).with_suffix("").as_posix().replace("/", "-"))
-    state_dir = root / ".leanflow" / "workflow-state" / "formalization" / slug
+    master_state_dir = root / ".leanflow" / "workflow-state" / "formalization" / slug
+    state_dir = (
+        master_state_dir / "batches" / _safe_slug(scope_id) if scope_id else master_state_dir
+    )
     target_lean_path = _default_target_lean_path(root, project_label, source_path)
+    if scope_id:
+        scope_digest = hashlib.sha256(scope_id.encode("utf-8")).hexdigest()[:8]
+        scope_module = _safe_name(scope_id) + scope_digest.upper()
+        target_lean_path = target_lean_path.parent / scope_module / "Main.lean"
     module_name = _safe_name(project_label or root.name, "Formalization")
     import_module = "Mathlib"
     target_lean_relative = (
@@ -488,6 +639,9 @@ def prepare_formalization_document_context(
 
     metadata.update(
         {
+            "artifact_provenance": str(
+                os.getenv("LEANFLOW_FORMALIZATION_PROVENANCE", "") or ""
+            ).strip(),
             "source_path": str(source_path),
             "source_relative": source_relative,
             "source_kind": source_kind,
@@ -504,13 +658,78 @@ def prepare_formalization_document_context(
             "blueprint_path": str(blueprint_path),
             "blueprint_skill_path": str(blueprint_skill_path),
             "created_at_unix": int(time.time()),
+            "qa_batch": qa_batch,
+            "qa_items": list(qa_items),
         }
     )
 
     state_dir.mkdir(parents=True, exist_ok=True)
+    if corpus_plan:
+        document_workspace.mkdir(parents=True, exist_ok=True)
+        existing_campaign: dict[str, Any] = {}
+        if corpus_artifacts["campaign"].is_file():
+            with contextlib.suppress(OSError, ValueError):
+                loaded_campaign = json.loads(
+                    corpus_artifacts["campaign"].read_text(encoding="utf-8")
+                )
+                if isinstance(loaded_campaign, dict):
+                    existing_campaign = loaded_campaign
+        campaign = build_campaign(corpus_plan, existing=existing_campaign)
+        _write_json(corpus_artifacts["campaign"], campaign)
+        metadata["corpus_campaign_context"] = {
+            "status": campaign["status"],
+            "batch_count": campaign["batch_count"],
+            "completed_batch_count": campaign["completed_batch_count"],
+            "agent_e2e_completed_batch_count": campaign["agent_e2e_completed_batch_count"],
+            "manual_gold_completed_batch_count": campaign["manual_gold_completed_batch_count"],
+            "failure_class_counts": campaign["failure_class_counts"],
+            "spent_usd": campaign["spent_usd"],
+            "budget_usd": campaign["budget_usd"],
+            "next_batch": next_campaign_batch(campaign),
+            "cost_policy": campaign["cost_policy"],
+        }
+        _write_json(corpus_artifacts["manifest"], corpus_plan)
+        _write_json(
+            corpus_artifacts["dependency_graph"],
+            {
+                "schema_version": corpus_plan["schema_version"],
+                "source": source_relative,
+                "nodes": corpus_plan["items"],
+                "edges": corpus_plan["dependency_edges"],
+            },
+        )
+        _write_json(corpus_artifacts["library_architecture"], corpus_plan["library_architecture"])
+        corpus_artifacts["blueprint"].write_text(
+            render_corpus_blueprint(corpus_plan), encoding="utf-8"
+        )
+        shared_basic = document_workspace / "Shared" / "Basic.lean"
+        shared_basic.parent.mkdir(parents=True, exist_ok=True)
+        if not shared_basic.exists():
+            shared_basic.write_text(
+                "import Mathlib\n\n/-! Verified shared definitions and lemmas for this corpus. -/\n",
+                encoding="utf-8",
+            )
+        _ensure_lean_import(document_workspace / "Shared.lean", shared_module)
+        for module_plan in corpus_plan["library_architecture"].get("modules", []):
+            if not isinstance(module_plan, Mapping):
+                continue
+            module = str(module_plan.get("module", "") or "")
+            module_path = root / Path(*module.split(".")).with_suffix(".lean")
+            if not module or not module_path.is_relative_to(document_workspace):
+                continue
+            module_path.parent.mkdir(parents=True, exist_ok=True)
+            if not module_path.exists():
+                domain = str(module_plan.get("domain", "shared") or "shared")
+                module_path.write_text(
+                    "import Mathlib\n\n"
+                    f"/-! Verified {domain} definitions and lemmas for this corpus. -/\n",
+                    encoding="utf-8",
+                )
+    if scope_id:
+        master_state_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(master_state_dir / "master-manifest.json", master_metadata)
     target_lean_path.parent.mkdir(parents=True, exist_ok=True)
     extracted_text_path.write_text(str(metadata.get("extracted_text", "") or ""), encoding="utf-8")
-    _write_json(manifest_path, metadata)
     if not blueprint_path.exists():
         blueprint_path.write_text(
             _initial_blueprint(source_relative, target_lean_relative, metadata), encoding="utf-8"
@@ -534,6 +753,32 @@ def prepare_formalization_document_context(
         )
     import_chain = _ensure_formalization_import_chain(root, target_lean_path, target_lean_relative)
     metadata.update({f"formalization_{key}": value for key, value in import_chain.items()})
+    if corpus_plan:
+        reuse_registry = build_reuse_registry(
+            document_workspace, registry_path=corpus_artifacts["reuse_registry"]
+        )
+        _write_json(corpus_artifacts["reuse_registry"], reuse_registry)
+        placement_report = build_placement_report(
+            document_workspace,
+            architecture=corpus_plan["library_architecture"],
+            reuse_registry=reuse_registry,
+        )
+        _write_json(corpus_artifacts["declaration_placement"], placement_report)
+        target_workspace_relative = target_lean_path.relative_to(document_workspace).as_posix()
+        metadata["corpus_reuse_context"] = {
+            "duplicate_candidates": reuse_registry["duplicate_candidates"],
+            "promotions": reuse_registry["promotions"],
+            "promotion_contract": reuse_registry["promotion_contract"],
+        }
+        metadata["corpus_placement_context"] = {
+            "target_declarations": [
+                placement
+                for placement in placement_report["placements"]
+                if placement["file"] == target_workspace_relative
+            ],
+            "contract": placement_report["contract"],
+        }
+    _write_json(manifest_path, metadata)
     context_path.write_text(
         _render_context_markdown(
             source_relative=source_relative,

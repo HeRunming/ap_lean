@@ -6,6 +6,7 @@ handling without requiring a running terminal environment.
 
 import json
 import logging
+import uuid
 from unittest.mock import MagicMock, patch
 
 from tools.implementations.file_tools import (
@@ -15,6 +16,27 @@ from tools.implementations.file_tools import (
     SEARCH_FILES_SCHEMA,
     WRITE_FILE_SCHEMA,
 )
+
+
+def test_file_env_can_stay_local_when_terminal_env_is_ssh(monkeypatch, tmp_path):
+    from tools.implementations import file_tools, terminal_tool
+
+    source = tmp_path / "Main.lean"
+    source.write_text("import Mathlib\n", encoding="utf-8")
+    task_id = f"file-local-{uuid.uuid4().hex}"
+    monkeypatch.setenv("TERMINAL_ENV", "ssh")
+    monkeypatch.setenv("TERMINAL_CWD", "/remote/project")
+    monkeypatch.setenv("FILE_ENV", "local")
+    monkeypatch.setenv("FILE_CWD", str(tmp_path))
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(tmp_path))
+
+    payload = json.loads(file_tools.read_file_tool("Main.lean", task_id=task_id))
+
+    assert "import Mathlib" in payload["content"]
+    assert f"{task_id}:files" in terminal_tool._active_environments
+    assert task_id not in terminal_tool._active_environments
+    terminal_tool._active_environments.pop(f"{task_id}:files").cleanup()
+    file_tools.clear_file_ops_cache(task_id)
 
 
 class TestFileToolsList:

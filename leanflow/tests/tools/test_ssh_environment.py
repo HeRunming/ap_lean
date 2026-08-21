@@ -3,12 +3,30 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from tools.environments import ssh as ssh_env
 from tools.environments.ssh import SSHEnvironment
+
+
+def test_control_socket_uses_short_private_endpoint_hash(monkeypatch):
+    monkeypatch.setattr(SSHEnvironment, "_establish_connection", lambda self: None)
+    monkeypatch.setattr("tools.environments.ssh.os.getuid", lambda: 1234)
+
+    environment = SSHEnvironment(
+        "host-with-a-deliberately-long-name.example.com",
+        "user-with-a-deliberately-long-name",
+        port=49322,
+    )
+
+    assert environment.control_socket.parent == Path("/tmp/leanflow-ssh-1234")
+    assert environment.control_socket.parent.stat().st_mode & 0o777 == 0o700
+    assert environment.control_socket.name.startswith("ssh-")
+    assert len(environment.control_socket.name) == len("ssh-") + 20 + len(".sock")
+
 
 _SSH_HOST = os.getenv("TERMINAL_SSH_HOST", "")
 _SSH_USER = os.getenv("TERMINAL_SSH_USER", "")
@@ -138,6 +156,88 @@ class TestSSHPreflight:
         assert called["count"] == 1
         assert env.host == "example.com"
         assert env.user == "alice"
+
+    def test_connection_retries_transient_failure_and_clears_socket(self, monkeypatch):
+        calls = []
+        sleeps = []
+        monkeypatch.setenv("TERMINAL_SSH_CONNECT_ATTEMPTS", "3")
+        monkeypatch.setattr(ssh_env.shutil, "which", lambda _name: "/usr/bin/ssh")
+        monkeypatch.setattr(ssh_env.time, "sleep", sleeps.append)
+
+        def run(*args, **kwargs):
+            calls.append((args, kwargs))
+            return subprocess.CompletedProcess(
+                args[0], 255 if len(calls) == 1 else 0, "", "connection closed"
+            )
+
+        monkeypatch.setattr(ssh_env.subprocess, "run", run)
+
+        env = ssh_env.SSHEnvironment(host="example.com", user="alice")
+
+        assert len(calls) == 2
+        assert sleeps == [0.5]
+        assert not env.control_socket.exists()
+
+    def test_connection_reports_exhausted_timeout_retries(self, monkeypatch):
+        monkeypatch.setenv("TERMINAL_SSH_CONNECT_ATTEMPTS", "2")
+        monkeypatch.setattr(ssh_env.shutil, "which", lambda _name: "/usr/bin/ssh")
+        monkeypatch.setattr(ssh_env.time, "sleep", lambda _seconds: None)
+        monkeypatch.setattr(
+            ssh_env.subprocess,
+            "run",
+            lambda *args, **kwargs: (_ for _ in ()).throw(
+                subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="timed out"):
+            ssh_env.SSHEnvironment(host="example.com", user="alice")
+
+
+def test_project_sync_uses_local_checkout_as_remote_verification_authority(monkeypatch, tmp_path):
+    monkeypatch.setattr(SSHEnvironment, "_establish_connection", lambda self: None)
+    monkeypatch.setenv("TERMINAL_SSH_SYNC_PROJECT", "true")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setattr(ssh_env.shutil, "which", lambda name: f"/usr/bin/{name}")
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(ssh_env.subprocess, "run", run)
+    environment = SSHEnvironment(
+        host="example.com",
+        user="alice",
+        cwd="/srv/lean/project",
+        port=2222,
+        key_path="/keys/lean",
+    )
+
+    assert environment._sync_project_to_remote() == ""
+    command = calls[-1][0]
+    assert command[:2] == ["rsync", "-az"]
+    assert "--exclude=.lake/" in command
+    assert command[-2] == f"{tmp_path}/"
+    assert command[-1] == "alice@example.com:/srv/lean/project/"
+
+
+def test_project_sync_failure_blocks_stale_remote_verification(monkeypatch, tmp_path):
+    monkeypatch.setattr(SSHEnvironment, "_establish_connection", lambda self: None)
+    monkeypatch.setenv("TERMINAL_SSH_SYNC_PROJECT", "true")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setattr(ssh_env.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(
+        ssh_env.subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 23, "", "sync failed"),
+    )
+    environment = SSHEnvironment(host="example.com", user="alice", cwd="/srv/lean/project")
+
+    result = environment.execute("lake env lean Main.lean")
+
+    assert result["returncode"] == 1
+    assert "sync failed before verification" in result["output"]
 
 
 def _setup_ssh_env(monkeypatch, persistent: bool):

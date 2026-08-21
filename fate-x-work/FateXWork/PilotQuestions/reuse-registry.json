@@ -1,0 +1,16 @@
+{
+  "duplicate_candidates": [],
+  "promotion_contract": {
+    "allowed_statuses": [
+      "candidate",
+      "verified",
+      "promoted"
+    ],
+    "automatic_source_rewrite": false,
+    "minimum_verified_consumers": 2,
+    "requires_project_verification": true
+  },
+  "promotions": [],
+  "schema_version": "1",
+  "workspace": "/Users/blackbox/m2f/fate-x-work/FateXWork/PilotQuestions"
+}

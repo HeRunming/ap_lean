@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from leanflow_cli.native.native_config import (
+    _project_root,
     _read_text_env,
     _workflow_kind,
 )
@@ -156,6 +157,33 @@ def _document_formalization_review_prompt(live_state: Mapping[str, Any]) -> str:
     context = _read_text_env("LEANFLOW_FORMALIZATION_CONTEXT", "").strip()
     handoff = dict(live_state.get("document_formalization_handoff", {}) or {})
     issues = "\n".join(f"- {issue}" for issue in handoff.get("issues", []) or []) or "- [none]"
+    embedded_artifacts: list[str] = []
+    for label, raw_path, limit in (
+        ("planner context / bounded source", context, 30_000),
+        ("planner blueprint", blueprint, 30_000),
+        ("generated Lean target", target, 30_000),
+    ):
+        if not raw_path:
+            continue
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = Path(_project_root()) / path
+        try:
+            artifact_text = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if len(artifact_text) > limit:
+            artifact_text = artifact_text[:limit] + "\n[truncated by reviewer prompt bound]"
+        embedded_artifacts.append(f"### {label}\n```text\n{artifact_text}\n```")
+    artifact_block = "\n\n".join(embedded_artifacts) or "[artifacts unavailable]"
+    inspection_action = (
+        "1. This is a scoped QA JSON review. Treat the embedded bounded source/context below as "
+        "authoritative; do not require `read_pdf`, shell, Lean, or other tool access. Review the embedded "
+        "blueprint and Lean target directly. For a read-only command verifier, do not execute commands: "
+        "the harness runs the authoritative kernel/project gate separately and supplies its result."
+        if source_kind == "qa_json"
+        else "1. Use `read_pdf` for project-local PDF text, and use `formalization_document_inspect`, `lean_capabilities`, and `lean_inspect` before editing when those tools are available. A read-only verifier must use the embedded artifacts below and must not BLOCK solely because tools are unavailable."
+    )
     return (
         "Run the independent statement/source verification pass for this document formalization.\n\n"
         "You are a fresh reviewer, not the drafting formalizer. Do not rely on the previous conversation. "
@@ -171,7 +199,7 @@ def _document_formalization_review_prompt(live_state: Mapping[str, Any]) -> str:
         "Current handoff issues:\n"
         f"{issues}\n\n"
         "Required review actions:\n"
-        "1. Use `read_pdf` for project-local PDF text, and use `formalization_document_inspect`, `lean_capabilities`, and `lean_inspect` before editing.\n"
+        f"{inspection_action}\n"
         "2. Compare every source theorem/lemma/definition/proposition/corollary/conjecture/remark entry against the Lean declaration and nearby Lean doc comment.\n"
         "3. For each entry, fill `Source qualifiers`, `Lean coverage`, and `Scope changes`. Source qualifiers should "
         "cover mathematical object class, quantifier order, parameter domain, output codomain, equality/image condition, "
@@ -193,9 +221,12 @@ def _document_formalization_review_prompt(live_state: Mapping[str, Any]) -> str:
         "return `PASS` when the entries are acceptable; do not return `BLOCK` only because you cannot edit the "
         "blueprint. The runner will record the approval stamp after a read-only `PASS`. Do not approve an entry "
         "because a build succeeds.\n"
-        "11. Run `lean_verify(mode=project)` after root imports include the generated formalization. "
-        "Module/file checks are acceptable while iterating, but project-level verification is required for handoff readiness.\n"
-        "12. Stop with a concise report: approved entries, corrected entries, remaining blockers, and whether `/prove` may start.\n"
+        "11. The drafting harness must run `lean_verify(mode=project)` after root imports include the generated "
+        "formalization. A read-only command/model verifier must not rerun Lean or shell commands; assess source "
+        "fidelity from the embedded artifacts and leave kernel/project verification to the harness.\n"
+        "12. Stop with a concise report: approved entries, corrected entries, remaining blockers, and whether `/prove` may start.\n\n"
+        "Embedded review artifacts (authoritative for a read-only verifier):\n\n"
+        f"{artifact_block}\n"
     )
 
 
@@ -229,7 +260,16 @@ def _document_formalization_needs_blueprint_plan() -> bool:
     except Exception:
         return True
     lowered = text.lower()
-    if "_pending_" in lowered:
+    # The drafting agent must leave statement approval pending for the
+    # independent source-fidelity reviewer. That one required pending field is
+    # not a preflight planning placeholder and must not block the Lean draft.
+    planning_text = re.sub(
+        r"^\s*-\s*statement verification status\s*:\s*_pending_.*$",
+        "",
+        lowered,
+        flags=re.MULTILINE,
+    )
+    if "_pending_" in planning_text:
         return True
     entries = _blueprint_source_inventory_entries(text)
     if not entries:

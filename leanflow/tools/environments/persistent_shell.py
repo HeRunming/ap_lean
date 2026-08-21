@@ -52,6 +52,7 @@ class PersistentShellMixin:
     # ------------------------------------------------------------------
 
     def _init_persistent_shell(self):
+        configured_cwd = self.cwd
         self._shell_lock = threading.Lock()
         self._shell_proc: subprocess.Popen | None = None
         self._shell_alive: bool = False
@@ -74,8 +75,10 @@ class PersistentShellMixin:
         )
         self._drain_thread.start()
 
+        initial_cwd = "$HOME" if configured_cwd == "~" else shlex.quote(configured_cwd)
         init_script = (
             f"export TERM=${{TERM:-dumb}}\n"
+            f"cd {initial_cwd}\n"
             f"touch {self._pshell_stdout} {self._pshell_stderr} "
             f"{self._pshell_status} {self._pshell_cwd} {self._pshell_pid_file}\n"
             f"echo $$ > {self._pshell_pid_file}\n"
@@ -205,6 +208,9 @@ class PersistentShellMixin:
             logger.info("Persistent shell died, restarting...")
             self._init_persistent_shell()
 
+        mapper = getattr(self, "_map_host_project_paths", None)
+        if callable(mapper):
+            command = mapper(command)
         exec_command, sudo_stdin = self._prepare_command(command)
         effective_timeout = timeout or self.timeout
         if stdin_data or sudo_stdin:
@@ -224,6 +230,9 @@ class PersistentShellMixin:
 
     def _execute_persistent_locked(self, command: str, cwd: str, timeout: int) -> dict:
         work_dir = cwd or self.cwd
+        path_mapper = getattr(self, "_map_host_project_path", None)
+        if callable(path_mapper):
+            work_dir = path_mapper(work_dir)
         cmd_id = uuid.uuid4().hex[:8]
         truncate = (
             f": > {self._pshell_stdout}\n: > {self._pshell_stderr}\n: > {self._pshell_status}\n"

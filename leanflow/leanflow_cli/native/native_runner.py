@@ -396,6 +396,7 @@ import contextlib
 import copy
 import subprocess  # noqa: F401
 
+from leanflow_cli.formalization.corpus_campaign import record_campaign_outcome  # noqa: E402
 from leanflow_cli.formalization.formalization_document_runner import (  # noqa: E402
     _BLUEPRINT_UNRESOLVED_FIDELITY_RE,  # noqa: F401
     _autoformalizer_advisory_review_due,
@@ -679,7 +680,7 @@ def _workflow_completion_exit_code(
     live_state: Mapping[str, Any] | None,
     autonomy_state: Mapping[str, Any] | None = None,
 ) -> int:
-    """Return a truthful process code for the current mathematical state."""
+    """Return a truthful process code for the current workflow stage."""
     if str((autonomy_state or {}).get("operational_pause", "") or ""):
         # Cross-artifact or infrastructure ambiguity outranks cached
         # mathematical conclusions.  Normal exit paths already apply this
@@ -689,7 +690,118 @@ def _workflow_completion_exit_code(
         return EXIT_DISPROVED
     if _live_state_is_verified(live_state):
         return 0
+    if bool((autonomy_state or {}).get("formalization_manual_prove_handoff_recorded")):
+        # A formalize invocation owns source extraction and statement review,
+        # not proof closure.  Remaining sorries are the successful output of
+        # this stage and are handled by the subsequent prove invocation.
+        return 0
     return EXIT_PAUSED
+
+
+def _clear_retryable_startup_infrastructure_pause(autonomy_state: dict[str, Any]) -> bool:
+    """Clear a prior transient infrastructure pause so startup can revalidate it."""
+    if autonomy_state.get("operational_pause") != "paused_infrastructure":
+        return False
+    if (
+        autonomy_state.get("provider_pause_owner")
+        == campaign_epoch.PROVIDER_USAGE_LIMIT_PAUSE_OWNER
+    ):
+        return False
+    autonomy_state.pop("operational_pause", None)
+    autonomy_state.pop("infrastructure_pause_reason", None)
+    autonomy_state.pop("provider_pause_owner", None)
+    autonomy_state.pop("_native_operational_pause_checkpoint", None)
+    return True
+
+
+def _record_formalization_campaign_stage(
+    exit_code: int,
+    live_state: Mapping[str, Any] | None,
+    autonomy_state: Mapping[str, Any] | None,
+    usage: Mapping[str, Any] | None = None,
+    *,
+    reason: str = "",
+) -> None:
+    """Commit one scoped formalize/prove result to its whole-book campaign."""
+    campaign_raw = _read_text_env("LEANFLOW_FORMALIZATION_CAMPAIGN", "").strip()
+    batch_id = _read_text_env("LEANFLOW_FORMALIZATION_QA_BATCH", "").strip()
+    workflow_kind = _workflow_kind()
+    if not campaign_raw or not batch_id or workflow_kind not in {"formalize", "prove"}:
+        return
+    campaign_path = Path(campaign_raw).expanduser().resolve()
+    project_root = Path(_project_root()).expanduser().resolve()
+    if not campaign_path.is_relative_to(project_root) or not campaign_path.is_file():
+        raise RuntimeError("formalization campaign path is missing or outside the project")
+    campaign = _read_json_file(campaign_path)
+    current = dict(live_state or {})
+    stage = "statements" if workflow_kind == "formalize" else "proofs"
+    success = bool(
+        exit_code == 0
+        and (
+            (autonomy_state or {}).get("formalization_manual_prove_handoff_recorded")
+            if stage == "statements"
+            else _live_state_is_verified(current)
+        )
+    )
+    usage_payload = dict(usage or {})
+    turn_usage = dict(usage_payload.get("turn") or {})
+    session_usage = dict(usage_payload.get("session") or {})
+    # A whole-conversation provider restart keeps action-level session usage,
+    # but the final failed window can report an empty turn.  Do not let that
+    # zero window erase paid work from earlier windows in the same action.
+    if (
+        int(turn_usage.get("total_tokens", 0) or 0) == 0
+        and int(session_usage.get("total_tokens", 0) or 0) > 0
+    ):
+        turn_usage = session_usage
+    cost_usage = dict(usage_payload.get("cost") or {})
+    incremental_cost = cost_usage.get("provider_reported_turn_usd")
+    cost_source = "provider_reported"
+    if incremental_cost is None:
+        incremental_cost = cost_usage.get("estimated_turn_usd")
+        cost_source = "estimated" if incremental_cost is not None else "unavailable"
+    if float(incremental_cost or 0.0) == 0.0 and int(session_usage.get("total_tokens", 0) or 0) > 0:
+        provider_total = cost_usage.get("provider_reported_total_usd")
+        estimated_total = cost_usage.get("estimated_total_usd")
+        if provider_total is not None:
+            incremental_cost = provider_total
+            cost_source = "provider_reported"
+        elif estimated_total is not None:
+            incremental_cost = estimated_total
+            cost_source = "estimated"
+    updated = record_campaign_outcome(
+        campaign,
+        batch_id=batch_id,
+        outcome={
+            "stage": stage,
+            "success": success,
+            "exit_code": int(exit_code),
+            "recorded_at": _utc_now_isoformat(),
+            "target_file": str(
+                current.get("active_file_label", "") or current.get("active_file", "") or ""
+            ),
+            "proof_obligations": int(
+                current.get("document_formalization_proof_sorry_count", 0) or 0
+            ),
+            "reason": str(
+                reason
+                or (autonomy_state or {}).get("infrastructure_pause_reason", "")
+                or (autonomy_state or {}).get("source_quarantine_reason", "")
+                or (autonomy_state or {}).get("operational_pause", "")
+                or ""
+            ),
+            "usage": {
+                "prompt_tokens": int(turn_usage.get("prompt_tokens", 0) or 0),
+                "completion_tokens": int(turn_usage.get("completion_tokens", 0) or 0),
+                "total_tokens": int(turn_usage.get("total_tokens", 0) or 0),
+            },
+            "cost_usd": round(float(incremental_cost or 0.0), 6),
+            "cost_source": cost_source,
+            "cost_scope": "primary_agent_only",
+            "provenance": "agent",
+        },
+    )
+    _write_json_file(campaign_path, updated)
 
 
 def _reconcile_stale_workflow_file_locks() -> int:
@@ -1992,6 +2104,18 @@ def _finalize_native_run(
             current_code,
             autonomy_state,
             current_live_state,
+            reason=str(outcome["reason"]),
+        )
+        usage = (
+            agent._session_usage_summary()
+            if agent is not None and hasattr(agent, "_session_usage_summary")
+            else {}
+        )
+        _record_formalization_campaign_stage(
+            current_code,
+            current_live_state,
+            autonomy_state,
+            usage,
             reason=str(outcome["reason"]),
         )
 
@@ -11783,17 +11907,50 @@ def _same_revision_timeout_pre_tool_guard(
     autonomy_state: Mapping[str, Any],
 ) -> str | None:
     """Block an unchanged broad verifier replay before it starts Lean."""
-    if _workflow_kind() != "prove" or function_name not in {
+    workflow_kind = _workflow_kind()
+    if function_name not in {
         "lean_incremental_check",
         "lean_verify",
     }:
+        return None
+    arguments = dict(args or {})
+    if workflow_kind == "formalize" and function_name == "lean_verify":
+        mode = str(arguments.get("mode", "") or "").strip().lower().replace("-", "_")
+        if mode != "project":
+            return None
+        active_file = str(_document_formalization_target_path() or "").strip()
+        timeout_revision = str(
+            autonomy_state.get("formalization_project_timeout_sha256", "") or ""
+        ).strip()
+        current_revision = _source_revision_sha256(active_file) if active_file else ""
+        if not timeout_revision or timeout_revision != current_revision:
+            return None
+        return json.dumps(
+            {
+                "success": False,
+                "ok": False,
+                "status": "same_revision_project_verification_timeout",
+                "blocked_tool": function_name,
+                "mode": "project",
+                "target": active_file,
+                "timed_out": True,
+                "lean_started": False,
+                "source_sha256": current_revision,
+                "action_required": (
+                    "Do not repeat the unchanged project build. Verify the generated target module "
+                    "or file exactly; then report the project-build timeout as an infrastructure "
+                    "handoff blocker until the project revision or build conditions change."
+                ),
+            },
+            ensure_ascii=False,
+        )
+    if workflow_kind != "prove":
         return None
     assignment = dict(autonomy_state.get("current_queue_assignment") or {})
     target_symbol = str(assignment.get("target_symbol", "") or "").strip()
     active_file = str(assignment.get("active_file", "") or "").strip()
     if not target_symbol or not active_file:
         return None
-    arguments = dict(args or {})
     if function_name == "lean_verify":
         mode = str(arguments.get("mode", "") or "").strip().lower().replace("-", "_")
         requested_file = str(arguments.get("target", "") or active_file).strip()
@@ -16548,6 +16705,13 @@ def _handle_managed_tool_result(
                 .lower()
             )
             full_project = mode == "project"
+            if full_project and isinstance(autonomy_state, dict):
+                if _manager_check_timed_out(payload):
+                    autonomy_state["formalization_project_timeout_sha256"] = (
+                        _source_revision_sha256(active_file)
+                    )
+                elif bool(payload.get("ok")):
+                    autonomy_state.pop("formalization_project_timeout_sha256", None)
             record = _record_manager_verification(
                 autonomy_state if isinstance(autonomy_state, dict) else None,
                 active_file,
@@ -20424,6 +20588,13 @@ def _run_advisory_verification_review(
     return payload
 
 
+def _blueprint_verification_execution_provider(provider: str) -> str:
+    """Avoid a competing Codex command session for a Codex-backed foreground run."""
+    if provider == "codex" and _read_native_env("PROVIDER").strip().lower() == "openai-codex":
+        return "main"
+    return provider
+
+
 def _run_configured_blueprint_verification(
     parent_agent: Any,
     system_prompt: str,
@@ -20457,12 +20628,17 @@ def _run_configured_blueprint_verification(
         provider=provider,
         blocker=str(live_state.get("current_blocker", "") or ""),
     )
+    # A nested `codex exec` reviewer can be starved behind the foreground Codex
+    # transport. The isolated model lane remains a fresh conversation without
+    # competing for a second command-session lifecycle.
+    execution_provider = _blueprint_verification_execution_provider(provider)
     result = _run_advisory_verification_review(
         task=BLUEPRINT_VERIFICATION_TASK,
-        provider=provider,
+        provider=execution_provider,
         prompt=prompt,
         active_file=active_file,
     )
+    result["configured_provider"] = provider
     autonomy_state["document_formalization_review_result"] = result
     approval_stamped = False
     decision = _verification_review_decision(result)
@@ -21791,6 +21967,14 @@ def _document_formalization_handoff_verification(
     except Exception:
         issues.append("target Lean file could not be read")
     generated_text = _formalization_generated_lean_text(str(active_path), active_text=target_text)
+    if _read_text_env("LEANFLOW_FORMALIZATION_PROVENANCE", "").strip() == "agent":
+        held_out_markers = ("FateXWork.Gold", "FateXWork/Gold")
+        referenced_markers = [marker for marker in held_out_markers if marker in generated_text]
+        if referenced_markers:
+            issues.append(
+                "agent-provenance Lean source references held-out gold artifacts: "
+                + ", ".join(f"`{marker}`" for marker in referenced_markers)
+            )
     construction_issues = _document_formalization_construction_sorry_issues(
         str(active_path), target_text
     )
@@ -23672,10 +23856,13 @@ def _build_agent() -> AIAgent:
     managed_tool_task_id = f"leanflow-native-{getattr(agent, 'session_id', '') or os.getpid()}"
     agent._managed_tool_task_id = managed_tool_task_id
     os.environ["TERMINAL_CWD"] = project_root
+    managed_tool_cwd = project_root
+    if str(os.getenv("TERMINAL_ENV", "") or "").strip().lower() == "ssh":
+        managed_tool_cwd = str(os.getenv("TERMINAL_SSH_CWD", "") or "").strip() or project_root
     try:
         from tools.implementations.terminal_tool import register_task_env_overrides
 
-        register_task_env_overrides(managed_tool_task_id, {"cwd": project_root})
+        register_task_env_overrides(managed_tool_task_id, {"cwd": managed_tool_cwd})
     except Exception:
         pass
     agent._managed_base_reasoning_config = dict(reasoning_cfg or {}) if reasoning_cfg else None
@@ -24250,6 +24437,18 @@ def _provider_exhaustion_retry_delay(retry_number: int) -> float:
     return delays[index]
 
 
+def _provider_exhaustion_retry_limit() -> int | None:
+    """Bound whole-conversation restarts for drafting while proofs remain persistent."""
+    raw = os.getenv("LEANFLOW_PROVIDER_EXHAUSTION_MAX_WINDOWS")
+    if raw is None:
+        return 1 if _workflow_kind() == "formalize" else None
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return 1 if _workflow_kind() == "formalize" else None
+    return None if parsed < 0 else parsed
+
+
 def _provider_retry_window_exhausted(result: Mapping[str, Any] | None) -> bool:
     """Return whether an unfinished turn exhausted only transient attempts."""
     return bool(
@@ -24257,6 +24456,18 @@ def _provider_retry_window_exhausted(result: Mapping[str, Any] | None) -> bool:
         and bool(dict(result or {}).get("provider_retries_exhausted"))
         and not normalize_provider_retry_after(dict(result or {}).get("provider_retry_after"))
     )
+
+
+def _provider_session_total_tokens(agent: Any) -> int | None:
+    """Return observed session tokens, or ``None`` when accounting is unavailable."""
+    if agent is None or not hasattr(agent, "_session_usage_summary"):
+        return None
+    try:
+        summary = dict(agent._session_usage_summary() or {})
+        session = dict(summary.get("session") or {})
+        return max(0, int(session.get("total_tokens", 0) or 0))
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 def _transient_provider_failure(result: Mapping[str, Any] | None) -> bool:
@@ -24392,6 +24603,27 @@ def _run_managed_conversation_with_retries(
     while True:
         exhausted_window = _provider_retry_window_exhausted(result)
         if exhausted_window:
+            session_total_tokens = _provider_session_total_tokens(agent)
+            if session_total_tokens == 0:
+                _record_activity(
+                    "provider-exhaustion-paused",
+                    "Paused after a zero-usage provider retry window",
+                    completed_windows=1,
+                    retry_limit=0,
+                    session_total_tokens=0,
+                    error=str(result.get("error", "") or "")[:500],
+                )
+                break
+            exhaustion_limit = _provider_exhaustion_retry_limit()
+            if exhaustion_limit is not None and exhaustion_retry_number >= exhaustion_limit:
+                _record_activity(
+                    "provider-exhaustion-paused",
+                    "Paused after the bounded provider retry windows for this workflow",
+                    completed_windows=exhaustion_retry_number + 1,
+                    retry_limit=exhaustion_limit,
+                    error=str(result.get("error", "") or "")[:500],
+                )
+                break
             exhaustion_retry_number += 1
             delay = _provider_exhaustion_retry_delay(exhaustion_retry_number)
             activity_type = "provider-exhaustion-resume"
@@ -34846,6 +35078,11 @@ def main() -> int:
                         "startup until the usage-limit reset"
                     ),
                 )
+            if _clear_retryable_startup_infrastructure_pause(autonomy_state):
+                _record_activity(
+                    "infrastructure-pause-retry",
+                    "Cleared a prior transient infrastructure pause for startup revalidation",
+                )
             _cleanup_scratch_artifacts_on_startup(autonomy_state)
             environment_memory.hydrate(autonomy_state)
             if _restore_queue_manager_state(autonomy_state):
@@ -35383,11 +35620,18 @@ def main() -> int:
                 live_state,
                 phase="paused_infrastructure",
             )
+            provider_failure_reason = str(result.get("error", "") or "provider/API failure")
+            autonomy_state.update(
+                {
+                    "operational_pause": "paused_infrastructure",
+                    "infrastructure_pause_reason": provider_failure_reason,
+                }
+            )
             if _workflow_kind() == "prove":
                 campaign_epoch.record_status(
                     autonomy_state,
                     "paused_infrastructure",
-                    reason=str(result.get("error", "") or "provider/API failure"),
+                    reason=provider_failure_reason,
                 )
             return _finalize_native_run(
                 exit_finalizer,
@@ -35398,7 +35642,7 @@ def main() -> int:
                 checkpoint_state=checkpoint_state,
                 autonomy_state=autonomy_state,
                 live_state=live_state,
-                reason="startup provider/API failure",
+                reason=provider_failure_reason,
                 message="Managed workflow runner paused after provider/API failure",
             )
         result = _review_agent_final_report(result, autonomy_state)
@@ -35468,6 +35712,25 @@ def main() -> int:
                 autonomy_state=autonomy_state,
                 live_state=live_state,
                 reason="authoritative disproof",
+            )
+        if (
+            not _live_state_is_verified(live_state)
+            and _workflow_completion_exit_code(live_state, autonomy_state) == 0
+        ):
+            return _finalize_native_run(
+                exit_finalizer,
+                0,
+                agent=agent,
+                history=history,
+                compaction_state=compaction_state,
+                checkpoint_state=checkpoint_state,
+                autonomy_state=autonomy_state,
+                live_state=live_state,
+                reason="formalization statement stage completed",
+                message=(
+                    "Managed formalization runner exited cleanly after statement review; "
+                    "proof obligations remain for the prove stage"
+                ),
             )
         if _verified_workflow_should_exit_without_prompt(live_state):
             _maybe_record_learnings("verified", autonomy_state)

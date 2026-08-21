@@ -35,6 +35,7 @@ from leanflow_cli.runtime.runtime_provider import (
     resolve_runtime_provider,
 )
 from leanflow_cli.runtime.skill_core import default_workflow_skill
+from leanflow_cli.runtime.toolchain_env import add_lean_toolchain_env
 from leanflow_cli.workflows.plan_state import plan_state_enabled, plan_state_paths
 from leanflow_cli.workflows.project import (
     LeanFlowProject,
@@ -80,6 +81,8 @@ class NativeWorkflowSpec:
     research_workers: int = 0
     no_parallel: bool = False
     human_review: bool = False
+    qa_batch: str = ""
+    qa_items: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -298,6 +301,8 @@ def parse_workflow_command(command: str) -> NativeWorkflowSpec:
     research_mode = False
     research_workers: int | None = None
     human_review = False
+    qa_batch = ""
+    qa_items: tuple[str, ...] = ()
     workflow_tokens: list[str] = []
     idx = 0
     while idx < len(remaining):
@@ -313,6 +318,20 @@ def parse_workflow_command(command: str) -> NativeWorkflowSpec:
         if token == "--human-review":
             human_review = True
             idx += 1
+            continue
+        if token == "--qa-batch":
+            if idx + 1 >= len(remaining):
+                raise ValueError("--qa-batch requires a batch id")
+            qa_batch = remaining[idx + 1].strip()
+            idx += 2
+            continue
+        if token == "--qa-items":
+            if idx + 1 >= len(remaining):
+                raise ValueError("--qa-items requires comma-separated item labels")
+            qa_items = tuple(item.strip() for item in remaining[idx + 1].split(",") if item.strip())
+            if not qa_items:
+                raise ValueError("--qa-items requires at least one item label")
+            idx += 2
             continue
         if token == "--research-workers":
             if idx + 1 >= len(remaining):
@@ -430,6 +449,12 @@ def parse_workflow_command(command: str) -> NativeWorkflowSpec:
         raise ValueError("--clean-room is supported only for prove/autoprove workflows")
     if human_review and workflow_kind != "prove":
         raise ValueError("--human-review is supported only for prove/autoprove workflows")
+    if qa_batch and workflow_kind != "formalize":
+        raise ValueError("--qa-batch is supported only for formalize/autoformalize workflows")
+    if qa_items and workflow_kind != "formalize":
+        raise ValueError("--qa-items is supported only for formalize/autoformalize workflows")
+    if qa_batch and qa_items:
+        raise ValueError("--qa-batch and --qa-items are mutually exclusive")
     effective_research_workers = 0
     if research_mode:
         effective_research_workers = (
@@ -461,6 +486,8 @@ def parse_workflow_command(command: str) -> NativeWorkflowSpec:
         research_mode=research_mode,
         research_workers=effective_research_workers,
         human_review=human_review,
+        qa_batch=qa_batch,
+        qa_items=qa_items,
     )
 
 
@@ -549,6 +576,8 @@ def resolve_workflow_request(
             cwd=cwd,
             workflow_args=workflow.workflow_args,
             project_label=project.label,
+            qa_batch=workflow.qa_batch,
+            qa_items=workflow.qa_items,
         )
         normalized_workflow_args = formalization_document.source_relative
     if normalized_workflow_args != workflow.workflow_args:
@@ -697,7 +726,18 @@ def resolve_workflow_request(
             workflow.autoformalizer_verifier_command_template
         )
     if formalization_document is not None:
-        child_env.update(formalization_document.to_env())
+        formalization_env = formalization_document.to_env()
+        # A book driver may bind a one-item calibration campaign that differs
+        # from intake's default corpus campaign. Preserve that explicit parent
+        # binding while still filling every ordinary document context field.
+        for key in (
+            "LEANFLOW_FORMALIZATION_CAMPAIGN",
+            "LEANFLOW_FORMALIZATION_QA_BATCH",
+        ):
+            if str(child_env.get(key, "") or "").strip():
+                formalization_env.pop(key, None)
+        child_env.update(formalization_env)
+    child_env = add_lean_toolchain_env(child_env, project_root=project.root)
     argv = [sys.executable, "-m", _native_runner_module()]
     return NativeLaunchPlan(
         project=project,

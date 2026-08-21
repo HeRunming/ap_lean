@@ -1,0 +1,28 @@
+{
+  "schema_version": "1",
+  "purpose": "Manual calibration only; excluded from LeanFlow agent E2E metrics",
+  "source": "HDP/source/full/qa/questions.json",
+  "artifacts": [
+    {
+      "label": "0.1",
+      "provenance": "manual_gold",
+      "module": "FateXWork.Gold.HDP.Items018353C612.Main",
+      "path": "FateXWork/Gold/HDP/Items018353C612/Main.lean",
+      "kernel_checked": true,
+      "sorry_count": 0
+    },
+    {
+      "label": "0.2",
+      "provenance": "manual_gold",
+      "module": "FateXWork.Gold.HDP.Items02E620D532.Main",
+      "path": "FateXWork/Gold/HDP/Items02E620D532/Main.lean",
+      "kernel_checked": true,
+      "sorry_count": 0
+    }
+  ],
+  "agent_access_policy": {
+    "proof_source_visible": false,
+    "compiled_shared_library_allowed": true,
+    "campaign_env": "LEANFLOW_CLEAN_ROOM_DENY_PATHS=FateXWork/Gold"
+  }
+}

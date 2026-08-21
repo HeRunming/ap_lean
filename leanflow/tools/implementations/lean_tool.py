@@ -46,6 +46,45 @@ from tools.utilities.repository_research_policy import clean_room_path_block_rea
 LEAN_INSPECT_WALL_TIMEOUT_S = 60.0
 
 
+def _clean_room_lean_path_denial(*paths: str, cwd: str = "") -> str:
+    """Fail closed before a Lean tool opens a held-out source path."""
+    for path in paths:
+        candidate = str(path or "").strip()
+        if not candidate:
+            continue
+        denied_modules = tuple(
+            value.strip()
+            for value in str(os.getenv("LEANFLOW_CLEAN_ROOM_DENY_MODULE_PREFIXES", "") or "").split(
+                "|"
+            )
+            if value.strip()
+        )
+        if any(
+            candidate == prefix or candidate.startswith(prefix + ".") for prefix in denied_modules
+        ):
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "clean_room_path_denied",
+                    "path": candidate,
+                    "error": "Clean-room Lean access cannot inspect a held-out gold module",
+                },
+                ensure_ascii=False,
+            )
+        reason = clean_room_path_block_reason(candidate, cwd=cwd)
+        if reason:
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "clean_room_path_denied",
+                    "path": candidate,
+                    "error": reason,
+                },
+                ensure_ascii=False,
+            )
+    return ""
+
+
 def _filter_clean_room_lean_search_results(
     payload: dict[str, object],
     *,
@@ -152,6 +191,9 @@ def lean_inspect_tool(
     file_path: str = "",
 ) -> str:
     """Return full file state or a bounded model-facing exact-symbol projection."""
+    denial = _clean_room_lean_path_denial(target, file_path, cwd=cwd)
+    if denial:
+        return denial
     inspection_target = _lean_inspect_target(target, file_path=file_path, cwd=cwd)
     timeout_s = _lean_inspect_wall_timeout_s()
     bounded = run_bounded_call(
@@ -209,11 +251,31 @@ def lean_inspect_tool(
     )
 
 
-def lean_verify_tool(target: str = "", cwd: str = "", mode: str = "project") -> str:
+def lean_verify_tool(
+    target: str = "",
+    cwd: str = "",
+    mode: str = "project",
+    timeout_s: float | None = None,
+) -> str:
+    denial = _clean_room_lean_path_denial(target, cwd=cwd)
+    if denial:
+        return denial
+    effective_timeout = timeout_s
+    if effective_timeout is None and str(mode or "project").strip().lower() == "project":
+        # Whole-project builds in corpus formalization routinely traverse
+        # thousands of cached modules. The backend's generic 120s default is
+        # too short and turns a healthy kernel build into a false handoff
+        # blocker; keep file/module checks on their existing defaults.
+        effective_timeout = 600.0
     return json.dumps(
         {
             "success": True,
-            **lean_verify(target=target, cwd=cwd or None, mode=mode).to_dict(),
+            **lean_verify(
+                target=target,
+                cwd=cwd or None,
+                mode=mode,
+                timeout_s=effective_timeout,
+            ).to_dict(),
         },
         ensure_ascii=False,
     )
@@ -230,6 +292,9 @@ def lean_incremental_check_tool(
     include_axiom_profile: bool = False,
     timeout_s: int = 60,
 ) -> str:
+    denial = _clean_room_lean_path_denial(file_path, cwd=cwd)
+    if denial:
+        return denial
     return json.dumps(
         {
             "success": True,
@@ -252,14 +317,29 @@ def lean_search_tool(
     query: str,
     cwd: str = "",
     mode: str = "auto",
-    limit: int = 10,
+    limit: int = 5,
     file_path: str = "",
     *,
     _leanflow_source_horizon_file: str = "",
     _leanflow_source_horizon_target: str = "",
 ) -> str:
     """Search Lean declarations and hide confirmed future same-file results."""
-    result = lean_search(query, cwd=cwd or None, mode=mode, limit=limit, file_path=file_path)
+    denial = _clean_room_lean_path_denial(file_path, cwd=cwd)
+    if denial:
+        return denial
+    requested_limit = max(1, int(limit))
+    campaign_statement_lane = (
+        str(os.getenv("LEANFLOW_FORMALIZATION_PROVENANCE", "") or "").strip() == "agent"
+        and str(os.getenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "") or "").strip() == "formalize"
+    )
+    effective_limit = min(requested_limit, 5) if campaign_statement_lane else requested_limit
+    result = lean_search(
+        query,
+        cwd=cwd or None,
+        mode=mode,
+        limit=effective_limit,
+        file_path=file_path,
+    )
     clean_room_payload = _filter_clean_room_lean_search_results(
         {
             "success": True,
@@ -287,6 +367,43 @@ def lean_search_tool(
             "Stop searching in this turn and either make the strongest concrete proof/edit attempt, "
             "run verification, dispatch a worker, or report a blocker."
         )
+    # Search responses persist in every later provider request.  Keep the
+    # proof-relevant declaration identity and type while bounding prose copied
+    # from semantic indexes; otherwise a handful of searches can dominate the
+    # entire formalization context.
+    compact_results = []
+    for item in list(payload.get("results", []) or [])[:effective_limit]:
+        if not isinstance(item, dict):
+            continue
+        compact = {
+            key: item[key]
+            for key in (
+                "provider",
+                "name",
+                "module",
+                "kind",
+                "statement",
+                "distance",
+                "match",
+                "file",
+                "line",
+                "preview",
+                "source_link",
+            )
+            if key in item
+        }
+        informal = str(item.get("informal", "") or "").strip()
+        if informal:
+            compact["informal_preview"] = informal[:300]
+        compact_results.append(compact)
+    if "results" in payload:
+        payload["results"] = compact_results
+        payload["result_count_returned"] = len(compact_results)
+    if effective_limit < requested_limit:
+        payload["result_limit_note"] = (
+            f"Scoped statement campaign capped {requested_limit} requested results at "
+            f"{effective_limit}; refine the query instead of expanding persistent context."
+        )
     return json.dumps(
         payload,
         ensure_ascii=False,
@@ -294,6 +411,9 @@ def lean_search_tool(
 
 
 def lean_sorries_tool(scope: str = "project", target: str = "", cwd: str = "") -> str:
+    denial = _clean_room_lean_path_denial(target, cwd=cwd)
+    if denial:
+        return denial
     findings = [
         item.to_dict() for item in lean_sorries(scope=scope, target=target, cwd=cwd or None)
     ]
@@ -310,6 +430,9 @@ def lean_sorries_tool(scope: str = "project", target: str = "", cwd: str = "") -
 
 
 def lean_axioms_tool(target: str, cwd: str = "", file_path: str = "") -> str:
+    denial = _clean_room_lean_path_denial(file_path, cwd=cwd)
+    if denial:
+        return denial
     report = lean_axioms(target, cwd=cwd or None, file_path=file_path)
     return json.dumps(
         {
@@ -623,7 +746,7 @@ LEAN_SEARCH_SCHEMA = {
                 "description": "Search mode: `auto`, `local`, `semantic`, `type-pattern`, or `natural-language`",
                 "default": "auto",
             },
-            "limit": {"type": "integer", "description": "Maximum number of results", "default": 10},
+            "limit": {"type": "integer", "description": "Maximum number of results", "default": 5},
             "file_path": {
                 "type": "string",
                 "description": "Optional active file path for provider-specific search",

@@ -7235,6 +7235,78 @@ def test_managed_conversation_resumes_after_exhausted_provider_retry_window(monk
     assert [activity[1]["retry_number"] for activity in activities] == [1, 2]
 
 
+def test_formalize_bounds_whole_conversation_provider_restarts(monkeypatch):
+    results = iter(
+        [
+            {
+                "failed": True,
+                "error": "provider overloaded",
+                "provider_retries_exhausted": True,
+                "messages": [],
+            },
+            {
+                "failed": True,
+                "error": "provider still overloaded",
+                "provider_retries_exhausted": True,
+                "messages": [],
+            },
+        ]
+    )
+    calls: list[int] = []
+    activities: list[str] = []
+    monkeypatch.setenv("LEANFLOW_PROVIDER_EXHAUSTION_BACKOFFS", "0")
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+    monkeypatch.setattr(
+        runner,
+        "_run_managed_conversation",
+        lambda *args, **kwargs: calls.append(1) or next(results),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_record_activity",
+        lambda activity_type, *_args, **_kwargs: activities.append(activity_type),
+    )
+
+    result = runner._run_managed_conversation_with_retries(_ManagedRunAgentStub())
+
+    assert result["failed"] is True
+    assert len(calls) == 2
+    assert activities == ["provider-exhaustion-resume", "provider-exhaustion-paused"]
+
+
+def test_zero_usage_provider_exhaustion_does_not_restart_whole_conversation(monkeypatch):
+    calls: list[int] = []
+    activities: list[tuple[str, dict]] = []
+
+    class _ZeroUsageAgent(_ManagedRunAgentStub):
+        def _session_usage_summary(self):
+            return {"session": {"total_tokens": 0}}
+
+    monkeypatch.setattr(
+        runner,
+        "_run_managed_conversation",
+        lambda *args, **kwargs: calls.append(1)
+        or {
+            "failed": True,
+            "error": "APIConnectionError: Connection error.",
+            "provider_retries_exhausted": True,
+            "messages": [],
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "_record_activity",
+        lambda activity_type, _message, **details: activities.append((activity_type, details)),
+    )
+
+    result = runner._run_managed_conversation_with_retries(_ZeroUsageAgent())
+
+    assert result["failed"] is True
+    assert len(calls) == 1
+    assert [activity[0] for activity in activities] == ["provider-exhaustion-paused"]
+    assert activities[0][1]["session_total_tokens"] == 0
+
+
 def test_provider_exhaustion_backoff_repeats_and_caps_at_one_minute(monkeypatch):
     monkeypatch.setenv("LEANFLOW_PROVIDER_EXHAUSTION_BACKOFFS", "5,120")
 
@@ -27597,6 +27669,13 @@ def test_workflow_completion_exit_codes_never_report_unresolved_success(monkeypa
     assert runner._workflow_completion_exit_code({"verified": False}, {}) == runner.EXIT_PAUSED
     assert (
         runner._workflow_completion_exit_code(
+            {"verified": False},
+            {"formalization_manual_prove_handoff_recorded": True},
+        )
+        == 0
+    )
+    assert (
+        runner._workflow_completion_exit_code(
             {"verified": False}, {"terminal_outcome": "disproved"}
         )
         == runner.EXIT_DISPROVED
@@ -27611,6 +27690,255 @@ def test_workflow_completion_exit_codes_never_report_unresolved_success(monkeypa
         )
         == runner.EXIT_PAUSED
     )
+
+
+def test_startup_clears_retryable_infrastructure_pause_but_not_usage_limit():
+    retryable = {
+        "operational_pause": "paused_infrastructure",
+        "infrastructure_pause_reason": "lake missing",
+        "_native_operational_pause_checkpoint": {"checkpoint_id": "old"},
+    }
+    assert runner._clear_retryable_startup_infrastructure_pause(retryable) is True
+    assert "operational_pause" not in retryable
+    assert "infrastructure_pause_reason" not in retryable
+
+    usage_limit = {
+        "operational_pause": "paused_infrastructure",
+        "provider_pause_owner": runner.campaign_epoch.PROVIDER_USAGE_LIMIT_PAUSE_OWNER,
+    }
+    assert runner._clear_retryable_startup_infrastructure_pause(usage_limit) is False
+    assert usage_limit["operational_pause"] == "paused_infrastructure"
+
+
+def test_formalization_campaign_records_statement_handoff(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "2",
+                "source": "book.json",
+                "status": "active",
+                "batch_count": 1,
+                "completed_batch_count": 0,
+                "statement_completed_batch_count": 0,
+                "item_count": 1,
+                "spent_usd": 0,
+                "budget_usd": None,
+                "batches": [
+                    {
+                        "id": "chapter-1-batch-1",
+                        "chapter": "1",
+                        "labels": ["1.1"],
+                        "count": 1,
+                        "status": "pending",
+                        "attempts": [],
+                        "last_outcome": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "chapter-1-batch-1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+
+    runner._record_formalization_campaign_stage(
+        0,
+        {
+            "active_file_label": "Book/Batch/Main.lean",
+            "document_formalization_proof_sorry_count": 1,
+        },
+        {"formalization_manual_prove_handoff_recorded": True},
+        {
+            "turn": {
+                "prompt_tokens": 100,
+                "completion_tokens": 20,
+                "total_tokens": 120,
+            },
+            "cost": {"estimated_turn_usd": 0.125},
+        },
+    )
+
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert campaign["statement_completed_batch_count"] == 1
+    assert campaign["completed_batch_count"] == 0
+    assert campaign["batches"][0]["status"] == "statements_completed"
+    assert campaign["batches"][0]["last_outcome"]["proof_obligations"] == 1
+    assert campaign["spent_usd"] == 0.125
+    assert campaign["batches"][0]["last_outcome"]["usage"]["total_tokens"] == 120
+    assert campaign["batches"][0]["last_outcome"]["cost_scope"] == "primary_agent_only"
+
+
+def test_formalization_campaign_records_verified_proof_stage(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 5,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "chapter": "1",
+                        "labels": ["1.1"],
+                        "status": "statements_completed",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    monkeypatch.setattr(
+        runner, "_live_state_is_verified", lambda state: bool(state.get("verified"))
+    )
+
+    runner._record_formalization_campaign_stage(
+        0,
+        {"verified": True, "active_file_label": "Book/Main.lean"},
+        {},
+        {"turn": {"total_tokens": 40}, "cost": {"estimated_turn_usd": 0.25}},
+    )
+
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert campaign["status"] == "completed"
+    assert campaign["completed_batch_count"] == 1
+    assert campaign["batches"][0]["status"] == "proofs_completed"
+
+
+def test_formalization_campaign_preserves_usage_before_zero_cost_retry_window(
+    tmp_path, monkeypatch
+):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 5,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "chapter": "1",
+                        "labels": ["1.2"],
+                        "status": "pending",
+                        "attempts": [],
+                        "last_outcome": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+
+    runner._record_formalization_campaign_stage(
+        2,
+        {"active_file_label": "Book/Main.lean"},
+        {"operational_pause": "paused_infrastructure"},
+        {
+            "turn": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "session": {
+                "prompt_tokens": 74406,
+                "completion_tokens": 1662,
+                "total_tokens": 76068,
+            },
+            "cost": {
+                "estimated_turn_usd": 0.0,
+                "estimated_total_usd": 0.7939,
+            },
+        },
+    )
+
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    outcome = campaign["batches"][0]["last_outcome"]
+    assert outcome["usage"]["total_tokens"] == 76068
+    assert outcome["cost_usd"] == 0.7939
+    assert campaign["spent_usd"] == 0.7939
+
+
+def test_formalization_campaign_records_zero_usage_connection_failure_as_infrastructure(
+    tmp_path, monkeypatch
+):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 5,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "chapter": "1",
+                        "labels": ["1.1"],
+                        "status": "pending",
+                        "attempts": [],
+                        "last_outcome": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+
+    runner._record_formalization_campaign_stage(
+        runner.EXIT_PAUSED,
+        {"active_file_label": "Book/Main.lean"},
+        {
+            "operational_pause": "paused_infrastructure",
+            "infrastructure_pause_reason": "APIConnectionError: Connection error.",
+        },
+        {
+            "turn": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "session": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "cost": {"estimated_turn_usd": 0.0},
+        },
+        reason="APIConnectionError: Connection error.",
+    )
+
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    outcome = campaign["batches"][0]["last_outcome"]
+    assert outcome["reason"] == "APIConnectionError: Connection error."
+    assert outcome["failure_class"] == "infrastructure"
+    assert outcome["usage"]["total_tokens"] == 0
+    assert outcome["cost_usd"] == 0
+    assert campaign["spent_usd"] == 0
 
 
 def test_reconcile_stale_workflow_file_locks_releases_only_terminal_owners(monkeypatch):
@@ -29786,6 +30114,37 @@ def test_promote_live_state_persists_new_exact_verification_timeout(monkeypatch,
     )
 
 
+def test_formalize_blocks_repeated_same_revision_project_timeout(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by\n  trivial\n", encoding="utf-8")
+    revision = runner._source_revision_sha256(str(active))
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+    monkeypatch.setattr(runner, "_document_formalization_target_path", lambda: active)
+
+    result = runner._same_revision_timeout_pre_tool_guard(
+        object(),
+        "lean_verify",
+        {"mode": "project"},
+        {"formalization_project_timeout_sha256": revision},
+    )
+
+    payload = json.loads(result)
+    assert payload["status"] == "same_revision_project_verification_timeout"
+    assert payload["lean_started"] is False
+    assert "Do not repeat" in payload["action_required"]
+
+    active.write_text("theorem demo : True := by\n  simp\n", encoding="utf-8")
+    assert (
+        runner._same_revision_timeout_pre_tool_guard(
+            object(),
+            "lean_verify",
+            {"mode": "project"},
+            {"formalization_project_timeout_sha256": revision},
+        )
+        is None
+    )
+
+
 def test_same_revision_verification_timeout_is_invalidated_by_source_edit(tmp_path):
     active = tmp_path / "Main.lean"
     active.write_text("theorem demo : True := by\n  trivial\n", encoding="utf-8")
@@ -30437,6 +30796,13 @@ def test_document_formalization_review_due_for_approval_only_gate(monkeypatch, t
     assert runner._document_formalization_review_due(live_state, autonomy_state) is False
     blueprint.write_text("# Blueprint\n\nupdated\n", encoding="utf-8")
     assert runner._document_formalization_review_due(live_state, autonomy_state) is True
+
+
+def test_codex_foreground_blueprint_review_uses_isolated_main_lane(monkeypatch):
+    monkeypatch.setenv("LEANFLOW_NATIVE_PROVIDER", "openai-codex")
+
+    assert runner._blueprint_verification_execution_provider("codex") == "main"
+    assert runner._blueprint_verification_execution_provider("local") == "local"
 
 
 def test_configured_command_blueprint_verifier_runs_without_review_agent(monkeypatch, tmp_path):
@@ -31451,6 +31817,44 @@ def test_document_formalization_handoff_ignores_suggested_search_modules(monkeyp
         "issues": [],
         "summary": "document formalization handoff verifier passed",
     }
+
+
+def test_document_formalization_handoff_rejects_gold_reference_in_agent_lane(monkeypatch, tmp_path):
+    project = tmp_path / "Demo"
+    root = project / "Demo.lean"
+    active = project / "Demo" / "Paper" / "Main.lean"
+    active.parent.mkdir(parents=True)
+    root.write_text("import Demo.Paper.Main\n", encoding="utf-8")
+    active.write_text(
+        "import FateXWork.Gold.HDP.Answer\n\n"
+        "/-- Source proof: deliberately invalid gold-backed fixture. -/\n"
+        "theorem t : True := by\n  sorry\n",
+        encoding="utf-8",
+    )
+    blueprint = project / "Demo" / "Paper" / "Blueprint.md"
+    blueprint.write_text(
+        "# Formalization Blueprint\n\n"
+        "- Status: planned\n\n"
+        "## Import Plan\n\n"
+        "Direct Lean imports:\n"
+        "- `FateXWork.Gold.HDP.Answer`\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_TARGET_FILE", "Demo/Paper/Main.lean")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_PROVENANCE", "agent")
+
+    handoff = runner._document_formalization_handoff_verification(
+        str(active),
+        sorry_count=1,
+        last_verification={"ok": True, "scope": "project", "tool": "lean_verify"},
+    )
+
+    assert handoff["ok"] is False
+    assert "references held-out gold artifacts" in handoff["summary"]
 
 
 def test_configured_autoformalizer_block_prevents_proof_handoff(monkeypatch, tmp_path):

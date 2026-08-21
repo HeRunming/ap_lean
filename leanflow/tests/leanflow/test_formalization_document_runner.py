@@ -8,6 +8,7 @@ to the same object on ``native_runner`` so existing callers resolve them without
 """
 
 from leanflow_cli.formalization import formalization_document_runner as fdr
+from leanflow_cli.lean.lean_module_paths import _lean_decl_names_from_planned_value
 from leanflow_cli.native import native_runner
 
 
@@ -35,6 +36,66 @@ def test_blueprint_value_and_block_missing_treat_placeholders_as_missing():
     # A real value is not missing; a trailing placeholder after a colon is.
     assert fdr._blueprint_block_missing("Statement: theorem foo") is False
     assert fdr._blueprint_block_missing("Statement: _pending_") is True
+
+
+def test_blueprint_plan_allows_only_independent_review_status_to_remain_pending(
+    tmp_path, monkeypatch
+):
+    blueprint = tmp_path / "Blueprint.md"
+    blueprint.write_text(
+        "# Formalization Blueprint\n\n"
+        "## Source Statement Inventory\n\n"
+        "### 0.1 — variance\n"
+        "- Planned Lean declarations: `variance_identity`\n"
+        "- Formal statement review:\n"
+        "  - The Lean equality matches the source equality.\n"
+        "- Source proof / prover notes: expand the squared norm and integrate.\n"
+        "- Statement verification status: _pending_ (independent reviewer has not run).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "book/questions.json")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
+
+    assert fdr._document_formalization_needs_blueprint_plan() is False
+
+
+def test_planned_declaration_parser_ignores_markdown_lean_fence_language():
+    planned = """```lean
+lemma helper : True
+
+theorem main_result : True
+```"""
+
+    assert _lean_decl_names_from_planned_value(planned) == ["helper", "main_result"]
+
+
+def test_scoped_qa_review_prompt_embeds_artifacts_without_requiring_pdf_tools(
+    tmp_path, monkeypatch
+):
+    context = tmp_path / "context.md"
+    blueprint = tmp_path / "Blueprint.md"
+    target = tmp_path / "Main.lean"
+    context.write_text("bounded question source", encoding="utf-8")
+    blueprint.write_text("planned statement", encoding="utf-8")
+    target.write_text("theorem demo : True := by sorry", encoding="utf-8")
+    values = {
+        "LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE": "book/questions.json",
+        "LEANFLOW_FORMALIZATION_DOCUMENT_KIND": "qa_json",
+        "LEANFLOW_FORMALIZATION_BLUEPRINT": str(blueprint),
+        "LEANFLOW_FORMALIZATION_CONTEXT": str(context),
+    }
+    monkeypatch.setattr(fdr, "_read_text_env", lambda name, default="": values.get(name, default))
+
+    prompt = fdr._document_formalization_review_prompt(
+        {"active_file": str(target), "document_formalization_handoff": {"issues": []}}
+    )
+
+    assert "do not require `read_pdf`, shell, Lean, or other tool access" in prompt
+    assert "do not execute commands" in prompt
+    assert "bounded question source" in prompt
+    assert "planned statement" in prompt
+    assert "theorem demo : True" in prompt
 
 
 def test_blueprint_fidelity_field_unresolved_flags_unresolved_markers():

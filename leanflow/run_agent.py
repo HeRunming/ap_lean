@@ -123,6 +123,18 @@ from tools.implementations.terminal_tool import cleanup_vm
 from tools.utilities.interrupt import set_interrupt as _set_interrupt
 
 
+def _action_cost_limit_usd() -> float | None:
+    """Return the optional per-process paid-action ceiling."""
+    raw = str(os.getenv("LEANFLOW_ACTION_COST_LIMIT_USD", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _cleanup_optional_browser_state(task_id: str) -> None:
     """Browser session cleanup was removed with the legacy browser surface."""
     del task_id
@@ -3417,6 +3429,7 @@ class AIAgent:
         api_call_count = 0
         final_response = None
         interrupted = False
+        action_cost_limit_reached = False
         codex_ack_continuations = 0
         length_continue_retries = 0
         truncated_response_prefix = ""
@@ -3425,6 +3438,19 @@ class AIAgent:
         self.clear_interrupt()
 
         while api_call_count < self.max_iterations and self.iteration_budget.remaining > 0:
+            action_cost_limit = _action_cost_limit_usd()
+            if action_cost_limit is not None:
+                cost_summary = dict(self._session_usage_summary().get("cost") or {})
+                action_cost = cost_summary.get("total_usd")
+                if action_cost is not None and float(action_cost) >= action_cost_limit:
+                    action_cost_limit_reached = True
+                    self._vprint(
+                        f"{self.log_prefix}⏸️  Action cost limit reached: "
+                        f"${float(action_cost):.4f} >= ${action_cost_limit:.4f}. "
+                        "Stopping before the next provider request.",
+                        force=True,
+                    )
+                    break
             # Reset per-turn checkpoint dedup so each iteration can take one snapshot
             self._checkpoint_mgr.new_turn()
 
@@ -3492,6 +3518,33 @@ class AIAgent:
                     task_id=effective_task_id,
                 )
             )
+
+            # The action ceiling must account for the request we are about to send,
+            # not only usage already reported by the provider.  A pre-request-only
+            # check can overshoot badly when the accumulated tool transcript makes
+            # the next prompt large.  Token counting here is deliberately
+            # conservative: the rough payload estimator has historically been below
+            # provider-reported input usage, so reserve 25% headroom plus the maximum
+            # configured completion (or the 5120-token agent default).
+            if action_cost_limit is not None and has_known_pricing(self.model):
+                cost_summary = dict(self._session_usage_summary().get("cost") or {})
+                action_cost = float(cost_summary.get("total_usd") or 0.0)
+                reserved_output_tokens = int(self.max_tokens or 5120)
+                projected_request_cost = estimate_cost_usd(
+                    self.model,
+                    int(approx_tokens * 1.25),
+                    reserved_output_tokens,
+                )
+                if action_cost + projected_request_cost > action_cost_limit:
+                    action_cost_limit_reached = True
+                    self._vprint(
+                        f"{self.log_prefix}⏸️  Action cost limit would be exceeded by "
+                        f"the next request: ${action_cost:.4f} used + "
+                        f"${projected_request_cost:.4f} reserved > "
+                        f"${action_cost_limit:.4f}. Stopping before provider request.",
+                        force=True,
+                    )
+                    break
 
             # Thinking spinner for quiet mode (animated during API call)
             thinking_spinner = None
@@ -5398,7 +5451,10 @@ class AIAgent:
 
         # Determine if conversation completed successfully
         completed = final_response is not None and api_call_count < self.max_iterations
-        if self._conversation_wall_timeout_reached:
+        if action_cost_limit_reached:
+            completed = False
+            exit_reason = "action_cost_limit"
+        elif self._conversation_wall_timeout_reached:
             completed = False
             exit_reason = "wall_timeout"
         elif completed:
@@ -5440,8 +5496,12 @@ class AIAgent:
             "partial": False,  # True only when stopped due to invalid tool calls
             "interrupted": interrupted,
             "wall_timed_out": self._conversation_wall_timeout_reached,
+            "action_cost_limit_reached": action_cost_limit_reached,
             "response_previewed": getattr(self, "_response_was_previewed", False),
         }
+        if action_cost_limit_reached:
+            result["failed"] = True
+            result["error"] = "Per-action USD cost limit reached before the next provider request"
         self._response_was_previewed = False
 
         # Include interrupt message if one triggered the interrupt

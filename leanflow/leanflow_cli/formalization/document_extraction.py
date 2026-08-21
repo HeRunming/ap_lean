@@ -11,6 +11,7 @@ every caller and test keeps resolving them as ``formalization_documents.<name>``
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -22,6 +23,179 @@ MAX_STATEMENT_CHARS = 1_600
 MAX_THEOREM_BLOCKS = 80
 MAX_SECTIONS = 80
 MAX_REFERENCES = 80
+MAX_QA_ITEMS = 2_000
+MAX_QA_BATCH_ITEMS = 24
+
+
+def _first_text(item: dict[str, Any], keys: tuple[str, ...]) -> str:
+    """Return the first non-empty scalar field from a parsed JSON item."""
+    for key in keys:
+        value = item.get(key)
+        if value not in (None, "") and not isinstance(value, (dict, list)):
+            return str(value).strip()
+    return ""
+
+
+def _qa_batch_index(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build stable chapter-aware batches without changing source item order."""
+    batches: list[dict[str, Any]] = []
+    current_chapter = ""
+    current_labels: list[str] = []
+
+    def flush() -> None:
+        if not current_labels:
+            return
+        ordinal = 1 + sum(1 for batch in batches if batch["chapter"] == current_chapter)
+        batches.append(
+            {
+                "id": f"chapter-{current_chapter}-batch-{ordinal}",
+                "chapter": current_chapter,
+                "labels": list(current_labels),
+                "count": len(current_labels),
+                "first_label": current_labels[0],
+                "last_label": current_labels[-1],
+            }
+        )
+
+    for block in blocks:
+        label = str(block.get("label", "") or "")
+        chapter = label.partition(".")[0] or "unscoped"
+        if current_labels and (
+            chapter != current_chapter or len(current_labels) >= MAX_QA_BATCH_ITEMS
+        ):
+            flush()
+            current_labels = []
+        current_chapter = chapter
+        current_labels.append(label)
+    flush()
+    return batches
+
+
+def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
+    """Normalize a parser-produced QA JSON file into document theorem blocks.
+
+    Accept a canonical ``items`` array and common ``qa_pairs``/``questions``/
+    ``data`` aliases.  Natural-language solutions are retained only as optional
+    prover hints; the statement remains the formalization source of truth.
+    """
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        raw_items = payload
+        metadata: dict[str, Any] = {}
+    elif isinstance(payload, dict):
+        metadata = payload
+        raw_items = next(
+            (
+                payload[key]
+                for key in ("items", "qa_pairs", "questions", "problems", "data")
+                if isinstance(payload.get(key), list)
+            ),
+            [],
+        )
+    else:
+        raise ValueError("QA JSON must contain an object or array")
+
+    audit_by_label: dict[str, dict[str, Any]] = {}
+    audit_path = path.parent / "visual_correction_audit.json"
+    if audit_path.is_file():
+        audit_payload = json.loads(audit_path.read_text(encoding="utf-8"))
+        if isinstance(audit_payload, list):
+            audit_by_label = {
+                str(item.get("label", "")): item
+                for item in audit_payload
+                if isinstance(item, dict) and item.get("label")
+            }
+    crop_by_label: dict[str, dict[str, Any]] = {}
+    crop_path = path.parent.parent / "crop_manifest.json"
+    if crop_path.is_file():
+        crop_payload = json.loads(crop_path.read_text(encoding="utf-8"))
+        if isinstance(crop_payload, dict):
+            crop_by_label = {
+                str(label): item for label, item in crop_payload.items() if isinstance(item, dict)
+            }
+
+    blocks: list[dict[str, Any]] = []
+    extracted_parts: list[str] = []
+    for index, raw_item in enumerate(raw_items[:MAX_QA_ITEMS], start=1):
+        if not isinstance(raw_item, dict):
+            continue
+        statement = _first_text(raw_item, ("statement", "question", "problem", "prompt", "text"))
+        if not statement:
+            continue
+        proof = _first_text(
+            raw_item, ("proof", "solution", "answer", "reference_answer", "rationale")
+        )
+        label = _first_text(raw_item, ("id", "label", "uid", "name")) or f"qa-{index}"
+        audit = audit_by_label.get(label, {})
+        crop = crop_by_label.get(label, {})
+        crop_specs = crop.get("specs", []) if isinstance(crop.get("specs"), list) else []
+        dependencies = raw_item.get("dependencies", raw_item.get("uses", []))
+        if isinstance(dependencies, str):
+            dependencies = [dependencies]
+        if not isinstance(dependencies, list):
+            dependencies = []
+        pages = audit.get("pages", []) if isinstance(audit.get("pages"), list) else []
+        if not pages:
+            pages = [
+                spec.get("pdf_page")
+                for spec in crop_specs
+                if isinstance(spec, dict) and spec.get("pdf_page") not in (None, "")
+            ]
+        page = raw_item.get("page", raw_item.get("page_number", pages[0] if pages else 0))
+        source_locator = _first_text(raw_item, ("source_locator", "locator"))
+        if not source_locator and pages:
+            page_text = ",".join(str(value) for value in pages)
+            source_locator = f"{path.name}:pdf-pages-{page_text}"
+        source_boxes = [
+            {
+                "pdf_page": spec.get("pdf_page"),
+                "page_idx": spec.get("page_idx"),
+                "bbox_1000": spec.get("bbox_1000"),
+            }
+            for spec in crop_specs
+            if isinstance(spec, dict)
+        ]
+        blocks.append(
+            {
+                "kind": _first_text(raw_item, ("kind", "type")) or "question",
+                "line": int(raw_item.get("line", index) or index),
+                "end_line": int(raw_item.get("end_line", raw_item.get("line", index)) or index),
+                "label": label,
+                "title": _first_text(raw_item, ("title", "heading")),
+                "uses": [str(value) for value in dependencies if str(value).strip()],
+                "statement": _bounded(statement, MAX_STATEMENT_CHARS),
+                "proof": _bounded(proof, MAX_STATEMENT_CHARS),
+                "page": page,
+                "source_locator": source_locator,
+                "statement_sources": source_boxes,
+                "uncertain_spans": audit.get("uncertain_spans", []),
+                "parser_metadata": {
+                    key: raw_item[key]
+                    for key in ("chapter", "section", "page", "page_number", "bbox")
+                    if key in raw_item
+                },
+            }
+        )
+        extracted_parts.append(f"[{label}]\n{statement}")
+        if proof:
+            extracted_parts.append(f"Reference solution (optional hint):\n{proof}")
+
+    title = _first_text(metadata, ("title", "book_title", "name"))
+    return {
+        "source_kind": "qa_json",
+        "title": title,
+        "bytes": path.stat().st_size,
+        "sections": metadata.get("sections", []) if isinstance(metadata, dict) else [],
+        "theorem_blocks": blocks,
+        "labels": [block["label"] for block in blocks],
+        "refs": [],
+        "extracted_text": _bounded("\n\n".join(extracted_parts), MAX_EXTRACTED_TEXT_CHARS),
+        "qa_schema_version": str(metadata.get("schema_version", "unversioned")),
+        "qa_item_count": len(blocks),
+        "qa_batches": _qa_batch_index(blocks),
+        "qa_sidecar_audit": str(audit_path) if audit_by_label else "",
+        "qa_sidecar_crop_manifest": str(crop_path) if crop_by_label else "",
+    }
 
 
 def _bounded(text: str, limit: int) -> str:

@@ -98,6 +98,24 @@ def test_parse_workflow_command_human_review_is_explicit():
         parse_workflow_command("/formalize notes.tex --human-review")
 
 
+def test_parse_workflow_command_extracts_qa_batch():
+    spec = parse_workflow_command("/formalize book/questions.json --qa-batch chapter-1-batch-1")
+
+    assert spec.workflow_args == "book/questions.json"
+    assert spec.qa_batch == "chapter-1-batch-1"
+
+    with pytest.raises(ValueError, match="formalize"):
+        parse_workflow_command("/prove Main.lean --qa-batch chapter-1-batch-1")
+
+    items = parse_workflow_command("/formalize book/questions.json --qa-items 1.1,1.2")
+    assert items.qa_items == ("1.1", "1.2")
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        parse_workflow_command(
+            "/formalize book/questions.json --qa-batch chapter-1-batch-1 --qa-items 1.1"
+        )
+
+
 def test_parse_research_workers_implies_research_and_validates():
     implied = parse_workflow_command("/prove Main.lean --research-workers 1")
     assert implied.research_mode is True
@@ -958,6 +976,39 @@ def test_resolve_workflow_request_assigns_correct_default_skill_for_formalize(
     assert plan.child_env["LEANFLOW_NATIVE_ADDITIONAL_SKILLS"] == str(
         plan.formalization_document.blueprint_skill_path
     )
+
+
+def test_resolve_formalize_preserves_explicit_campaign_binding(monkeypatch, tmp_path):
+    source = tmp_path / "questions.json"
+    source.write_text(
+        '[{"label":"1.2","question":"Show P.","answer":"","solution":""}]',
+        encoding="utf-8",
+    )
+    explicit_campaign = tmp_path / "calibration-campaign.json"
+    explicit_campaign.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", str(explicit_campaign))
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_QA_BATCH", "items-1.2")
+    monkeypatch.setattr(
+        workflow_mod,
+        "discover_leanflow_project",
+        lambda cwd: type("Project", (), {"label": "Demo", "root": Path(tmp_path)})(),
+    )
+    monkeypatch.setattr(
+        workflow_mod,
+        "resolve_runtime_provider",
+        lambda requested=None: {
+            "provider": "local",
+            "api_mode": "responses",
+            "base_url": "http://127.0.0.1:8000/v1",
+            "api_key": "sk-test",
+            "model": "test-model",
+        },
+    )
+
+    plan = resolve_workflow_request("/formalize questions.json --qa-items 1.2", active_cwd=tmp_path)
+
+    assert plan.child_env["LEANFLOW_FORMALIZATION_CAMPAIGN"] == str(explicit_campaign)
+    assert plan.child_env["LEANFLOW_FORMALIZATION_QA_BATCH"] == "items-1.2"
 
 
 def test_resolve_workflow_request_auto_adds_blueprint_skill_for_prove(monkeypatch, tmp_path):

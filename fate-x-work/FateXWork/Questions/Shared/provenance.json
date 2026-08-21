@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "policy": "Shared declarations may be consumed by agent runs, but their provenance never transfers to an item's E2E completion credit.",
+  "declarations": [
+    {
+      "name": "FateXWork.Questions.Shared.RealN",
+      "module": "FateXWork.Questions.Shared.Analysis",
+      "provenance": "manual_gold_promoted",
+      "derived_from_items": ["0.1"]
+    },
+    {
+      "name": "FateXWork.Questions.Shared.integrable_inner_of_indepFun",
+      "module": "FateXWork.Questions.Shared.Probability",
+      "provenance": "manual_gold_promoted",
+      "derived_from_items": ["0.1"]
+    },
+    {
+      "name": "FateXWork.Questions.Shared.integral_inner_eq_inner_integral_of_indepFun",
+      "module": "FateXWork.Questions.Shared.Probability",
+      "provenance": "manual_gold_promoted",
+      "derived_from_items": ["0.1"]
+    }
+  ]
+}

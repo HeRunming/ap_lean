@@ -1,0 +1,5712 @@
+{
+  "edges": [
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.2",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.3",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.2"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.3",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.4",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.4",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.3"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.4",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.2"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.5",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.4"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.5",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.5",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.3"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.6",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.5"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.6",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.4"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.6",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.1"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.6"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.5"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "1.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "1.4"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.28",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.8"
+    },
+    {
+      "concepts": [
+        "binom"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.33",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.12"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.42",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.28"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.42",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.8"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.44",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.42"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.44",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.28"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "2.44",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "2.8"
+    },
+    {
+      "concepts": [
+        "unif"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.41",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.24"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.47",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.23"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.49",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.47"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.49",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.23"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.50",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.49"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.50",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.47"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.50",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.23"
+    },
+    {
+      "concepts": [
+        "sign"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "3.56",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "3.28"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.20",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.19"
+    },
+    {
+      "concepts": [
+        "rank"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.20",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.17"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.28",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.27"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.29",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.28"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.29",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.27"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.30",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.29"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.30",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.28"
+    },
+    {
+      "concepts": [
+        "vol"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.30",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.27"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.38",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.19"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.38",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.20"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.38"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.19"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "4.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "4.20"
+    },
+    {
+      "concepts": [
+        "unif"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "5.11",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "5.5"
+    },
+    {
+      "concepts": [
+        "tr"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.12",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.11"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.20",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.3"
+    },
+    {
+      "concepts": [
+        "ber"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.30",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.17"
+    },
+    {
+      "concepts": [
+        "tr"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.34",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.12"
+    },
+    {
+      "concepts": [
+        "tr"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.34",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.11"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.35",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.20"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.35",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.3"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.38",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.35"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.38",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.20"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "6.38",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "6.3"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "7.26",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "7.25"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.13",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.12"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.13"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.12"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.15",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.14"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.15",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.13"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.15",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.12"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.16",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.15"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.16",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.14"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.16",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.13"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.17",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.16"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.17",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.15"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.17",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.14"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.18",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.17"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.18",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.16"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.18",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.15"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.21",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.18"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.21",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.17"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.21",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.16"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.22",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.21"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.22",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.18"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.22",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.17"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.24",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.22"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.24",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.21"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.24",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.18"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.32",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.24"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.32",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.22"
+    },
+    {
+      "concepts": [
+        "vc"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.32",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.21"
+    },
+    {
+      "concepts": [
+        "rad"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "8.39",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "8.37"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.12",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.7"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.12"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.14",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.7"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.21",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.20"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.23",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.21"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.23",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.20"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.27",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.25"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.27",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.23"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.27",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.21"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.28",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.14"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.28",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.12"
+    },
+    {
+      "concepts": [
+        "diameter"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.28",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.7"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.27"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.25"
+    },
+    {
+      "concepts": [
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.40",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.23"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.42",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.40"
+    },
+    {
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.42",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.27"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.42",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.25"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.43",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.42"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.43",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.40"
+    },
+    {
+      "concepts": [
+        "convex-hull"
+      ],
+      "evidence": "shared corpus concepts; requires planner and Lean verification",
+      "from": "9.43",
+      "kind": "shared_foundation",
+      "status": "candidate",
+      "target_known": true,
+      "to": "9.27"
+    }
+  ],
+  "nodes": [
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.1",
+      "ordinal": 1,
+      "source_locator": "questions.json:pdf-pages-13,14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.2",
+      "ordinal": 2,
+      "source_locator": "questions.json:pdf-pages-14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.3",
+      "ordinal": 3,
+      "source_locator": "questions.json:pdf-pages-14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.4",
+      "ordinal": 4,
+      "source_locator": "questions.json:pdf-pages-14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.5",
+      "ordinal": 5,
+      "source_locator": "questions.json:pdf-pages-14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.6",
+      "ordinal": 6,
+      "source_locator": "questions.json:pdf-pages-14"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.7",
+      "ordinal": 7,
+      "source_locator": "questions.json:pdf-pages-14,15"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.8",
+      "ordinal": 8,
+      "source_locator": "questions.json:pdf-pages-15"
+    },
+    {
+      "chapter": "0",
+      "concepts": [
+        "euclidean-space",
+        "vol"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "0.9",
+      "ordinal": 9,
+      "source_locator": "questions.json:pdf-pages-15"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.1",
+      "ordinal": 10,
+      "source_locator": "questions.json:pdf-pages-28"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "convexity",
+        "finite-family",
+        "pointwise-operations",
+        "maximum"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.2",
+      "ordinal": 11,
+      "source_locator": "questions.json:pdf-pages-28"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.3",
+      "ordinal": 12,
+      "source_locator": "questions.json:pdf-pages-28,29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity",
+        "maximum"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.4",
+      "ordinal": 13,
+      "source_locator": "questions.json:pdf-pages-29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.5",
+      "ordinal": 14,
+      "source_locator": "questions.json:pdf-pages-29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.6",
+      "ordinal": 15,
+      "source_locator": "questions.json:pdf-pages-29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.7",
+      "ordinal": 16,
+      "source_locator": "questions.json:pdf-pages-29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.8",
+      "ordinal": 17,
+      "source_locator": "questions.json:pdf-pages-29"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.9",
+      "ordinal": 18,
+      "source_locator": "questions.json:pdf-pages-30"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.10",
+      "ordinal": 19,
+      "source_locator": "questions.json:pdf-pages-30"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.11",
+      "ordinal": 20,
+      "source_locator": "questions.json:pdf-pages-30"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.12",
+      "ordinal": 21,
+      "source_locator": "questions.json:pdf-pages-30"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.13",
+      "ordinal": 22,
+      "source_locator": "questions.json:pdf-pages-30,31"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "convexity",
+        "probability",
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.14",
+      "ordinal": 23,
+      "source_locator": "questions.json:pdf-pages-31"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.15",
+      "ordinal": 24,
+      "source_locator": "questions.json:pdf-pages-31"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "probability",
+        "expectation",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.16",
+      "ordinal": 25,
+      "source_locator": "questions.json:pdf-pages-31"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.17",
+      "ordinal": 26,
+      "source_locator": "questions.json:pdf-pages-31,32"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.18",
+      "ordinal": 27,
+      "source_locator": "questions.json:pdf-pages-32"
+    },
+    {
+      "chapter": "1",
+      "concepts": [
+        "euclidean-space",
+        "maximum"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "1.19",
+      "ordinal": 28,
+      "source_locator": "questions.json:pdf-pages-32"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.1",
+      "ordinal": 29,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.2",
+      "ordinal": 30,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.3",
+      "ordinal": 31,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.4",
+      "ordinal": 32,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.5",
+      "ordinal": 33,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.6",
+      "ordinal": 34,
+      "source_locator": "questions.json:pdf-pages-58"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.7",
+      "ordinal": 35,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "convexity",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.8",
+      "ordinal": 36,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.9",
+      "ordinal": 37,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.10",
+      "ordinal": 38,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.11",
+      "ordinal": 39,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "binom"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.12",
+      "ordinal": 40,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "pois"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.13",
+      "ordinal": 41,
+      "source_locator": "questions.json:pdf-pages-59"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.14",
+      "ordinal": 42,
+      "source_locator": "questions.json:pdf-pages-60"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.15",
+      "ordinal": 43,
+      "source_locator": "questions.json:pdf-pages-60"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.16",
+      "ordinal": 44,
+      "source_locator": "questions.json:pdf-pages-60"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.17",
+      "ordinal": 45,
+      "source_locator": "questions.json:pdf-pages-60"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.18",
+      "ordinal": 46,
+      "source_locator": "questions.json:pdf-pages-60"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.19",
+      "ordinal": 47,
+      "source_locator": "questions.json:pdf-pages-60,61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.20",
+      "ordinal": 48,
+      "source_locator": "questions.json:pdf-pages-61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.21",
+      "ordinal": 49,
+      "source_locator": "questions.json:pdf-pages-61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.22",
+      "ordinal": 50,
+      "source_locator": "questions.json:pdf-pages-61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.23",
+      "ordinal": 51,
+      "source_locator": "questions.json:pdf-pages-61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "ber"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.24",
+      "ordinal": 52,
+      "source_locator": "questions.json:pdf-pages-61"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.25",
+      "ordinal": 53,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.26",
+      "ordinal": 54,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.27",
+      "ordinal": 55,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "convexity",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.28",
+      "ordinal": 56,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.29",
+      "ordinal": 57,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.30",
+      "ordinal": 58,
+      "source_locator": "questions.json:pdf-pages-62"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.31",
+      "ordinal": 59,
+      "source_locator": "questions.json:pdf-pages-63"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.32",
+      "ordinal": 60,
+      "source_locator": "questions.json:pdf-pages-63"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "norm",
+        "binom"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.33",
+      "ordinal": 61,
+      "source_locator": "questions.json:pdf-pages-63"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.34",
+      "ordinal": 62,
+      "source_locator": "questions.json:pdf-pages-63"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.35",
+      "ordinal": 63,
+      "source_locator": "questions.json:pdf-pages-63"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "variance",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.36",
+      "ordinal": 64,
+      "source_locator": "questions.json:pdf-pages-64"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.37",
+      "ordinal": 65,
+      "source_locator": "questions.json:pdf-pages-64"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.38",
+      "ordinal": 66,
+      "source_locator": "questions.json:pdf-pages-64"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.39",
+      "ordinal": 67,
+      "source_locator": "questions.json:pdf-pages-64"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation",
+        "variance",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.40",
+      "ordinal": 68,
+      "source_locator": "questions.json:pdf-pages-64,65"
+    },
+    {
+      "chapter": "2",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.41",
+      "ordinal": 69,
+      "source_locator": "questions.json:pdf-pages-65"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "convexity",
+        "probability",
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.42",
+      "ordinal": 70,
+      "source_locator": "questions.json:pdf-pages-65"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.43",
+      "ordinal": 71,
+      "source_locator": "questions.json:pdf-pages-65"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.44",
+      "ordinal": 72,
+      "source_locator": "questions.json:pdf-pages-65,66"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "maximum",
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.45",
+      "ordinal": 73,
+      "source_locator": "questions.json:pdf-pages-66"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.46",
+      "ordinal": 74,
+      "source_locator": "questions.json:pdf-pages-66"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.47",
+      "ordinal": 75,
+      "source_locator": "questions.json:pdf-pages-66"
+    },
+    {
+      "chapter": "2",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "2.48",
+      "ordinal": 76,
+      "source_locator": "questions.json:pdf-pages-66"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.1",
+      "ordinal": 77,
+      "source_locator": "questions.json:pdf-pages-97"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.2",
+      "ordinal": 78,
+      "source_locator": "questions.json:pdf-pages-98"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.3",
+      "ordinal": 79,
+      "source_locator": "questions.json:pdf-pages-98"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.4",
+      "ordinal": 80,
+      "source_locator": "questions.json:pdf-pages-98"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.5",
+      "ordinal": 81,
+      "source_locator": "questions.json:pdf-pages-98"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.6",
+      "ordinal": 82,
+      "source_locator": "questions.json:pdf-pages-98"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.7",
+      "ordinal": 83,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.8",
+      "ordinal": 84,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.9",
+      "ordinal": 85,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.10",
+      "ordinal": 86,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.11",
+      "ordinal": 87,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.12",
+      "ordinal": 88,
+      "source_locator": "questions.json:pdf-pages-99"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.13",
+      "ordinal": 89,
+      "source_locator": "questions.json:pdf-pages-99,100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.14",
+      "ordinal": 90,
+      "source_locator": "questions.json:pdf-pages-100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.15",
+      "ordinal": 91,
+      "source_locator": "questions.json:pdf-pages-100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.16",
+      "ordinal": 92,
+      "source_locator": "questions.json:pdf-pages-100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.17",
+      "ordinal": 93,
+      "source_locator": "questions.json:pdf-pages-100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "variance",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.18",
+      "ordinal": 94,
+      "source_locator": "questions.json:pdf-pages-100"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "variance",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.19",
+      "ordinal": 95,
+      "source_locator": "questions.json:pdf-pages-100,101"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.20",
+      "ordinal": 96,
+      "source_locator": "questions.json:pdf-pages-101"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.21",
+      "ordinal": 97,
+      "source_locator": "questions.json:pdf-pages-101"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.22",
+      "ordinal": 98,
+      "source_locator": "questions.json:pdf-pages-101"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity",
+        "finite-family",
+        "maximum",
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.23",
+      "ordinal": 99,
+      "source_locator": "questions.json:pdf-pages-101"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "independence",
+        "unif"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.24",
+      "ordinal": 100,
+      "source_locator": "questions.json:pdf-pages-101,102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.25",
+      "ordinal": 101,
+      "source_locator": "questions.json:pdf-pages-102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.26",
+      "ordinal": 102,
+      "source_locator": "questions.json:pdf-pages-102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.27",
+      "ordinal": 103,
+      "source_locator": "questions.json:pdf-pages-102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "sign",
+        "dist"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.28",
+      "ordinal": 104,
+      "source_locator": "questions.json:pdf-pages-102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.29",
+      "ordinal": 105,
+      "source_locator": "questions.json:pdf-pages-102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.30",
+      "ordinal": 106,
+      "source_locator": "questions.json:pdf-pages-81,102"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.31",
+      "ordinal": 107,
+      "source_locator": "questions.json:pdf-pages-102,103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.32",
+      "ordinal": 108,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "variance",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.33",
+      "ordinal": 109,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.34",
+      "ordinal": 110,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.35",
+      "ordinal": 111,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.36",
+      "ordinal": 112,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.37",
+      "ordinal": 113,
+      "source_locator": "questions.json:pdf-pages-103"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.38",
+      "ordinal": 114,
+      "source_locator": "questions.json:pdf-pages-104"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.39",
+      "ordinal": 115,
+      "source_locator": "questions.json:pdf-pages-104"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.40",
+      "ordinal": 116,
+      "source_locator": "questions.json:pdf-pages-104"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "independence",
+        "unif"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.41",
+      "ordinal": 117,
+      "source_locator": "questions.json:pdf-pages-104,105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.42",
+      "ordinal": 118,
+      "source_locator": "questions.json:pdf-pages-105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.43",
+      "ordinal": 119,
+      "source_locator": "questions.json:pdf-pages-105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.44",
+      "ordinal": 120,
+      "source_locator": "questions.json:pdf-pages-105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.45",
+      "ordinal": 121,
+      "source_locator": "questions.json:pdf-pages-105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.46",
+      "ordinal": 122,
+      "source_locator": "questions.json:pdf-pages-105"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.47",
+      "ordinal": 123,
+      "source_locator": "questions.json:pdf-pages-106"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.48",
+      "ordinal": 124,
+      "source_locator": "questions.json:pdf-pages-106"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "maximum",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.49",
+      "ordinal": 125,
+      "source_locator": "questions.json:pdf-pages-106"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "convexity",
+        "maximum",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.50",
+      "ordinal": 126,
+      "source_locator": "questions.json:pdf-pages-106"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.51",
+      "ordinal": 127,
+      "source_locator": "questions.json:pdf-pages-106"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.52",
+      "ordinal": 128,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "probability",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.53",
+      "ordinal": 129,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.54",
+      "ordinal": 130,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.55",
+      "ordinal": 131,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "sign"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.56",
+      "ordinal": 132,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.57",
+      "ordinal": 133,
+      "source_locator": "questions.json:pdf-pages-107"
+    },
+    {
+      "chapter": "3",
+      "concepts": [
+        "maximum",
+        "expectation",
+        "matrix",
+        "int",
+        "sdp"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "3.58",
+      "ordinal": 134,
+      "source_locator": "questions.json:pdf-pages-108"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.1",
+      "ordinal": 135,
+      "source_locator": "questions.json:pdf-pages-138"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.2",
+      "ordinal": 136,
+      "source_locator": "questions.json:pdf-pages-138"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.3",
+      "ordinal": 137,
+      "source_locator": "questions.json:pdf-pages-138"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.4",
+      "ordinal": 138,
+      "source_locator": "questions.json:pdf-pages-138,139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.5",
+      "ordinal": 139,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.6",
+      "ordinal": 140,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.7",
+      "ordinal": 141,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.8",
+      "ordinal": 142,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.9",
+      "ordinal": 143,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.10",
+      "ordinal": 144,
+      "source_locator": "questions.json:pdf-pages-139"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.11",
+      "ordinal": 145,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.12",
+      "ordinal": 146,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.13",
+      "ordinal": 147,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.14",
+      "ordinal": 148,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.15",
+      "ordinal": 149,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.16",
+      "ordinal": 150,
+      "source_locator": "questions.json:pdf-pages-140"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix",
+        "rank"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.17",
+      "ordinal": 151,
+      "source_locator": "questions.json:pdf-pages-141"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.18",
+      "ordinal": 152,
+      "source_locator": "questions.json:pdf-pages-141"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "convex-hull",
+        "convexity",
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.19",
+      "ordinal": 153,
+      "source_locator": "questions.json:pdf-pages-141"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "convexity",
+        "maximum",
+        "norm",
+        "matrix",
+        "rank"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.20",
+      "ordinal": 154,
+      "source_locator": "questions.json:pdf-pages-141,142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.21",
+      "ordinal": 155,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.22",
+      "ordinal": 156,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.23",
+      "ordinal": 157,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.24",
+      "ordinal": 158,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.25",
+      "ordinal": 159,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.26",
+      "ordinal": 160,
+      "source_locator": "questions.json:pdf-pages-142"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "vol"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.27",
+      "ordinal": 161,
+      "source_locator": "questions.json:pdf-pages-142,143"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "probability",
+        "vol"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.28",
+      "ordinal": 162,
+      "source_locator": "questions.json:pdf-pages-143"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "vol"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.29",
+      "ordinal": 163,
+      "source_locator": "questions.json:pdf-pages-143,144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "vol"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.30",
+      "ordinal": 164,
+      "source_locator": "questions.json:pdf-pages-144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.31",
+      "ordinal": 165,
+      "source_locator": "questions.json:pdf-pages-144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.32",
+      "ordinal": 166,
+      "source_locator": "questions.json:pdf-pages-144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.33",
+      "ordinal": 167,
+      "source_locator": "questions.json:pdf-pages-144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.34",
+      "ordinal": 168,
+      "source_locator": "questions.json:pdf-pages-144"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.35",
+      "ordinal": 169,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.36",
+      "ordinal": 170,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.37",
+      "ordinal": 171,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.38",
+      "ordinal": 172,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.39",
+      "ordinal": 173,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "convex-hull",
+        "convexity",
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.40",
+      "ordinal": 174,
+      "source_locator": "questions.json:pdf-pages-145"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.41",
+      "ordinal": 175,
+      "source_locator": "questions.json:pdf-pages-146"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.42",
+      "ordinal": 176,
+      "source_locator": "questions.json:pdf-pages-146"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "probability",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.43",
+      "ordinal": 177,
+      "source_locator": "questions.json:pdf-pages-146"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "variance",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.44",
+      "ordinal": 178,
+      "source_locator": "questions.json:pdf-pages-146"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "probability",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.45",
+      "ordinal": 179,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.46",
+      "ordinal": 180,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "maximum",
+        "probability",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.47",
+      "ordinal": 181,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.48",
+      "ordinal": 182,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "probability",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.49",
+      "ordinal": 183,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.50",
+      "ordinal": 184,
+      "source_locator": "questions.json:pdf-pages-147"
+    },
+    {
+      "chapter": "4",
+      "concepts": [
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "4.51",
+      "ordinal": 185,
+      "source_locator": "questions.json:pdf-pages-148"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.1",
+      "ordinal": 186,
+      "source_locator": "questions.json:pdf-pages-174"
+    },
+    {
+      "chapter": "5",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.2",
+      "ordinal": 187,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.3",
+      "ordinal": 188,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.4",
+      "ordinal": 189,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "expectation",
+        "unif"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.5",
+      "ordinal": 190,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.6",
+      "ordinal": 191,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.7",
+      "ordinal": 192,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.8",
+      "ordinal": 193,
+      "source_locator": "questions.json:pdf-pages-175"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "variance",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.9",
+      "ordinal": 194,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.10",
+      "ordinal": 195,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "unif"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.11",
+      "ordinal": 196,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.12",
+      "ordinal": 197,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.13",
+      "ordinal": 198,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.14",
+      "ordinal": 199,
+      "source_locator": "questions.json:pdf-pages-176"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.15",
+      "ordinal": 200,
+      "source_locator": "questions.json:pdf-pages-176,177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.16",
+      "ordinal": 201,
+      "source_locator": "questions.json:pdf-pages-177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.17",
+      "ordinal": 202,
+      "source_locator": "questions.json:pdf-pages-177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.18",
+      "ordinal": 203,
+      "source_locator": "questions.json:pdf-pages-177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.19",
+      "ordinal": 204,
+      "source_locator": "questions.json:pdf-pages-177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "expectation",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.20",
+      "ordinal": 205,
+      "source_locator": "questions.json:pdf-pages-177"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.21",
+      "ordinal": 206,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.22",
+      "ordinal": 207,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.23",
+      "ordinal": 208,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.24",
+      "ordinal": 209,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.25",
+      "ordinal": 210,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.26",
+      "ordinal": 211,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.27",
+      "ordinal": 212,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.28",
+      "ordinal": 213,
+      "source_locator": "questions.json:pdf-pages-178"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.29",
+      "ordinal": 214,
+      "source_locator": "questions.json:pdf-pages-179"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.30",
+      "ordinal": 215,
+      "source_locator": "questions.json:pdf-pages-179"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "probability",
+        "variance",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.31",
+      "ordinal": 216,
+      "source_locator": "questions.json:pdf-pages-179"
+    },
+    {
+      "chapter": "5",
+      "concepts": [
+        "maximum",
+        "probability",
+        "variance",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "5.32",
+      "ordinal": 217,
+      "source_locator": "questions.json:pdf-pages-179"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "expectation",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.1",
+      "ordinal": 218,
+      "source_locator": "questions.json:pdf-pages-195"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.2",
+      "ordinal": 219,
+      "source_locator": "questions.json:pdf-pages-195,196"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.3",
+      "ordinal": 220,
+      "source_locator": "questions.json:pdf-pages-196"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.4",
+      "ordinal": 221,
+      "source_locator": "questions.json:pdf-pages-196"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.5",
+      "ordinal": 222,
+      "source_locator": "questions.json:pdf-pages-196"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.6",
+      "ordinal": 223,
+      "source_locator": "questions.json:pdf-pages-196"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.7",
+      "ordinal": 224,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "maximum",
+        "probability",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.8",
+      "ordinal": 225,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.9",
+      "ordinal": 226,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.10",
+      "ordinal": 227,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "matrix",
+        "independence",
+        "tr"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.11",
+      "ordinal": 228,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "variance",
+        "matrix",
+        "tr"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.12",
+      "ordinal": 229,
+      "source_locator": "questions.json:pdf-pages-197"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "variance",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.13",
+      "ordinal": 230,
+      "source_locator": "questions.json:pdf-pages-197,198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "expectation",
+        "variance",
+        "independence",
+        "dist"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.14",
+      "ordinal": 231,
+      "source_locator": "questions.json:pdf-pages-198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "norm",
+        "cut"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.15",
+      "ordinal": 232,
+      "source_locator": "questions.json:pdf-pages-198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.16",
+      "ordinal": 233,
+      "source_locator": "questions.json:pdf-pages-198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "independence",
+        "ber",
+        "exp",
+        "lap"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.17",
+      "ordinal": 234,
+      "source_locator": "questions.json:pdf-pages-198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.18",
+      "ordinal": 235,
+      "source_locator": "questions.json:pdf-pages-198"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.19",
+      "ordinal": 236,
+      "source_locator": "questions.json:pdf-pages-198,199"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "convexity",
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.20",
+      "ordinal": 237,
+      "source_locator": "questions.json:pdf-pages-199"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.21",
+      "ordinal": 238,
+      "source_locator": "questions.json:pdf-pages-199"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.22",
+      "ordinal": 239,
+      "source_locator": "questions.json:pdf-pages-199"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "variance",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.23",
+      "ordinal": 240,
+      "source_locator": "questions.json:pdf-pages-199"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.24",
+      "ordinal": 241,
+      "source_locator": "questions.json:pdf-pages-199,200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "variance",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.25",
+      "ordinal": 242,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.26",
+      "ordinal": 243,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.27",
+      "ordinal": 244,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "maximum",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.28",
+      "ordinal": 245,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "maximum",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.29",
+      "ordinal": 246,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "matrix",
+        "ber"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.30",
+      "ordinal": 247,
+      "source_locator": "questions.json:pdf-pages-200"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.31",
+      "ordinal": 248,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "probability",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.32",
+      "ordinal": 249,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "maximum",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.33",
+      "ordinal": 250,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "expectation",
+        "variance",
+        "tr"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.34",
+      "ordinal": 251,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.35",
+      "ordinal": 252,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.36",
+      "ordinal": 253,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.37",
+      "ordinal": 254,
+      "source_locator": "questions.json:pdf-pages-201"
+    },
+    {
+      "chapter": "6",
+      "concepts": [
+        "convexity",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "6.38",
+      "ordinal": 255,
+      "source_locator": "questions.json:pdf-pages-202"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "probability",
+        "expectation",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.1",
+      "ordinal": 256,
+      "source_locator": "questions.json:pdf-pages-225"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.2",
+      "ordinal": 257,
+      "source_locator": "questions.json:pdf-pages-225"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.3",
+      "ordinal": 258,
+      "source_locator": "questions.json:pdf-pages-225"
+    },
+    {
+      "chapter": "7",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.4",
+      "ordinal": 259,
+      "source_locator": "questions.json:pdf-pages-225"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.5",
+      "ordinal": 260,
+      "source_locator": "questions.json:pdf-pages-225"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.6",
+      "ordinal": 261,
+      "source_locator": "questions.json:pdf-pages-226"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.7",
+      "ordinal": 262,
+      "source_locator": "questions.json:pdf-pages-226"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.8",
+      "ordinal": 263,
+      "source_locator": "questions.json:pdf-pages-226"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "expectation",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.9",
+      "ordinal": 264,
+      "source_locator": "questions.json:pdf-pages-226"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.10",
+      "ordinal": 265,
+      "source_locator": "questions.json:pdf-pages-226"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "probability",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.11",
+      "ordinal": 266,
+      "source_locator": "questions.json:pdf-pages-226,227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.12",
+      "ordinal": 267,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "maximum",
+        "probability",
+        "expectation",
+        "variance",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.13",
+      "ordinal": 268,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.14",
+      "ordinal": 269,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.15",
+      "ordinal": 270,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.16",
+      "ordinal": 271,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.17",
+      "ordinal": 272,
+      "source_locator": "questions.json:pdf-pages-227"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "maximum",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.18",
+      "ordinal": 273,
+      "source_locator": "questions.json:pdf-pages-227,228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.19",
+      "ordinal": 274,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.20",
+      "ordinal": 275,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "variance"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.21",
+      "ordinal": 276,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "finite-family"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.22",
+      "ordinal": 277,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.23",
+      "ordinal": 278,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.24",
+      "ordinal": 279,
+      "source_locator": "questions.json:pdf-pages-228"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "matrix",
+        "independence",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.25",
+      "ordinal": 280,
+      "source_locator": "questions.json:pdf-pages-229"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.26",
+      "ordinal": 281,
+      "source_locator": "questions.json:pdf-pages-229"
+    },
+    {
+      "chapter": "7",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "7.27",
+      "ordinal": 282,
+      "source_locator": "questions.json:pdf-pages-229"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.1",
+      "ordinal": 283,
+      "source_locator": "questions.json:pdf-pages-261"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.2",
+      "ordinal": 284,
+      "source_locator": "questions.json:pdf-pages-261"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.3",
+      "ordinal": 285,
+      "source_locator": "questions.json:pdf-pages-261"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.4",
+      "ordinal": 286,
+      "source_locator": "questions.json:pdf-pages-262"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.5",
+      "ordinal": 287,
+      "source_locator": "questions.json:pdf-pages-262"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.6",
+      "ordinal": 288,
+      "source_locator": "questions.json:pdf-pages-262"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.7",
+      "ordinal": 289,
+      "source_locator": "questions.json:pdf-pages-262"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.8",
+      "ordinal": 290,
+      "source_locator": "questions.json:pdf-pages-262"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.9",
+      "ordinal": 291,
+      "source_locator": "questions.json:pdf-pages-262,263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.10",
+      "ordinal": 292,
+      "source_locator": "questions.json:pdf-pages-263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability",
+        "expectation",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.11",
+      "ordinal": 293,
+      "source_locator": "questions.json:pdf-pages-263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.12",
+      "ordinal": 294,
+      "source_locator": "questions.json:pdf-pages-263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.13",
+      "ordinal": 295,
+      "source_locator": "questions.json:pdf-pages-263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.14",
+      "ordinal": 296,
+      "source_locator": "questions.json:pdf-pages-263"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.15",
+      "ordinal": 297,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "convexity",
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.16",
+      "ordinal": 298,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.17",
+      "ordinal": 299,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "independence",
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.18",
+      "ordinal": 300,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.19",
+      "ordinal": 301,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.20",
+      "ordinal": 302,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "pointwise-operations",
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.21",
+      "ordinal": 303,
+      "source_locator": "questions.json:pdf-pages-264"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.22",
+      "ordinal": 304,
+      "source_locator": "questions.json:pdf-pages-264,265"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.23",
+      "ordinal": 305,
+      "source_locator": "questions.json:pdf-pages-265"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.24",
+      "ordinal": 306,
+      "source_locator": "questions.json:pdf-pages-265"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.25",
+      "ordinal": 307,
+      "source_locator": "questions.json:pdf-pages-265"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "matrix",
+        "independence",
+        "sign"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.26",
+      "ordinal": 308,
+      "source_locator": "questions.json:pdf-pages-265"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.27",
+      "ordinal": 309,
+      "source_locator": "questions.json:pdf-pages-265,266"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.28",
+      "ordinal": 310,
+      "source_locator": "questions.json:pdf-pages-266"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.29",
+      "ordinal": 311,
+      "source_locator": "questions.json:pdf-pages-266"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.30",
+      "ordinal": 312,
+      "source_locator": "questions.json:pdf-pages-266"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.31",
+      "ordinal": 313,
+      "source_locator": "questions.json:pdf-pages-266"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "vc"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.32",
+      "ordinal": 314,
+      "source_locator": "questions.json:pdf-pages-267"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.33",
+      "ordinal": 315,
+      "source_locator": "questions.json:pdf-pages-267"
+    },
+    {
+      "chapter": "8",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.34",
+      "ordinal": 316,
+      "source_locator": "questions.json:pdf-pages-267"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.35",
+      "ordinal": 317,
+      "source_locator": "questions.json:pdf-pages-267"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "expectation",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.36",
+      "ordinal": 318,
+      "source_locator": "questions.json:pdf-pages-267"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "rad"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.37",
+      "ordinal": 319,
+      "source_locator": "questions.json:pdf-pages-268"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "expectation",
+        "norm",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.38",
+      "ordinal": 320,
+      "source_locator": "questions.json:pdf-pages-268"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "matrix",
+        "rad"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.39",
+      "ordinal": 321,
+      "source_locator": "questions.json:pdf-pages-268"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.40",
+      "ordinal": 322,
+      "source_locator": "questions.json:pdf-pages-268"
+    },
+    {
+      "chapter": "8",
+      "concepts": [
+        "maximum",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "8.41",
+      "ordinal": 323,
+      "source_locator": "questions.json:pdf-pages-268,269"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.1",
+      "ordinal": 324,
+      "source_locator": "questions.json:pdf-pages-274,300"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.2",
+      "ordinal": 325,
+      "source_locator": "questions.json:pdf-pages-300"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation",
+        "matrix",
+        "rad"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.3",
+      "ordinal": 326,
+      "source_locator": "questions.json:pdf-pages-300"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.4",
+      "ordinal": 327,
+      "source_locator": "questions.json:pdf-pages-300,301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.5",
+      "ordinal": 328,
+      "source_locator": "questions.json:pdf-pages-301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.6",
+      "ordinal": 329,
+      "source_locator": "questions.json:pdf-pages-301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "probability",
+        "matrix",
+        "independence",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.7",
+      "ordinal": 330,
+      "source_locator": "questions.json:pdf-pages-301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "matrix",
+        "unif"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.8",
+      "ordinal": 331,
+      "source_locator": "questions.json:pdf-pages-301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability",
+        "variance",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.9",
+      "ordinal": 332,
+      "source_locator": "questions.json:pdf-pages-301"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.10",
+      "ordinal": 333,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.11",
+      "ordinal": 334,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "maximum",
+        "expectation",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.12",
+      "ordinal": 335,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.13",
+      "ordinal": 336,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "expectation",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.14",
+      "ordinal": 337,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.15",
+      "ordinal": 338,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.16",
+      "ordinal": 339,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.17",
+      "ordinal": 340,
+      "source_locator": "questions.json:pdf-pages-302"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.18",
+      "ordinal": 341,
+      "source_locator": "questions.json:pdf-pages-303"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.19",
+      "ordinal": 342,
+      "source_locator": "questions.json:pdf-pages-303"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "maximum",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.20",
+      "ordinal": 343,
+      "source_locator": "questions.json:pdf-pages-303"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "maximum",
+        "expectation",
+        "norm",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.21",
+      "ordinal": 344,
+      "source_locator": "questions.json:pdf-pages-303"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.22",
+      "ordinal": 345,
+      "source_locator": "questions.json:pdf-pages-304"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "convexity",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.23",
+      "ordinal": 346,
+      "source_locator": "questions.json:pdf-pages-304"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.24",
+      "ordinal": 347,
+      "source_locator": "questions.json:pdf-pages-304"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.25",
+      "ordinal": 348,
+      "source_locator": "questions.json:pdf-pages-304,305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.26",
+      "ordinal": 349,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "convex-hull",
+        "convexity"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.27",
+      "ordinal": 350,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "expectation",
+        "diameter"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.28",
+      "ordinal": 351,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.29",
+      "ordinal": 352,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.30",
+      "ordinal": 353,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.31",
+      "ordinal": 354,
+      "source_locator": "questions.json:pdf-pages-305"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.32",
+      "ordinal": 355,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.33",
+      "ordinal": 356,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.34",
+      "ordinal": 357,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability",
+        "expectation",
+        "matrix",
+        "independence"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.35",
+      "ordinal": 358,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.36",
+      "ordinal": 359,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.37",
+      "ordinal": 360,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.38",
+      "ordinal": 361,
+      "source_locator": "questions.json:pdf-pages-306"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "probability",
+        "norm",
+        "matrix"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.39",
+      "ordinal": 362,
+      "source_locator": "questions.json:pdf-pages-306,307"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "convex-hull",
+        "convexity",
+        "norm"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.40",
+      "ordinal": 363,
+      "source_locator": "questions.json:pdf-pages-307"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.41",
+      "ordinal": 364,
+      "source_locator": "questions.json:pdf-pages-307"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "convex-hull",
+        "convexity",
+        "probability"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.42",
+      "ordinal": 365,
+      "source_locator": "questions.json:pdf-pages-297,307"
+    },
+    {
+      "chapter": "9",
+      "concepts": [
+        "euclidean-space",
+        "convex-hull"
+      ],
+      "declared_dependencies": [],
+      "kind": "question",
+      "label": "9.43",
+      "ordinal": 366,
+      "source_locator": "questions.json:pdf-pages-307"
+    }
+  ],
+  "schema_version": "1",
+  "source": "HDP/source/full/qa/questions.json"
+}
