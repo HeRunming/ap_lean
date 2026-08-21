@@ -18,7 +18,49 @@ identity.
 -/
 lemma norm_sub_sq_realN {n : ℕ} (x y : RealN n) :
     ‖x - y‖ ^ 2 = ‖x‖ ^ 2 - 2 * inner ℝ x y + ‖y‖ ^ 2 := by
-  sorry
+  exact norm_sub_sq_real x y
+
+private theorem integrable_inner_const_realN
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    {n : ℕ} (Z : Ω → RealN n) (hZ : Integrable Z μ) (m : RealN n) :
+    Integrable (fun ω => inner ℝ (Z ω) m) μ := by
+  have hcoord (i : Fin n) : Integrable (fun ω => Z ω i) μ :=
+    (EuclideanSpace.proj (𝕜 := ℝ) i).integrable_comp hZ
+  rw [show (fun ω => inner ℝ (Z ω) m) = fun ω => ∑ i : Fin n, Z ω i * m i by
+    funext ω
+    simp [PiLp.inner_apply, RCLike.inner_apply, mul_comm]]
+  induction (Finset.univ : Finset (Fin n)) using Finset.induction_on with
+  | empty => simp
+  | @insert i s hi ih =>
+      simpa [Finset.sum_insert hi] using (hcoord i).mul_const (m i) |>.add ih
+
+private theorem integral_inner_const_realN
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    {n : ℕ} (Z : Ω → RealN n) (hZ : Integrable Z μ) (m : RealN n) :
+    (∫ ω, inner ℝ (Z ω) m ∂μ) = inner ℝ (∫ ω, Z ω ∂μ) m := by
+  have hcoord (i : Fin n) : Integrable (fun ω => Z ω i) μ :=
+    (EuclideanSpace.proj (𝕜 := ℝ) i).integrable_comp hZ
+  calc
+    (∫ ω, inner ℝ (Z ω) m ∂μ) = ∫ ω, ∑ i : Fin n, Z ω i * m i ∂μ := by
+      apply integral_congr_ae
+      filter_upwards [] with ω
+      simp [PiLp.inner_apply, RCLike.inner_apply, mul_comm]
+    _ = ∑ i : Fin n, ∫ ω, Z ω i * m i ∂μ := by
+      rw [integral_finset_sum]
+      intro i _
+      exact (hcoord i).mul_const (m i)
+    _ = ∑ i : Fin n, (∫ ω, Z ω i ∂μ) * m i := by
+      apply Finset.sum_congr rfl
+      intro i _
+      rw [integral_mul_const]
+    _ = inner ℝ (∫ ω, Z ω ∂μ) m := by
+      simp only [PiLp.inner_apply, RCLike.inner_apply, conj_trivial]
+      apply Finset.sum_congr rfl
+      intro i _
+      have hx := (EuclideanSpace.proj (𝕜 := ℝ) i).integral_comp_comm hZ
+      change (∫ ω, Z ω i ∂μ) = (∫ ω, Z ω ∂μ) i at hx
+      rw [hx]
+      ring
 
 /--
 Source proof: apply the preceding expansion pointwise with
@@ -36,7 +78,43 @@ theorem variance_identity_realN
     (hZ_sq : Integrable (fun ω => ‖Z ω‖ ^ 2) μ) :
     (∫ ω, ‖Z ω - (∫ η, Z η ∂μ)‖ ^ 2 ∂μ)
       = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - ‖(∫ η, Z η ∂μ)‖ ^ 2 := by
-  sorry
+  let m : RealN n := ∫ η, Z η ∂μ
+  have h_inner : Integrable (fun ω => inner ℝ (Z ω) m) μ :=
+    integrable_inner_const_realN Z hZ m
+  have h_two_inner : Integrable (fun ω => 2 * inner ℝ (Z ω) m) μ :=
+    h_inner.const_mul 2
+  have h_const : Integrable (fun _ : Ω => ‖m‖ ^ 2) μ := integrable_const _
+  have h_expand : (fun ω => ‖Z ω - m‖ ^ 2)
+      = (fun ω => ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) m + ‖m‖ ^ 2) := by
+    funext ω
+    exact norm_sub_sq_realN (Z ω) m
+  have h_int_inner : (∫ ω, inner ℝ (Z ω) m ∂μ) = inner ℝ m m := by
+    simpa [m] using integral_inner_const_realN Z hZ m
+  calc
+    (∫ ω, ‖Z ω - (∫ η, Z η ∂μ)‖ ^ 2 ∂μ)
+        = ∫ ω, ‖Z ω - m‖ ^ 2 ∂μ := by simp [m]
+    _ = ∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) m + ‖m‖ ^ 2 ∂μ := by
+      rw [h_expand]
+    _ = (∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) m ∂μ)
+          + ∫ ω, ‖m‖ ^ 2 ∂μ := by
+      simpa only [Pi.add_apply, Pi.sub_apply] using
+        (integral_add (hZ_sq.sub h_two_inner) h_const)
+    _ = ((∫ ω, ‖Z ω‖ ^ 2 ∂μ) - (∫ ω, 2 * inner ℝ (Z ω) m ∂μ))
+          + ∫ ω, ‖m‖ ^ 2 ∂μ := by
+      rw [integral_sub hZ_sq h_two_inner]
+    _ = ((∫ ω, ‖Z ω‖ ^ 2 ∂μ) - 2 * (∫ ω, inner ℝ (Z ω) m ∂μ))
+          + ‖m‖ ^ 2 := by
+      rw [integral_const_mul, integral_const]
+      simp
+    _ = ((∫ ω, ‖Z ω‖ ^ 2 ∂μ) - 2 * inner ℝ m m) + ‖m‖ ^ 2 := by
+      rw [h_int_inner]
+    _ = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - ‖m‖ ^ 2 := by
+      have hm : inner ℝ m m = ‖m‖ ^ 2 := by
+        simp
+      rw [hm]
+      ring
+    _ = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - ‖(∫ η, Z η ∂μ)‖ ^ 2 := by
+      simp [m]
 
 /--
 No separate source proof text for part (b) is available beyond the item 0.1
