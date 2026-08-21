@@ -1,0 +1,37 @@
+#!/bin/bash
+set -eu
+
+host_root=/Users/blackbox/m2f/fate-x-work
+remote_root=/home/hrm/ap_lean/fate-x-work
+mapped_args=()
+for arg in "$@"; do
+  mapped_args+=("${arg//$host_root/$remote_root}")
+done
+
+# The local checkout is authoritative for agent edits. Synchronize source and
+# project metadata before invoking the remote verifier so file-level gates can
+# never inspect a stale remote copy. Build products and workflow state remain
+# remote/local respectively.
+/usr/bin/rsync -az \
+  --exclude=.git \
+  --exclude=.git/ \
+  --exclude=.lake \
+  --exclude=.lake/ \
+  --exclude=.leanflow \
+  --exclude=.leanflow/ \
+  --exclude=.venv \
+  --exclude=.venv/ \
+  -e '/usr/bin/ssh -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 -p 49322 -o BatchMode=yes -o ControlMaster=auto -o ControlPersist=300 -o ControlPath=/tmp/leanflow-lake-%r@%h:%p' \
+  "$host_root/" \
+  "hrm@140.143.244.199:$remote_root/"
+
+exec /usr/bin/ssh \
+  -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 \
+  -p 49322 \
+  -o BatchMode=yes \
+  -o ControlMaster=auto \
+  -o ControlPersist=300 \
+  -o ControlPath=/tmp/leanflow-lake-%r@%h:%p \
+  hrm@140.143.244.199 \
+  "cd /home/hrm/ap_lean/fate-x-work && exec /home/hrm/.elan/bin/lake" \
+  "${mapped_args[@]}"

@@ -1,0 +1,49 @@
+# Python environments and build output
+/.venv/
+/.leanflow-venv/
+/venv/
+/build/
+/dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+
+# Test, type-check, lint, and coverage caches
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/.coverage
+/htmlcov/
+/testlogs/
+
+# LeanFlow runtime state and local campaigns
+.leanflow/
+.lake/
+.artifacts/
+/artifacts/
+logs/
+/tmp/
+/data/
+/wandb/
+/evals/results.jsonl
+
+# Local configuration and credentials
+.env
+.env.*
+/cli-config.yaml
+*.pem
+*.ppk
+privvy*
+
+# Editors, assistants, and operating-system metadata
+/.vscode/
+/.claude/settings.local.json
+.DS_Store
+
+# Local dependencies and worktrees
+/node_modules/
+/.worktrees/
+/ignored/
+
+# Release-script scratch files
+/.release_notes.md
