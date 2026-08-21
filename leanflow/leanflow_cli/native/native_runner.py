@@ -746,29 +746,24 @@ def _record_formalization_campaign_stage(
     usage_payload = dict(usage or {})
     turn_usage = dict(usage_payload.get("turn") or {})
     session_usage = dict(usage_payload.get("session") or {})
-    # A whole-conversation provider restart keeps action-level session usage,
-    # but the final failed window can report an empty turn.  Do not let that
-    # zero window erase paid work from earlier windows in the same action.
-    if (
-        int(turn_usage.get("total_tokens", 0) or 0) == 0
-        and int(session_usage.get("total_tokens", 0) or 0) > 0
-    ):
+    # One campaign subprocess may span many theorem/continuation conversations.
+    # It records exactly one outcome at finalization, so account the action-level
+    # session rather than only the final conversation window.  Falling back to
+    # ``turn`` preserves compatibility with providers that expose no session rollup.
+    if int(session_usage.get("total_tokens", 0) or 0) > 0:
         turn_usage = session_usage
     cost_usage = dict(usage_payload.get("cost") or {})
-    incremental_cost = cost_usage.get("provider_reported_turn_usd")
+    incremental_cost = cost_usage.get("provider_reported_total_usd")
     cost_source = "provider_reported"
+    if incremental_cost is None:
+        incremental_cost = cost_usage.get("estimated_total_usd")
+        cost_source = "estimated" if incremental_cost is not None else "unavailable"
+    if incremental_cost is None:
+        incremental_cost = cost_usage.get("provider_reported_turn_usd")
+        cost_source = "provider_reported"
     if incremental_cost is None:
         incremental_cost = cost_usage.get("estimated_turn_usd")
         cost_source = "estimated" if incremental_cost is not None else "unavailable"
-    if float(incremental_cost or 0.0) == 0.0 and int(session_usage.get("total_tokens", 0) or 0) > 0:
-        provider_total = cost_usage.get("provider_reported_total_usd")
-        estimated_total = cost_usage.get("estimated_total_usd")
-        if provider_total is not None:
-            incremental_cost = provider_total
-            cost_source = "provider_reported"
-        elif estimated_total is not None:
-            incremental_cost = estimated_total
-            cost_source = "estimated"
     updated = record_campaign_outcome(
         campaign,
         batch_id=batch_id,

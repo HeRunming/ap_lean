@@ -27883,6 +27883,62 @@ def test_formalization_campaign_preserves_usage_before_zero_cost_retry_window(
     assert campaign["spent_usd"] == 0.7939
 
 
+def test_formalization_campaign_accounts_whole_multi_conversation_action(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 20,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["1.1"],
+                        "status": "statements_completed",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    monkeypatch.setattr(runner, "_live_state_is_verified", lambda state: False)
+
+    runner._record_formalization_campaign_stage(
+        runner.EXIT_PAUSED,
+        {"active_file_label": "Book/Main.lean"},
+        {"operational_pause": "paused_infrastructure"},
+        {
+            "turn": {
+                "prompt_tokens": 140_000,
+                "completion_tokens": 2_500,
+                "total_tokens": 142_500,
+            },
+            "session": {
+                "prompt_tokens": 730_000,
+                "completion_tokens": 15_500,
+                "total_tokens": 745_500,
+            },
+            "cost": {"estimated_turn_usd": 1.47, "estimated_total_usd": 7.76},
+        },
+    )
+
+    outcome = json.loads(campaign_path.read_text(encoding="utf-8"))["batches"][0]["last_outcome"]
+    assert outcome["usage"]["total_tokens"] == 745_500
+    assert outcome["cost_usd"] == 7.76
+
+
 def test_formalization_campaign_records_zero_usage_connection_failure_as_infrastructure(
     tmp_path, monkeypatch
 ):

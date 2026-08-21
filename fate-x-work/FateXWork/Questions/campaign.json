@@ -534,20 +534,20 @@
         {
           "cost_scope": "primary_agent_only",
           "cost_source": "estimated",
-          "cost_usd": 1.47415,
+          "cost_usd": 7.7641,
           "exit_code": 2,
-          "failure_class": "infrastructure",
+          "failure_class": "budget_limit",
           "proof_obligations": 0,
           "provenance": "agent",
-          "reason": "infrastructure pause",
+          "reason": "Per-action USD cost limit reached before the next provider request",
           "recorded_at": "2026-08-21T06:14:42+00:00",
           "stage": "proofs",
           "success": false,
           "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
           "usage": {
-            "completion_tokens": 2557,
-            "prompt_tokens": 139744,
-            "total_tokens": 142301
+            "completion_tokens": 15529,
+            "prompt_tokens": 729818,
+            "total_tokens": 745347
           }
         }
       ],
@@ -561,20 +561,20 @@
       "last_outcome": {
         "cost_scope": "primary_agent_only",
         "cost_source": "estimated",
-        "cost_usd": 1.47415,
+        "cost_usd": 7.7641,
         "exit_code": 2,
-        "failure_class": "infrastructure",
+        "failure_class": "budget_limit",
         "proof_obligations": 0,
         "provenance": "agent",
-        "reason": "infrastructure pause",
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "recorded_at": "2026-08-21T06:14:42+00:00",
         "stage": "proofs",
         "success": false,
         "target_file": "FateXWork/Questions/Items018353C612/Main.lean",
         "usage": {
-          "completion_tokens": 2557,
-          "prompt_tokens": 139744,
-          "total_tokens": 142301
+          "completion_tokens": 15529,
+          "prompt_tokens": 729818,
+          "total_tokens": 745347
         }
       },
       "selection_kind": "items",
@@ -5761,7 +5761,7 @@
   "manual_gold_completed_batch_count": 2,
   "schema_version": "2",
   "source": "HDP/source/full/qa/questions.json",
-  "spent_usd": 43.23413,
+  "spent_usd": 49.52408,
   "statement_completed_batch_count": 2,
   "status": "active"
 }
