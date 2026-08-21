@@ -7,6 +7,54 @@ open FateXWork.Questions.Shared
 
 namespace FateXWork.Questions.Items02E620D532
 
+private lemma integral_norm_sub_sq_realN
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {n : ℕ} (Z : Ω → RealN n)
+    (hZ : Integrable Z μ)
+    (hZ_sq : Integrable (fun ω => ‖Z ω‖ ^ 2) μ)
+    (c : RealN n) :
+    (∫ ω, ‖Z ω - c‖ ^ 2 ∂μ)
+      = (∫ ω, ‖Z ω‖ ^ 2 ∂μ)
+          - 2 * inner ℝ (∫ ω, Z ω ∂μ) c + ‖c‖ ^ 2 := by
+  have hinner : Integrable (fun ω => inner ℝ (Z ω) c) μ := hZ.inner_const c
+  have htwo : Integrable (fun ω => 2 * inner ℝ (Z ω) c) μ := hinner.const_mul 2
+  have hint :
+      (∫ ω, inner ℝ (Z ω) c ∂μ) = inner ℝ (∫ ω, Z ω ∂μ) c := by
+    simpa [real_inner_comm] using ((innerSL ℝ c).integral_comp_comm hZ)
+  have hadd :
+      (∫ ω, (‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) c) + ‖c‖ ^ 2 ∂μ) =
+        (∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) c ∂μ) +
+          (∫ _ : Ω, ‖c‖ ^ 2 ∂μ) := by
+    simpa only [Pi.add_apply, Pi.sub_apply] using
+      (integral_add (hZ_sq.sub htwo) (integrable_const (c := ‖c‖ ^ 2)))
+  have hsub :
+      (∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) c ∂μ) =
+        (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - (∫ ω, 2 * inner ℝ (Z ω) c ∂μ) := by
+    simpa only [Pi.sub_apply] using (integral_sub hZ_sq htwo)
+  have hmul :
+      (∫ ω, 2 * inner ℝ (Z ω) c ∂μ) =
+        2 * inner ℝ (∫ ω, Z ω ∂μ) c := by
+    rw [integral_const_mul, hint]
+  calc
+    (∫ ω, ‖Z ω - c‖ ^ 2 ∂μ) =
+        ∫ ω, (‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) c) + ‖c‖ ^ 2 ∂μ := by
+      congr 1
+      funext ω
+      exact norm_sub_pow_two_real (Z ω) c
+    _ = (∫ ω, ‖Z ω‖ ^ 2 - 2 * inner ℝ (Z ω) c ∂μ) +
+          (∫ _ : Ω, ‖c‖ ^ 2 ∂μ) := hadd
+    _ = (∫ ω, ‖Z ω‖ ^ 2 ∂μ) - 2 * inner ℝ (∫ ω, Z ω ∂μ) c + ‖c‖ ^ 2 := by
+      rw [hsub, hmul]
+      simp
+
+private lemma integral_inner_const_realN
+    {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
+    {n : ℕ} (Z : Ω → RealN n) (hZ : Integrable Z μ)
+    (c : RealN n) :
+    (∫ ω, inner ℝ (Z ω) c ∂μ) = inner ℝ (∫ ω, Z ω ∂μ) c := by
+  simpa [real_inner_comm] using
+    ((innerSL ℝ c).integral_comp_comm hZ)
+
 /--
 Source proof: with `m = 𝔼 Z`, check
 `𝔼 ‖Z - a‖₂² - 𝔼 ‖Z - m‖₂² = ‖a - m‖₂²`.
