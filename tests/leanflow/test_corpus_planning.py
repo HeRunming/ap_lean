@@ -930,6 +930,10 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
     assert calls[0][2]["LEANFLOW_CLEAN_ROOM_DENY_PATHS"] == "FateXWork/Gold"
     assert calls[0][2]["LEANFLOW_CLEAN_ROOM_DENY_MODULE_PREFIXES"] == "FateXWork.Gold"
     assert calls[0][2]["LEANFLOW_NATIVE_INTERACTIVE"] == "0"
+    assert calls[0][2]["LEANFLOW_PLAN_STATE"] == "1"
+    assert calls[0][2]["LEANFLOW_PLAN_STATE_DIR"] == str(
+        tmp_path / ".leanflow" / "campaign-plan-state" / "batch-1"
+    )
     assert calls[0][2]["LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S"] == "90"
     assert calls[0][2]["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] == str(review)
     assert calls[0][3] is corpus_campaign_runner.subprocess.DEVNULL

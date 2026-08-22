@@ -303,7 +303,8 @@ def build_corpus_plan(
                 "labels": [item["label"]],
             }
             for item in foundations
-        ] + [
+        ]
+        + [
             dict(batch)
             for batch in metadata.get("qa_batches", []) or []
             if isinstance(batch, Mapping)

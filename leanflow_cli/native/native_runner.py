@@ -10885,8 +10885,7 @@ def _advisor_success_cooldown_pre_tool_guard(
     if not record:
         return None
     if not (
-        str(target_symbol or "").strip()
-        == str(record.get("target_symbol", "") or "").strip()
+        str(target_symbol or "").strip() == str(record.get("target_symbol", "") or "").strip()
         and _same_active_file(active_file, str(record.get("active_file", "") or ""))
         and str(source_revision_sha256 or "").strip()
         == str(record.get("source_revision_sha256", "") or "").strip()
@@ -16594,9 +16593,7 @@ def _handle_managed_tool_result(
             )
             advisor_payload = _json_tool_result_payload(_result)
             if advisor_payload.get("success") is True:
-                cooldowns = dict(
-                    autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}
-                )
+                cooldowns = dict(autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {})
                 cooldowns[_REASONING_ADVISOR_FAMILY_KEY] = {
                     "target_symbol": target_symbol,
                     "active_file": active_file,

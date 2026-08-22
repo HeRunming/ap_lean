@@ -436,6 +436,7 @@ def _execute_campaign_action(
     path = Path(campaign_path).expanduser().resolve()
     validate_campaign_action_paths(action, project_root=project_root)
     child_env = dict(environ or os.environ)
+    plan_state_slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", action.batch_id).strip("-_") or "batch"
     child_env.update(
         {
             "LEANFLOW_FORMALIZATION_CAMPAIGN": str(path),
@@ -448,6 +449,17 @@ def _execute_campaign_action(
             # launched from a TTY.  Do not let the child inherit that TTY and
             # strand the campaign in the post-run chat prompt.
             "LEANFLOW_NATIVE_INTERACTIVE": "0",
+            # Checked helpers are safety-critical paid-work artifacts. Give
+            # every batch a stable durable queue even outside research mode,
+            # and isolate parallel batches so their pending candidates cannot
+            # preempt one another in a shared summary file.
+            "LEANFLOW_PLAN_STATE": "1",
+            "LEANFLOW_PLAN_STATE_DIR": str(
+                Path(project_root).expanduser().resolve()
+                / ".leanflow"
+                / "campaign-plan-state"
+                / plan_state_slug
+            ),
             "LEANFLOW_ACTION_COST_LIMIT_USD": str(
                 min(
                     float(reserve_usd),

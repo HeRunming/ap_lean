@@ -660,9 +660,11 @@ def refine_campaign_statement_bounded(
         "stage": "statements",
         "success": success,
         "exit_code": 0 if success else 2,
-        "reason": "bounded retrieval/refinement statement passed"
-        if success
-        else "bounded statement refinement exhausted",
+        "reason": (
+            "bounded retrieval/refinement statement passed"
+            if success
+            else "bounded statement refinement exhausted"
+        ),
         "target_file": target_relative,
         "proof_obligations": final_draft.lean_code.count("sorry") if final_draft else 0,
         "cost_usd": round(cost_usd, 6),
@@ -687,9 +689,9 @@ def refine_campaign_statement_bounded(
             "generator_fallback": generator_fallback_provider,
             "judge": effective_judge_provider,
         },
-        "review_evidence": str(target.with_name("IndependentReview.md").relative_to(root))
-        if success
-        else "",
+        "review_evidence": (
+            str(target.with_name("IndependentReview.md").relative_to(root)) if success else ""
+        ),
         "review_decision": "PASS" if success else "BLOCK",
         "model": generator_model,
         "provider": provider,

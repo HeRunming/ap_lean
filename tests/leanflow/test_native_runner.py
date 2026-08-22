@@ -4194,15 +4194,18 @@ def test_successful_advisor_cooldown_releases_after_source_change(tmp_path):
         }
     }
 
-    assert runner._advisor_success_cooldown_pre_tool_guard(
-        "lean_decompose_helpers",
-        target_symbol="goal",
-        active_file=str(active),
-        source_revision_sha256="source-b",
-        target_revision_sha256="target-a",
-        evidence_revision_sha256="evidence-a",
-        autonomy_state=state,
-    ) is None
+    assert (
+        runner._advisor_success_cooldown_pre_tool_guard(
+            "lean_decompose_helpers",
+            target_symbol="goal",
+            active_file=str(active),
+            source_revision_sha256="source-b",
+            target_revision_sha256="target-a",
+            evidence_revision_sha256="evidence-a",
+            autonomy_state=state,
+        )
+        is None
+    )
 
 
 def test_orchestrator_decompose_respects_shared_advisor_circuit(monkeypatch, tmp_path):
