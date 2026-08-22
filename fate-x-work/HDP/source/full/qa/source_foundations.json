@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "foundations": [
+    {
+      "label": "foundation:0.0.2",
+      "chapter": "0",
+      "source_file": "HDP/source/full/foundations/theorem-0.0.2.json",
+      "source_locator": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "target_module": "FateXWork.Questions.Shared.Convexity",
+      "statement": "Approximate Caratheodory theorem for a set in the Euclidean unit ball, with k equally weighted (repeated) points and error at most 1/sqrt(k).",
+      "consumers": [
+        "0.5",
+        "6.25"
+      ],
+      "dependencies": [
+        "0.3"
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@
 
 - Policy: `declared_dependencies_only_with_source_order_ties`
 - Schedulable: `true`
-- Order: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11, … (366 items total; see book-manifest.json for full order)
+- Order: 0.1, 0.2, 0.3, foundation:0.0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, … (367 items total; see book-manifest.json for full order)
 - Cycles: [none]
 
 ## Library Architecture
@@ -47,6 +47,9 @@
 
 ## Typed Dependency Candidates
 
+- `0.5` → `foundation:0.0.2`: uses_source_foundation [declared_unverified]
+- `6.25` → `foundation:0.0.2`: uses_source_foundation [declared_unverified]
+- `foundation:0.0.2` → `0.3`: uses_theorem [declared_unverified]
 - `1.2` → `1.1`: shared_foundation [candidate]
 - `1.3` → `1.2`: shared_foundation [candidate]
 - `1.3` → `1.1`: shared_foundation [candidate]
@@ -154,6 +157,7 @@
 
 ## Item Inventory
 
+- `foundation:0.0.2` (chapter 0): [none]
 - `0.1` (chapter 0): euclidean-space, probability, expectation, variance, independence
 - `0.2` (chapter 0): euclidean-space, probability, expectation, variance
 - `0.3` (chapter 0): euclidean-space, probability, expectation, variance, independence

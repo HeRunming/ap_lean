@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "title": "HDP source foundation: Theorem 0.0.2",
+  "questions": [
+    {
+      "label": "foundation:0.0.2",
+      "kind": "theorem",
+      "title": "Approximate Caratheodory theorem",
+      "source_locator": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "question": "Consider a set T contained in the unit Euclidean ball in R^n. For every x in conv(T) and every positive natural number k, there exist points x_1, ..., x_k in T, with repetitions allowed, such that the Euclidean norm of x - (1/k) * sum_{j=1}^k x_j is at most 1/sqrt(k). The selected points have equal weights.",
+      "solution": "The book proves this by representing x as the expectation of a random vector Z supported on T, taking k independent copies Z_1, ..., Z_k, and using the variance-of-a-sum identity to show that the expected squared approximation error is at most 1/k; therefore at least one realization attains the bound.",
+      "dependencies": [
+        "0.3"
+      ]
+    }
+  ]
+}

@@ -1133,6 +1133,30 @@
   ],
   "dependency_edges": [
     {
+      "evidence": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "from": "0.5",
+      "kind": "uses_source_foundation",
+      "status": "declared_unverified",
+      "target_known": true,
+      "to": "foundation:0.0.2"
+    },
+    {
+      "evidence": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "from": "6.25",
+      "kind": "uses_source_foundation",
+      "status": "declared_unverified",
+      "target_known": true,
+      "to": "foundation:0.0.2"
+    },
+    {
+      "evidence": "source dependencies/uses field",
+      "from": "foundation:0.0.2",
+      "kind": "uses_theorem",
+      "status": "declared_unverified",
+      "target_known": true,
+      "to": "0.3"
+    },
+    {
       "concepts": [
         "convexity"
       ],
@@ -2300,6 +2324,7 @@
       "0.1",
       "0.2",
       "0.3",
+      "foundation:0.0.2",
       "0.4",
       "0.5",
       "0.6",
@@ -2668,8 +2693,26 @@
     "schedulable": true,
     "unresolved_dependencies": []
   },
+  "foundation_count": 1,
   "item_count": 366,
   "items": [
+    {
+      "chapter": "0",
+      "concepts": [],
+      "consumers": [
+        "0.5",
+        "6.25"
+      ],
+      "declared_dependencies": [
+        "0.3"
+      ],
+      "kind": "source_foundation",
+      "label": "foundation:0.0.2",
+      "ordinal": -1,
+      "source_file": "HDP/source/full/foundations/theorem-0.0.2.json",
+      "source_locator": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "target_module": "FateXWork.Questions.Shared.Convexity"
+    },
     {
       "chapter": "0",
       "concepts": [
@@ -7928,6 +7971,15 @@
   "source_batches": [
     {
       "chapter": "0",
+      "id": "foundation-foundation-0.0.2",
+      "labels": [
+        "foundation:0.0.2"
+      ],
+      "selection_kind": "document",
+      "source_file": "HDP/source/full/foundations/theorem-0.0.2.json"
+    },
+    {
+      "chapter": "0",
       "count": 9,
       "first_label": "0.1",
       "id": "chapter-0-batch-1",
@@ -8471,6 +8523,25 @@
         "9.43"
       ],
       "last_label": "9.43"
+    }
+  ],
+  "source_foundations": [
+    {
+      "chapter": "0",
+      "concepts": [],
+      "consumers": [
+        "0.5",
+        "6.25"
+      ],
+      "declared_dependencies": [
+        "0.3"
+      ],
+      "kind": "source_foundation",
+      "label": "foundation:0.0.2",
+      "ordinal": -1,
+      "source_file": "HDP/source/full/foundations/theorem-0.0.2.json",
+      "source_locator": "HDP-2.pdf:physical-page-10:Theorem-0.0.2",
+      "target_module": "FateXWork.Questions.Shared.Convexity"
     }
   ]
 }
