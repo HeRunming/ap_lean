@@ -30785,11 +30785,16 @@ def test_formalization_startup_guidance_routes_pending_review_without_proof_sear
     monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
+    review_evidence = project / "Demo" / "Paper" / "IndependentReview.md"
+    review_evidence.write_text("Verdict: BLOCK\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE", str(review_evidence))
     guidance = runner._workflow_startup_guidance("formalize", "/formalize docs/paper.tex")
 
-    assert "Resume directly at the independent statement/source review gate" in guidance
-    assert "do not search for or fill their proofs" in guidance
+    assert "Resume a targeted statement-fidelity correction" in guidance
+    assert "keep theorem/lemma `sorry` bodies as proof placeholders" in guidance
     assert "use `lean_search` before redrafting" not in guidance
+    assert str(review_evidence) in guidance
+    assert "correct exactly its fidelity findings" in guidance
 
 
 def test_document_formalization_pending_blueprint_blocks_final_sweep(monkeypatch, tmp_path):

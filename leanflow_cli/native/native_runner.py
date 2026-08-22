@@ -17592,6 +17592,9 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         and _document_formalization_requested()
         and _document_formalization_blueprint_waiting_for_review()
     )
+    formalization_review_blocked = bool(
+        _read_text_env("LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE", "").strip()
+    )
     guidance_map = {
         "prove": (
             "autonomous proving session",
@@ -17616,9 +17619,13 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         "formalize": (
             "autonomous formalization session",
             (
-                "Resume directly at the independent statement/source review gate. The drafted theorem/lemma `sorry` declarations are expected proof placeholders, not proof assignments: do not search for or fill their proofs. Run only the missing deterministic Lean/project readiness checks, report the pending review blocker, and let the harness launch the independent reviewer."
-                if formalization_waiting_for_review
-                else "Load the native formalization contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, and use `lean_search` before redrafting blindly; the live queue, route decision, and verification gate below are the state for this turn."
+                "Resume a targeted statement-fidelity correction from the prior independent BLOCK review. Read the configured review evidence first, change only the Lean declarations/Blueprint needed to resolve its findings, keep theorem/lemma `sorry` bodies as proof placeholders, run deterministic Lean/project checks, and request a fresh independent review. Do not restart broad proof search."
+                if formalization_review_blocked
+                else (
+                    "Resume directly at the independent statement/source review gate. The drafted theorem/lemma `sorry` declarations are expected proof placeholders, not proof assignments: do not search for or fill their proofs. Run only the missing deterministic Lean/project readiness checks, report the pending review blocker, and let the harness launch the independent reviewer."
+                    if formalization_waiting_for_review
+                    else "Load the native formalization contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, and use `lean_search` before redrafting blindly; the live queue, route decision, and verification gate below are the state for this turn."
+                )
             ),
         ),
     }
@@ -17682,6 +17689,17 @@ def _formalization_document_startup_block() -> str:
             "After a review workflow approves or corrects the blueprint and statements, the normal proof queue can eliminate the resulting `sorry` placeholders.",
         ]
     )
+    review_evidence = _read_text_env("LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE", "").strip()
+    if review_evidence:
+        lines.extend(
+            (
+                "",
+                "Prior independent statement/source review: BLOCK.",
+                f"- Evidence file: {review_evidence}",
+                "- Read that bounded evidence first and correct exactly its fidelity findings before requesting another review.",
+                "- Do not restart broad proof search or fill theorem/lemma `sorry` placeholders.",
+            )
+        )
     return "\n".join(lines)
 
 

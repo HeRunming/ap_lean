@@ -705,6 +705,9 @@ def test_campaign_runner_plans_statement_command_and_guards_budget(tmp_path):
 
 def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
     (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    review = tmp_path / "Book" / "Batch1" / "IndependentReview.md"
+    review.parent.mkdir(parents=True)
+    review.write_text("Verdict: BLOCK\n", encoding="utf-8")
     campaign_path = tmp_path / "campaign.json"
     campaign_path.write_text(
         json.dumps(
@@ -712,7 +715,17 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
                 "source": "book.json",
                 "spent_usd": 1,
                 "budget_usd": 5,
-                "batches": [{"id": "batch-1", "labels": ["1.1"], "status": "pending"}],
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["1.1"],
+                        "status": "statement_retry",
+                        "last_outcome": {
+                            "review_decision": "BLOCK",
+                            "review_evidence": "Book/Batch1/IndependentReview.md",
+                        },
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -767,6 +780,7 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
     assert calls[0][2]["LEANFLOW_CLEAN_ROOM_DENY_MODULE_PREFIXES"] == "FateXWork.Gold"
     assert calls[0][2]["LEANFLOW_NATIVE_INTERACTIVE"] == "0"
     assert calls[0][2]["LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S"] == "90"
+    assert calls[0][2]["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] == str(review)
     assert calls[0][3] is corpus_campaign_runner.subprocess.DEVNULL
 
 

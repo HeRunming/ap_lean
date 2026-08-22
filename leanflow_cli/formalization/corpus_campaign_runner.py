@@ -407,6 +407,27 @@ def _execute_campaign_action(
     worker_id = str(child_env.get("LEANFLOW_CAMPAIGN_WORKER_ID", "") or "").strip()
     if worker_id:
         child_env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] = worker_id
+    selected_batch = next(
+        (
+            item
+            for item in campaign.get("batches", []) or []
+            if isinstance(item, Mapping) and str(item.get("id", "")) == action.batch_id
+        ),
+        {},
+    )
+    last_outcome = dict(selected_batch.get("last_outcome", {}) or {})
+    review_evidence = str(last_outcome.get("review_evidence", "") or "").strip()
+    if (
+        action.stage == "statements"
+        and str(last_outcome.get("review_decision", "") or "").upper() == "BLOCK"
+        and review_evidence
+    ):
+        evidence_path = (Path(project_root).expanduser().resolve() / review_evidence).resolve()
+        if (
+            evidence_path.is_relative_to(Path(project_root).expanduser().resolve())
+            and evidence_path.is_file()
+        ):
+            child_env["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] = str(evidence_path)
     action_argv = action.argv
     action_argv = action.argv
     if provider.strip():
