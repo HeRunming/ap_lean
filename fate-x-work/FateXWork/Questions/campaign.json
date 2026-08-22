@@ -6,16 +6,17 @@
   "completed_batch_count": 3,
   "agent_e2e_completed_batch_count": 3,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 5,
+  "agent_e2e_statement_completed_batch_count": 7,
   "failure_class_counts": {
-    "budget_limit": 24,
-    "statement_generation_incomplete": 26,
-    "infrastructure": 13
+    "budget_limit": 25,
+    "statement_generation_incomplete": 33,
+    "infrastructure": 14,
+    "proof_incomplete": 2
   },
-  "statement_completed_batch_count": 5,
+  "statement_completed_batch_count": 7,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 116.25305,
+  "spent_usd": 127.213,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -36,9 +37,9 @@
       ],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "statement_retry",
-      "agent_status": "pending",
-      "completion_provenance": "none",
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
       "attempts": [
         {
           "stage": "statements",
@@ -58,26 +59,185 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.0,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "retrieval_queries": [],
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.6-terra",
+          "provider": "main",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "recorded_at": "2026-08-22T10:10:11+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.11842,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "retrieval_queries": [
+            "lean",
+            "#find _ (convexHull ℝ _) _ ‖_ - _‖ ≤ _",
+            "#check convexHull",
+            "#check EuclideanSpace",
+            "#find _ ∈ convexHull ℝ _ → ∃ f : Fin _ → _, ‖_ - (_ / _)‖ ≤ _"
+          ],
+          "review_evidence": "FateXWork/Theorem002/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "codex",
+          "usage": {
+            "prompt_tokens": 3556,
+            "completion_tokens": 2762,
+            "total_tokens": 6318
+          },
+          "recorded_at": "2026-08-22T10:13:54+00:00"
+        },
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.05532,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "retrieval_queries": [
+            "lean",
+            "approximate Carathéodory convexHull Euclidean norm equal weights",
+            "Mathlib convexHull finite average norm_sq expectation"
+          ],
+          "review_evidence": "FateXWork/Theorem002/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 1536,
+            "completion_tokens": 1332,
+            "total_tokens": 2868
+          },
+          "recorded_at": "2026-08-22T10:15:27+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-22T10:44:30+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 0,
+          "reason": "infrastructure pause",
+          "usage": {
+            "prompt_tokens": 341184,
+            "completion_tokens": 8265,
+            "total_tokens": 349449
+          },
+          "cost_usd": 3.65979,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "infrastructure"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 130,
+          "recorded_at": "2026-08-22T10:49:07+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "signal interrupt",
+          "usage": {
+            "prompt_tokens": 43582,
+            "completion_tokens": 1121,
+            "total_tokens": 44703
+          },
+          "cost_usd": 0.46945,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "proof_incomplete"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-22T11:19:22+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 353859,
+            "completion_tokens": 8428,
+            "total_tokens": 362287
+          },
+          "cost_usd": 3.79143,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 130,
+          "recorded_at": "2026-08-22T11:30:04+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "signal interrupt",
+          "usage": {
+            "prompt_tokens": 151591,
+            "completion_tokens": 5375,
+            "total_tokens": 156966
+          },
+          "cost_usd": 1.67716,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "proof_incomplete"
         }
       ],
       "last_outcome": {
-        "stage": "statements",
+        "stage": "proofs",
         "success": false,
-        "exit_code": 2,
-        "recorded_at": "2026-08-22T09:42:13+00:00",
+        "exit_code": 130,
+        "recorded_at": "2026-08-22T11:30:04+00:00",
         "target_file": "FateXWork/Theorem002/Main.lean",
-        "proof_obligations": 0,
-        "reason": "Per-action USD cost limit reached before the next provider request",
+        "proof_obligations": 1,
+        "reason": "signal interrupt",
         "usage": {
-          "prompt_tokens": 234266,
-          "completion_tokens": 2217,
-          "total_tokens": 236483
+          "prompt_tokens": 151591,
+          "completion_tokens": 5375,
+          "total_tokens": 156966
         },
-        "cost_usd": 2.40917,
+        "cost_usd": 1.67716,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
-        "failure_class": "budget_limit"
+        "failure_class": "proof_incomplete"
       }
     },
     {
@@ -1396,9 +1556,9 @@
       ],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "statement_retry",
-      "agent_status": "pending",
-      "completion_provenance": "none",
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
       "attempts": [
         {
           "cost_scope": "primary_agent_only",
@@ -1577,39 +1737,395 @@
             "prompt_tokens": 3642,
             "total_tokens": 4942
           }
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.27882,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "candidate_attempts": 3,
+          "candidates_per_iteration": 1,
+          "retrieval_queries": [
+            "Mathlib convexHull standardBasis EuclideanSpace",
+            "Mathlib Finset.card_support norm_sum orthonormal",
+            "Mathlib Real.sqrt sub_nonneg inv_le_inv",
+            "Lean lambda syntax fun => convex combination Finset.sum",
+            "convexHull mem_iff_exists_finset_coeff sum_eq_one",
+            "EuclideanSpace basis_single_eq PiLp.norm_sq_eq_sum",
+            "Finset.card_filter count support convex combination uniform weights",
+            "dist point to simplex lower bound Cauchy Schwarz sum_sq"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 6735,
+            "completion_tokens": 7049,
+            "total_tokens": 13784
+          },
+          "recorded_at": "2026-08-22T12:27:25+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.23603,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 2,
+          "candidates_per_iteration": 1,
+          "failure_stage": "semantic_review",
+          "final_diagnostic": "BLOCK\n\nThe main Lean statement is close, but it is not bidirectionally faithful on edge cases involving the square root.\n\n- In the source, the bound  \n  \\[\n  \\sqrt{\\frac1k-\\frac1n}\n  \\]\n  is a real-valued expression only when \\(k \\le n\\).  \n  In Lean, `Real.sqrt` of a negative number is defined as `0`, so your statement silently makes the inequality trivial for `k > n`. That changes the domain/edge behavior.\n\n- Add a hypothesis such as `k ≤ n` to the quantified convex-combination part, e.g.\n  ```lean\n  ∀ (k : ℕ), 0 < k → k ≤ n → ...\n  ```\n  or otherwise restrict the statement to the meaningful range.\n\n- The high-dimensional limit theorem is acceptable in spirit, since for fixed positive `k`, eventually `n ≥ k`, but the main theorem should not rely on Lean’s convention for square roots of negative reals.",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nThe Lean statement is not faithful because it uses `Fin n → ℝ` with the default norm, which is the sup/`ℓ∞` norm, while the source requires the Euclidean `ℓ2` norm `‖·‖₂`.\n\nCorrection: use `EuclideanSpace ℝ (Fin n)` or another type/definition whose norm is the Euclidean norm, e.g.\n\n```lean\n∃ (T : Set (EuclideanSpace ℝ (Fin n))) (x : EuclideanSpace ℝ (Fin n)), ...\n```\n\nThe rest of the quantifier structure is mostly aligned: positive `n`, existence of `T` and `x`, `x ∈ convexHull ℝ T`, and universal positive `k` with nonnegative coefficients summing to `1`."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nThe main Lean statement is close, but it is not bidirectionally faithful on edge cases involving the square root.\n\n- In the source, the bound  \n  \\[\n  \\sqrt{\\frac1k-\\frac1n}\n  \\]\n  is a real-valued expression only when \\(k \\le n\\).  \n  In Lean, `Real.sqrt` of a negative number is defined as `0`, so your statement silently makes the inequality trivial for `k > n`. That changes the domain/edge behavior.\n\n- Add a hypothesis such as `k ≤ n` to the quantified convex-combination part, e.g.\n  ```lean\n  ∀ (k : ℕ), 0 < k → k ≤ n → ...\n  ```\n  or otherwise restrict the statement to the meaningful range.\n\n- The high-dimensional limit theorem is acceptable in spirit, since for fixed positive `k`, eventually `n ≥ k`, but the main theorem should not rely on Lean’s convention for square roots of negative reals."
+            }
+          ],
+          "retrieval_queries": [
+            "Mathlib convex hull simplex standard basis EuclideanSpace",
+            "Real inner product norm sum orthonormal basis",
+            "Finset sum_sq_sub_mean variance identity",
+            "EuclideanSpace ℝ (Fin n) norm_eq_sqrt_inner dist_eq_norm",
+            "convexHull ℝ Set.range Pi.single EuclideanSpace",
+            "Finset.sum_apply convex combination nonneg sum_eq_one"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 5780,
+            "completion_tokens": 5941,
+            "total_tokens": 11721
+          },
+          "recorded_at": "2026-08-22T12:42:55+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.13105,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 1,
+          "candidates_per_iteration": 1,
+          "failure_stage": "lean_compilation",
+          "final_diagnostic": "FateXWork/Questions/Items05784E1F74/StatementCandidate_300fcb2f248b4b06b139bbfde83a63f4.lean:12:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items05784E1F74/StatementCandidate_300fcb2f248b4b06b139bbfde83a63f4.lean:34:9: error: Function expected at\n  𝓝\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  (Real.sqrt ((1 : ℝ) / (k : ℝ)))\n\nHint: The identifier `𝓝` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n",
+          "candidate_diagnostics": [
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items05784E1F74/StatementCandidate_300fcb2f248b4b06b139bbfde83a63f4.lean:12:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items05784E1F74/StatementCandidate_300fcb2f248b4b06b139bbfde83a63f4.lean:34:9: error: Function expected at\n  𝓝\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  (Real.sqrt ((1 : ℝ) / (k : ℝ)))\n\nHint: The identifier `𝓝` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n"
+            }
+          ],
+          "retry_feedback_source": "semantic_review",
+          "retrieval_queries": [
+            "Real.sqrt nonneg sq_norm dist EuclideanSpace",
+            "convexHull simplex stdBasis Fin n",
+            "Finset.card support convex combination sum lambda"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 1888,
+            "completion_tokens": 3739,
+            "total_tokens": 5627
+          },
+          "recorded_at": "2026-08-22T12:47:06+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.12016,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 1,
+          "candidates_per_iteration": 1,
+          "failure_stage": "semantic_review",
+          "final_diagnostic": "BLOCK\n\nThe Lean statement is close, but not bidirectionally faithful in edge cases:\n\n- The source says “for every `n`” in `ℝⁿ`; Lean restricts to `0 < n`. This is probably mathematically intended, but it is an added hypothesis.\n- More importantly, the source’s bound `sqrt(1/k - 1/n)` is only a real-valued lower bound when `1/k - 1/n ≥ 0`, i.e. typically `k ≤ n`. Lean quantifies over all positive `k`; for `k > n`, `Real.sqrt` of a negative number is interpreted as `0` in Lean, making the statement weaker/trivial in those cases. The source does not state this Lean-specific convention.\n- To be faithful, either restrict to `k ≤ n`, or explicitly encode the intended nonnegative-part interpretation if that is what the source means.",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nThe Lean statement is close, but not bidirectionally faithful in edge cases:\n\n- The source says “for every `n`” in `ℝⁿ`; Lean restricts to `0 < n`. This is probably mathematically intended, but it is an added hypothesis.\n- More importantly, the source’s bound `sqrt(1/k - 1/n)` is only a real-valued lower bound when `1/k - 1/n ≥ 0`, i.e. typically `k ≤ n`. Lean quantifies over all positive `k`; for `k > n`, `Real.sqrt` of a negative number is interpreted as `0` in Lean, making the statement weaker/trivial in those cases. The source does not state this Lean-specific convention.\n- To be faithful, either restrict to `k ≤ n`, or explicitly encode the intended nonnegative-part interpretation if that is what the source means."
+            }
+          ],
+          "retry_feedback_source": "lean_compilation",
+          "retrieval_queries": [
+            "Filter Tendsto atTop 𝓝",
+            "Metric tendsto_atTop",
+            "Real.sqrt tendsto"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 2455,
+            "completion_tokens": 3187,
+            "total_tokens": 5642
+          },
+          "recorded_at": "2026-08-22T12:49:05+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 2,
+          "cost_usd": 0.13169,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 1,
+          "candidates_per_iteration": 1,
+          "failure_stage": "",
+          "final_diagnostic": "BLOCK\n\nThe Lean statement is close, but not bidirectionally faithful in edge cases:\n\n- The source says “for every `n`” in `ℝⁿ`; Lean restricts to `0 < n`. This is probably mathematically intended, but it is an added hypothesis.\n- More importantly, the source’s bound `sqrt(1/k - 1/n)` is only a real-valued lower bound when `1/k - 1/n ≥ 0`, i.e. typically `k ≤ n`. Lean quantifies over all positive `k`; for `k > n`, `Real.sqrt` of a negative number is interpreted as `0` in Lean, making the statement weaker/trivial in those cases. The source does not state this Lean-specific convention.\n- To be faithful, either restrict to `k ≤ n`, or explicitly encode the intended nonnegative-part interpretation if that is what the source means.",
+          "candidate_diagnostics": [],
+          "retry_feedback_source": "semantic_review+lean_compilation",
+          "retrieval_queries": [
+            "Filter Tendsto atTop nhds 𝓝 import",
+            "EuclideanSpace dist norm convexHull Finset.univ",
+            "Real.sqrt sub_nonneg one_div_le_one_div_of_le"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items05784E1F74/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 3020,
+            "completion_tokens": 3383,
+            "total_tokens": 6403
+          },
+          "recorded_at": "2026-08-22T12:54:05+00:00"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "independent bounded statement/source review did not pass",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 2,
+          "cost_usd": 0.04715,
+          "cost_source": "reviewer_token_usage",
+          "cost_scope": "independent_statement_reviewer",
+          "provenance": "agent",
+          "review_evidence": "FateXWork/Questions/Items05784E1F74/IndependentReview.md",
+          "review_decision": "BLOCK",
+          "review_status": "ok",
+          "review_findings": [
+            "The Lean norm `‖x - ...‖` on `Fin n → ℝ` is not the Euclidean/ℓ₂ norm from the source. In Mathlib, the default norm on finite product/function spaces is the sup norm (`ℓ∞`), not `‖·‖₂`. This is a substantive mathematical mismatch.",
+            "The main lower-bound statement therefore formalizes a bound in the wrong metric, even though the notation compiles.",
+            "The restriction `0 < k` and `k ≤ n` is an added scope restriction. It is disclosed in the blueprint and is mathematically reasonable for the displayed real square root, especially for the asymptotic fixed-`k`, `n → ∞` use. This is not th...",
+            "The encoding of convex combinations by `coeff : Fin k → ℝ`, nonnegativity, sum `= 1`, and selected points `y : Fin k → Fin n → ℝ` lying in `T` faithfully represents convex combinations of `k` possibly repeated points.",
+            "The existence of `T` and `x`, with `T = standardSimplexVertices n`, `x = standardSimplexCenter n`, and `x ∈ convexHull ℝ T`, matches the reference construction.",
+            "The limit theorem captures the displayed scalar lower bound tending to `sqrt (1 / k)` for fixed positive `k`, but it does not by itself formalize tightness of Theorem 0.0.2; it is only the asymptotic scalar observation.",
+            "Replace the default norm on `Fin n → ℝ` with an explicit Euclidean norm/Euclidean distance, e.g. use an inner product space representation whose norm is the ℓ₂ norm, or define/use `EuclideanSpace ℝ (Fin n)` with the intended norm.",
+            "Ensure the simplex vertices and barycenter are expressed in that Euclidean space representation.",
+            "State the inequality using the Euclidean norm explicitly.",
+            "Keep the disclosed assumptions `0 < n`, `0 < k`, and likely `k ≤ n`, or document precisely why the source’s “any k” is being interpreted with this restriction."
+          ],
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 1769,
+            "completion_tokens": 982,
+            "total_tokens": 2751
+          },
+          "recorded_at": "2026-08-22T12:59:41+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.0931,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 1,
+          "candidates_per_iteration": 1,
+          "failure_stage": "lean_compilation",
+          "final_diagnostic": "FateXWork/Questions/Items05784E1F74/StatementCandidate_34fd3012ad7b47aeb5eafc024d016908.lean:10:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items05784E1F74/StatementCandidate_34fd3012ad7b47aeb5eafc024d016908.lean:33:7: error: Function expected at\n  𝓝\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  (Real.sqrt ((1 : ℝ) / (k : ℝ)))\n\nHint: The identifier `𝓝` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n",
+          "candidate_diagnostics": [
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items05784E1F74/StatementCandidate_34fd3012ad7b47aeb5eafc024d016908.lean:10:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items05784E1F74/StatementCandidate_34fd3012ad7b47aeb5eafc024d016908.lean:33:7: error: Function expected at\n  𝓝\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  (Real.sqrt ((1 : ℝ) / (k : ℝ)))\n\nHint: The identifier `𝓝` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n"
+            }
+          ],
+          "retry_feedback_source": "semantic_review+lean_compilation",
+          "retrieval_queries": [
+            "EuclideanSpace norm Fin inner product dist",
+            "convexHull EuclideanSpace standard simplex vertices barycenter",
+            "Filter Tendsto atTop Real.sqrt one_div sub one_div"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 3427,
+            "completion_tokens": 1961,
+            "total_tokens": 5388
+          },
+          "recorded_at": "2026-08-22T13:04:11+00:00",
+          "failure_class": "statement_generation_incomplete"
+        },
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+          "proof_obligations": 2,
+          "cost_usd": 0.15038,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 1,
+          "candidates_per_iteration": 1,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [],
+          "retry_feedback_source": "semantic_review+lean_compilation",
+          "retrieval_queries": [
+            "EuclideanSpace Real (Fin n) norm inner product PiLp",
+            "Metric.tendsto_nhds nhds 𝓝 import topology",
+            "convexHull mem_convexHull finset weighted sum simplex EuclideanSpace"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items05784E1F74/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.5",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 5759,
+            "completion_tokens": 3093,
+            "total_tokens": 8852
+          },
+          "recorded_at": "2026-08-22T13:10:31+00:00"
         }
       ],
       "last_outcome": {
-        "cost_scope": "independent_statement_reviewer",
-        "cost_source": "reviewer_token_usage",
-        "cost_usd": 0.07542,
-        "exit_code": 2,
-        "failure_class": "statement_generation_incomplete",
-        "model": "gpt-5.6-terra",
-        "proof_obligations": 4,
-        "provenance": "agent",
-        "provider": "openai-codex",
-        "reason": "independent bounded statement/source review did not pass",
-        "recorded_at": "2026-08-22T07:38:51+00:00",
-        "review_decision": "BLOCK",
-        "review_evidence": "FateXWork/Questions/Items05784E1F74/IndependentReview.md",
-        "review_findings": [
-          "The source’s final claim is that this demonstrates Theorem 0.0.2 is asymptotically tight in high dimensions. The Lean file explicitly declines to formalize that comparison and proves only the numerical limit of the displayed lower-bound ...",
-          "The source says “for every \\(n\\),” while the bundled witness theorem requires `hn : 0 < n`. The restriction is carefully disclosed and mathematically justified under Lean’s `ℕ` convention, but it is still a scope restriction relative to ...",
-          "Apart from those scope/conclusion issues, the construction, convex-hull membership, universal positive-`k` convex-combination quantification, nonnegative normalized weights, membership of all points in `T`, and the displayed Euclidean-no...",
-          "Formalize or import/state the relevant upper-bound content of Theorem 0.0.2 and add a theorem expressing the resulting asymptotic-tightness comparison, rather than only the lower-bound numerical limit.",
-          "Resolve the dimension scope explicitly: either establish that the source convention means `n > 0` (and use a positive-dimension index type), or record that the literal `n = 0` source case is inconsistent and that the target is necessaril...",
-          "If only the construction and numerical lower-bound limit are intended, label the target as intentionally partial rather than source-complete."
-        ],
-        "review_status": "ok",
         "stage": "statements",
-        "success": false,
+        "success": true,
+        "exit_code": 0,
+        "reason": "bounded retrieval/refinement statement passed",
         "target_file": "FateXWork/Questions/Items05784E1F74/Main.lean",
+        "proof_obligations": 2,
+        "cost_usd": 0.15038,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 1,
+        "candidate_attempts": 1,
+        "candidates_per_iteration": 1,
+        "failure_stage": "",
+        "final_diagnostic": "",
+        "candidate_diagnostics": [],
+        "retry_feedback_source": "semantic_review+lean_compilation",
+        "retrieval_queries": [
+          "EuclideanSpace Real (Fin n) norm inner product PiLp",
+          "Metric.tendsto_nhds nhds 𝓝 import topology",
+          "convexHull mem_convexHull finset weighted sum simplex EuclideanSpace"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "FateXWork/Questions/Items05784E1F74/IndependentReview.md",
+        "review_decision": "PASS",
+        "model": "gpt-5.5",
+        "provider": "openai-codex",
         "usage": {
-          "completion_tokens": 1300,
-          "prompt_tokens": 3642,
-          "total_tokens": 4942
-        }
+          "prompt_tokens": 5759,
+          "completion_tokens": 3093,
+          "total_tokens": 8852
+        },
+        "recorded_at": "2026-08-22T13:10:31+00:00"
       }
     },
     {
