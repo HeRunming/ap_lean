@@ -7715,6 +7715,26 @@ def _managed_tool_result_succeeded(result: str) -> bool:
     return True
 
 
+def _concrete_sorry_free_target_attempt(
+    function_name: str, arguments: Mapping[str, Any], result: str
+) -> bool:
+    """Return whether Lean actually checked one complete target candidate."""
+    if (
+        function_name != "lean_incremental_check"
+        or str(arguments.get("action", "") or "").strip().lower().replace("-", "_")
+        != "check_target"
+        or not str(arguments.get("replacement", "") or "").strip()
+    ):
+        return False
+    payload = _json_tool_result_payload(result)
+    return bool(
+        payload.get("replacement_matches_target") is True
+        and payload.get("has_sorry") is False
+        and payload.get("timed_out") is not True
+        and str(payload.get("backend", "") or "").strip() not in {"", "deterministic_preflight"}
+    )
+
+
 def _verified_patch_result_passed(result: str) -> bool:
     """Return whether apply_verified_patch completed its broad verification gate."""
     payload = _json_tool_result_payload(result)
@@ -24003,32 +24023,18 @@ def _build_agent() -> AIAgent:
         managed_autonomy = getattr(agent, "_managed_autonomy_state", None)
         if isinstance(managed_autonomy, dict):
             assignment = dict(managed_autonomy.get("current_queue_assignment") or {})
-            if (
-                function_name == "lean_incremental_check"
-                and str(_args.get("action", "") or "").strip().lower().replace("-", "_")
-                == "check_target"
-                and str(_args.get("replacement", "") or "").strip()
-            ):
-                with contextlib.suppress(Exception):
-                    target_attempt = json.loads(str(_result or ""))
-                    if (
-                        isinstance(target_attempt, Mapping)
-                        and target_attempt.get("replacement_matches_target") is True
-                        and target_attempt.get("has_sorry") is False
-                        and target_attempt.get("timed_out") is not True
-                        and str(target_attempt.get("backend", "") or "").strip()
-                        not in {"", "deterministic_preflight"}
-                    ):
-                        managed_autonomy["_research_helper_target_candidate_attempted"] = True
-                        _record_agent_activity(
-                            agent,
-                            "research-helper-target-candidate-attempted",
-                            "Accepted a concrete sorry-free target attempt before the next helper",
-                            target_symbol=str(assignment.get("target_symbol", "") or ""),
-                            active_file=str(assignment.get("active_file", "") or ""),
-                            target_candidate_ok=target_attempt.get("ok") is True,
-                            campaign_progress=False,
-                        )
+            if _concrete_sorry_free_target_attempt(function_name, _args, _result):
+                target_attempt = _json_tool_result_payload(_result)
+                managed_autonomy["_research_helper_target_candidate_attempted"] = True
+                _record_agent_activity(
+                    agent,
+                    "research-helper-target-candidate-attempted",
+                    "Accepted a concrete sorry-free target attempt before the next helper",
+                    target_symbol=str(assignment.get("target_symbol", "") or ""),
+                    active_file=str(assignment.get("active_file", "") or ""),
+                    target_candidate_ok=target_attempt.get("ok") is True,
+                    campaign_progress=False,
+                )
             with contextlib.suppress(Exception):
                 _sync_research_helper_integration_admission(
                     agent,

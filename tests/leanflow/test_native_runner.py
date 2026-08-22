@@ -127,6 +127,37 @@ class _FakeAgent(_ManagedRunAgentStub):
         self._checkpoint_mgr = _FakeCheckpointManager()
 
 
+def test_concrete_failed_target_attempt_unlocks_next_helper_step():
+    arguments = {
+        "action": "check_target",
+        "replacement": "theorem demo : True := by\n  aesop",
+    }
+    checked_failure = json.dumps(
+        {
+            "ok": False,
+            "backend": "lean_interact",
+            "replacement_matches_target": True,
+            "has_sorry": False,
+            "timed_out": False,
+        }
+    )
+    assert runner._concrete_sorry_free_target_attempt(
+        "lean_incremental_check", arguments, checked_failure
+    )
+    preflight = json.dumps(
+        {
+            "ok": False,
+            "backend": "deterministic_preflight",
+            "replacement_matches_target": True,
+            "has_sorry": True,
+            "timed_out": False,
+        }
+    )
+    assert not runner._concrete_sorry_free_target_attempt(
+        "lean_incremental_check", arguments, preflight
+    )
+
+
 def test_foreground_checked_helper_is_retained_before_handoff(monkeypatch, tmp_path):
     active = tmp_path / "Demo.lean"
     active.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
