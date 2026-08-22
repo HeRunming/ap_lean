@@ -216,6 +216,33 @@ def test_campaign_plans_book_foundation_from_its_own_document_source():
     assert next_campaign_batch(foundation_done, stage="statements")["id"] == "items-0.5"
 
 
+def test_ready_source_foundation_draft_preempts_unrelated_item_proof():
+    campaign = {
+        "source": "book/qa/questions.json",
+        "batches": [
+            {
+                "id": "foundation-0.0.2",
+                "selection_kind": "document",
+                "source_file": "book/foundations/theorem-0.0.2.json",
+                "labels": ["foundation:0.0.2"],
+                "agent_status": "pending",
+            },
+            {
+                "id": "items-0.4",
+                "selection_kind": "items",
+                "labels": ["0.4"],
+                "agent_status": "statements_completed",
+                "last_outcome": {"target_file": "Book/Items04/Main.lean"},
+            },
+        ],
+    }
+
+    action = plan_next_campaign_action(campaign, python_executable="python")
+    assert action is not None
+    assert action.batch_id == "foundation-0.0.2"
+    assert action.stage == "statements"
+
+
 def test_parallel_claim_is_atomic_and_reserves_total_wave_budget(tmp_path):
     (tmp_path / "book.json").write_text("[]", encoding="utf-8")
     campaign_path = tmp_path / "campaign.json"

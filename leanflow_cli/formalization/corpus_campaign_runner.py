@@ -112,7 +112,19 @@ def plan_next_campaign_action(
     python_executable: str,
 ) -> CampaignAction | None:
     """Plan proof-first continuation so each approved batch closes before drafting more."""
-    proof_batch = next_campaign_batch(campaign, stage="proofs")
+    statement_batch = next_campaign_batch(campaign, stage="statements")
+    # A source foundation unlocks downstream book items and should be drafted as
+    # soon as its own statement dependencies are ready.  Ordinary item drafts
+    # retain proof-first behavior so the corpus does not accumulate sorries.
+    foundation_statement = (
+        statement_batch
+        if statement_batch is not None
+        and str(statement_batch.get("selection_kind", "") or "") == "document"
+        else None
+    )
+    proof_batch = None if foundation_statement is not None else next_campaign_batch(
+        campaign, stage="proofs"
+    )
     if proof_batch is not None:
         target_file = _batch_target_file(proof_batch)
         if not target_file:
@@ -134,7 +146,7 @@ def plan_next_campaign_action(
             ),
         )
 
-    statement_batch = next_campaign_batch(campaign, stage="statements")
+    statement_batch = foundation_statement or statement_batch
     if statement_batch is None:
         return None
     source = str(campaign.get("source", "") or "").strip()
