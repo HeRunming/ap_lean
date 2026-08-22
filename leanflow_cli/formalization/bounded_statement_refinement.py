@@ -329,11 +329,18 @@ def refine_campaign_statement_bounded(
 
     previous_outcome = dict(batch.get("last_outcome", {}) or {})
     previous_failure_stage = str(previous_outcome.get("failure_stage", "") or "")
-    prior_feedback: dict[str, str] = {}
+    prior_feedback_items: dict[str, list[str]] = {}
     for attempt in reversed(list(batch.get("attempts", []) or []) + [previous_outcome]):
         if not isinstance(attempt, Mapping):
             continue
+        review_findings = "\n".join(
+            str(item).strip()
+            for item in attempt.get("review_findings", []) or []
+            if str(item).strip()
+        )
         diagnostics = list(attempt.get("candidate_diagnostics", []) or [])
+        if str(attempt.get("review_decision", "") or "").upper() == "BLOCK" and review_findings:
+            diagnostics.append({"stage": "semantic_review", "diagnostic": review_findings})
         diagnostics.append(
             {
                 "stage": attempt.get("failure_stage", ""),
@@ -345,8 +352,19 @@ def refine_campaign_statement_bounded(
                 continue
             stage = str(item.get("stage", "") or "")
             diagnostic = str(item.get("diagnostic", "") or "").strip()
-            if stage and diagnostic and stage not in prior_feedback:
-                prior_feedback[stage] = diagnostic
+            stage_feedback = prior_feedback_items.setdefault(stage, [])
+            if (
+                stage
+                and diagnostic
+                and diagnostic not in stage_feedback
+                and len(stage_feedback) < 3
+            ):
+                stage_feedback.append(diagnostic)
+    prior_feedback = {
+        stage: "\n\n".join(diagnostics)[:6000]
+        for stage, diagnostics in prior_feedback_items.items()
+        if stage
+    }
 
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     cost_usd = 0.0

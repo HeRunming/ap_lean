@@ -366,6 +366,8 @@ def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, 
                             "target_file": "Book/Main.lean",
                             "failure_stage": "lean_compilation",
                             "final_diagnostic": "Unknown identifier `nhds`.",
+                            "review_decision": "BLOCK",
+                            "review_findings": ["The function-space norm is sup, not Euclidean."],
                         },
                     }
                 ],
@@ -434,9 +436,10 @@ def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, 
     assert "Use EuclideanSpace and require k ≤ n." in prompts[1]
     assert "Unknown identifier `nhds`." in prompts[0]
     assert "Unknown identifier `nhds`." in prompts[1]
+    assert "The function-space norm is sup, not Euclidean." in prompts[0]
+    assert "The function-space norm is sup, not Euclidean." in prompts[1]
     assert any(
-        "actual typeclass semantics" in prompt
-        and "Use EuclideanSpace and require k ≤ n." in prompt
+        "actual typeclass semantics" in prompt and "Use EuclideanSpace and require k ≤ n." in prompt
         for prompt in prompts
     )
     assert len(compile_calls) == 2
