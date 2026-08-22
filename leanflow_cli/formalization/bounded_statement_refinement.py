@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -75,7 +76,11 @@ def parse_statement_draft(text: str) -> StatementDraft:
     declarations = payload.get("declarations", []) or []
     if isinstance(declarations, str):
         declarations = [declarations]
-    names = tuple(str(value).strip() for value in declarations if str(value).strip())
+    names = tuple(
+        str(value.get("name", "") if isinstance(value, Mapping) else value).strip()
+        for value in declarations
+        if str(value.get("name", "") if isinstance(value, Mapping) else value).strip()
+    )
     if not names:
         names = tuple(
             match.group(1)
@@ -105,7 +110,7 @@ def parse_retrieval_queries(text: str, *, limit: int = 3) -> tuple[str, ...]:
     for line in body.splitlines():
         query = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip()
         key = query.casefold()
-        if not query or len(query) > 160 or key in seen:
+        if not query or key in {"lean", "json", "text", "plaintext"} or len(query) > 160 or key in seen:
             continue
         seen.add(key)
         queries.append(query)
@@ -123,14 +128,25 @@ def _result_usage(result: VerificationReviewResult) -> dict[str, float | int]:
     }
 
 
-def _source_statement(source_file: Path) -> tuple[str, str, str]:
+def _source_statement(source_file: Path, *, labels: Sequence[str] = ()) -> tuple[str, str, str]:
     payload = json.loads(source_file.read_text(encoding="utf-8"))
     raw_items = payload.get("questions", []) if isinstance(payload, Mapping) else payload
-    if not isinstance(raw_items, list) or len(raw_items) != 1 or not isinstance(raw_items[0], Mapping):
+    if not isinstance(raw_items, list):
         raise BoundedStatementRefinementError(
-            "bounded document statement lane currently requires one QA JSON item"
+            "bounded statement lane requires a QA JSON item list"
         )
-    item = raw_items[0]
+    requested = {str(label) for label in labels if str(label)}
+    selected = [
+        item
+        for item in raw_items
+        if isinstance(item, Mapping)
+        and (not requested or str(item.get("label", "") or "") in requested)
+    ]
+    if len(selected) != 1:
+        raise BoundedStatementRefinementError(
+            f"bounded statement lane requires exactly one selected QA item, found {len(selected)}"
+        )
+    item = selected[0]
     label = str(item.get("label", "") or "source-item").strip()
     statement = str(item.get("question", item.get("statement", "")) or "").strip()
     proof = str(item.get("solution", item.get("proof", "")) or "").strip()
@@ -173,6 +189,31 @@ def _render_blueprint(
     )
 
 
+def derive_bounded_statement_target(
+    project_root: str | Path,
+    *,
+    source_file: str,
+    batch_id: str,
+    selection_kind: str,
+) -> str:
+    """Derive the same stable target layout as document formalization."""
+    root = Path(project_root).expanduser().resolve()
+
+    def safe_name(value: str, default: str) -> str:
+        words = re.findall(r"[A-Za-z0-9]+", value or "")
+        name = "".join(word[:1].upper() + word[1:] for word in words) if words else default
+        if not re.match(r"^[A-Za-z_]", name):
+            name = f"{default}{name}"
+        return name[:80] or default
+
+    source = Path(source_file)
+    target = root / safe_name(root.name, "Formalization") / safe_name(source.stem, "Document")
+    if selection_kind != "document":
+        digest = hashlib.sha256(batch_id.encode("utf-8")).hexdigest()[:8].upper()
+        target /= f"{safe_name(batch_id, 'Scope')}{digest}"
+    return str((target / "Main.lean").relative_to(root))
+
+
 def refine_campaign_statement_bounded(
     campaign_path: str | Path,
     *,
@@ -202,14 +243,34 @@ def refine_campaign_statement_bounded(
     )
     if not isinstance(batch, Mapping):
         raise BoundedStatementRefinementError(f"unknown campaign batch: {batch_id}")
+    if str(batch.get("status", "") or "") in {
+        "statements_completed",
+        "proofs_completed",
+        "completed",
+    }:
+        raise BoundedStatementRefinementError(
+            f"batch {batch_id} already has a completed statement stage"
+        )
     source_relative = str(batch.get("source_file", campaign.get("source", "")) or "").strip()
+    if not source_relative:
+        source_relative = str(campaign.get("source", "") or "").strip()
     target_relative = str(dict(batch.get("last_outcome", {}) or {}).get("target_file", "") or "").strip()
+    if not target_relative and source_relative:
+        target_relative = derive_bounded_statement_target(
+            root,
+            source_file=source_relative,
+            batch_id=batch_id,
+            selection_kind=str(batch.get("selection_kind", "items") or "items"),
+        )
     if not source_relative or not target_relative:
         raise BoundedStatementRefinementError("batch is missing source_file or target_file")
     source_file, target = (root / source_relative).resolve(), (root / target_relative).resolve()
     if not source_file.is_relative_to(root) or not target.is_relative_to(root):
         raise BoundedStatementRefinementError("bounded statement path escapes project root")
-    label, statement, proof = _source_statement(source_file)
+    label, statement, proof = _source_statement(
+        source_file,
+        labels=tuple(str(value) for value in batch.get("labels", []) or []),
+    )
 
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     cost_usd = 0.0

@@ -355,6 +355,8 @@ def execute_next_campaign_action(
     model: str = "",
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
+    bounded_statements: bool = False,
+    lake_executable: str = "lake",
 ) -> dict[str, Any]:
     """Execute exactly one admitted action; the native runner commits its outcome."""
     path = Path(campaign_path).expanduser().resolve()
@@ -385,6 +387,8 @@ def execute_next_campaign_action(
         provider=provider,
         model=select_campaign_model(campaign, action, fallback_model=model, policy=model_policy),
         environ=environ,
+        bounded_statements=bounded_statements,
+        lake_executable=lake_executable,
     )
 
 
@@ -398,6 +402,8 @@ def _execute_campaign_action(
     provider: str = "",
     model: str = "",
     environ: Mapping[str, str] | None = None,
+    bounded_statements: bool = False,
+    lake_executable: str = "lake",
 ) -> dict[str, Any]:
     """Launch one already selected action without re-running global selection."""
     path = Path(campaign_path).expanduser().resolve()
@@ -442,6 +448,27 @@ def _execute_campaign_action(
         ),
         {},
     )
+    if bounded_statements and action.stage == "statements":
+        outcome = refine_campaign_statement_bounded(
+            path,
+            project_root=project_root,
+            batch_id=action.batch_id,
+            reserve_usd=reserve_usd,
+            provider=provider or "auto",
+            generator_model=model,
+            judge_model=model,
+            lake_executable=lake_executable,
+            max_iterations=3,
+            timeout_s=int(child_env.get("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")),
+        )
+        return {
+            "executed": True,
+            "stage": action.stage,
+            "batch_id": action.batch_id,
+            "exit_code": int(outcome["exit_code"]),
+            "success": bool(outcome["success"]),
+            "outcome": outcome,
+        }
     last_outcome = dict(selected_batch.get("last_outcome", {}) or {})
     review_evidence = str(last_outcome.get("review_evidence", "") or "").strip()
     if (
@@ -508,6 +535,8 @@ def execute_campaign_wave(
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     lease_ttl_seconds: int = 7200,
+    bounded_statements: bool = False,
+    lake_executable: str = "lake",
 ) -> list[dict[str, Any]]:
     """Run a budget-safe wave of distinct leased batches concurrently."""
     path = Path(campaign_path).expanduser().resolve()
@@ -536,6 +565,8 @@ def execute_campaign_wave(
                 provider=provider,
                 model=selected_model,
                 environ={**dict(environ or os.environ), "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id},
+                bounded_statements=bounded_statements,
+                lake_executable=lake_executable,
             )
             result["model"] = selected_model
             return result
@@ -944,6 +975,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--batch-item-limit", type=int, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--bounded-statements", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--lean-slots", type=int, default=1)
     parser.add_argument("--lease-ttl-seconds", type=int, default=7200)
@@ -1085,6 +1117,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model=args.model,
                 model_policy=model_policy,
                 environ=execution_env,
+                bounded_statements=args.bounded_statements,
+                lake_executable=args.lake_executable,
             )
         else:
             results = execute_campaign_wave(
@@ -1098,6 +1132,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model_policy=model_policy,
                 environ=execution_env,
                 lease_ttl_seconds=args.lease_ttl_seconds,
+                bounded_statements=args.bounded_statements,
+                lake_executable=args.lake_executable,
             )
             outcome = {
                 "executed": bool(results),

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from leanflow_cli.formalization import bounded_statement_refinement as bounded
+from leanflow_cli.formalization import corpus_campaign_runner
 from leanflow_cli.workflows.verification_providers import VerificationReviewResult
 
 
@@ -39,6 +40,31 @@ def test_statement_draft_rejects_a_proof_body():
     )
     with pytest.raises(bounded.BoundedStatementRefinementError, match="sorry placeholder"):
         bounded.parse_statement_draft(payload)
+
+
+def test_statement_draft_normalizes_structured_declaration_names():
+    payload = json.dumps(
+        {
+            "lean_code": "import Mathlib\ntheorem demo : True := by sorry",
+            "declarations": [{"name": "demo", "kind": "theorem"}],
+        }
+    )
+    assert bounded.parse_statement_draft(payload).declarations == ("demo",)
+
+
+def test_retrieval_queries_ignore_fence_language_marker():
+    assert bounded.parse_retrieval_queries("```lean\nconvexHull Euclidean norm\n```") == (
+        "convexHull Euclidean norm",
+    )
+
+
+def test_bounded_target_derivation_matches_document_layout(tmp_path):
+    assert bounded.derive_bounded_statement_target(
+        tmp_path / "fate-x-work",
+        source_file="HDP/source/full/qa/questions.json",
+        batch_id="items-0.5",
+        selection_kind="items",
+    ) == "FateXWork/Questions/Items05784E1F74/Main.lean"
 
 
 def test_bounded_statement_lane_compiles_judges_records_and_writes(tmp_path, monkeypatch):
@@ -199,3 +225,84 @@ def test_bounded_statement_lane_fails_fast_on_provider_error(tmp_path):
     assert calls == 1
     assert outcome["success"] is False
     assert outcome["iterations"] == 1
+
+
+def test_bounded_statement_lane_rejects_completed_batch_without_model_call(tmp_path):
+    source = tmp_path / "source.json"
+    source.write_text(json.dumps([{"question": "Prove True."}]), encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "source.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [
+                    {
+                        "id": "b",
+                        "status": "statements_completed",
+                        "source_file": "source.json",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(bounded.BoundedStatementRefinementError, match="already"):
+        bounded.refine_campaign_statement_bounded(
+            campaign_path,
+            project_root=tmp_path,
+            batch_id="b",
+            reserve_usd=1.0,
+            provider="openai-codex",
+            model_call=lambda **kwargs: pytest.fail("provider must not be called"),
+        )
+
+
+def test_campaign_executor_routes_statement_to_bounded_lane(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign = {
+        "source": "source.json",
+        "spent_usd": 0.0,
+        "budget_usd": 2.0,
+        "batches": [
+            {
+                "id": "items-0.1",
+                "labels": ["0.1"],
+                "selection_kind": "items",
+                "attempts": [],
+            }
+        ],
+    }
+    campaign_path.write_text(json.dumps(campaign), encoding="utf-8")
+    observed = {}
+
+    def fake_refine(*args, **kwargs):
+        observed.update(kwargs)
+        return {"success": True, "exit_code": 0}
+
+    monkeypatch.setattr(corpus_campaign_runner, "refine_campaign_statement_bounded", fake_refine)
+    action = corpus_campaign_runner.CampaignAction(
+        stage="statements",
+        batch_id="items-0.1",
+        labels=("0.1",),
+        argv=("python", "-m", "leanflow_cli.main", "workflow", "formalize", "source.json"),
+    )
+
+    result = corpus_campaign_runner._execute_campaign_action(
+        action,
+        campaign_path=campaign_path,
+        campaign=campaign,
+        project_root=tmp_path,
+        reserve_usd=0.5,
+        provider="openai-codex",
+        model="gpt-5.6-terra",
+        bounded_statements=True,
+        lake_executable="remote-lake",
+    )
+
+    assert result["success"] is True
+    assert observed["batch_id"] == "items-0.1"
+    assert observed["lake_executable"] == "remote-lake"
