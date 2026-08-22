@@ -745,9 +745,10 @@ def target_consumption_pending(
         autonomy_state[_HYDRATION_KEY] = _PROCESS_HYDRATION_TOKEN
         return False
     if _target_body_consumes_helper(record):
-        _update_durable_state(consumption={})
-        _set_memory_consumption(autonomy_state, None)
-        autonomy_state[_HYDRATION_KEY] = _PROCESS_HYDRATION_TOKEN
+        # Keep the durable marker until the exact target passes verification.
+        # A provisional proof may reference the helper and later be replaced by
+        # another partial candidate.  Retaining the marker lets the fence
+        # automatically reactivate if that concrete use disappears.
         return False
     return True
 

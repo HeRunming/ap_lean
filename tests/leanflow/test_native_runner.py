@@ -14313,6 +14313,24 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
         )
         is None
     )
+    assert (
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_search",
+            {"query": "one focused follow-up", "file_path": str(active)},
+        )
+        is None
+    )
+    blocked_search = json.loads(
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_search",
+            {"query": "unbounded third lookup", "file_path": str(active)},
+        )
+    )
+    assert blocked_search["status"] == "target_proof_consumption_required"
+    assert blocked_search["searches_allowed"] == 2
+    assert blocked_search["searches_used"] == 2
     blocked_decompose = json.loads(
         runner._managed_pre_tool_call(
             agent,
@@ -14418,6 +14436,7 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
         + "theorem demo : True := by\n  have h := first_helper\n  sorry\n",
         encoding="utf-8",
     )
+    assert runner.research_helper_candidate_priority.target_consumption_record(state)
     next_priority = json.loads(
         runner._managed_pre_tool_call(
             agent,
@@ -14438,8 +14457,8 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
             {"theorem_id": "demo", "file_path": str(active)},
         )
     )
-    assert unverified_placeholder_removal["status"] == "checked_helper_integration_required"
-    assert unverified_placeholder_removal["helper_symbol"] == "second_helper"
+    assert unverified_placeholder_removal["status"] == "target_proof_consumption_required"
+    assert unverified_placeholder_removal["previous_helper"] == "first_helper"
     assert releases
 
 

@@ -11414,6 +11414,35 @@ def _research_helper_candidate_pre_tool_guard(
         target_symbol=target_symbol,
         active_file=active_file,
     )
+    if consumption_pending and function_name == "lean_search":
+        search_key = "_research_helper_target_consumption_search_count"
+        try:
+            search_count = max(0, int(autonomy_state.get(search_key, 0) or 0))
+        except (TypeError, ValueError):
+            search_count = 0
+        if search_count >= 2:
+            record = research_helper_candidate_priority.target_consumption_record(autonomy_state)
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "target_proof_consumption_required",
+                    "blocked_tool": function_name,
+                    "target_symbol": target_symbol,
+                    "previous_helper": record.get("helper_name", ""),
+                    "searches_allowed": 2,
+                    "searches_used": search_count,
+                    "required_action": (
+                        "The bounded lookup allowance is exhausted. Use the integrated helper "
+                        "in a concrete assigned-proof replacement and run `check_target`."
+                    ),
+                    "reason": (
+                        "Further open-ended retrieval would spend the proof budget without "
+                        "testing deterministic progress on the assigned theorem."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        autonomy_state[search_key] = search_count + 1
     if consumption_pending and function_name == "lean_incremental_check":
         action = str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
         if action == "check_helper":
