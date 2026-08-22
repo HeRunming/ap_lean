@@ -31278,10 +31278,14 @@ def _research_helper_consumption_prompt(
                 f"{candidate.target_symbol if candidate is not None else record.get('target_symbol', '')}"
             ),
             "- helper-only source growth cannot preempt the assigned proof indefinitely",
-            "- use the previously banked helper in the assigned declaration, or make another "
-            "concrete proof-body edit that tests its route, before integrating this candidate",
-            "- the deferred candidate remains durable and will regain priority after the assigned "
-            "target passes manager verification",
+            "- required next action: patch the assigned proof body so it concretely invokes the "
+            "previously banked helper; a typed intermediate `have` followed by the existing "
+            "residual `sorry` is acceptable as a proof skeleton",
+            "- after that source edit, run `check_target`; do not search, request unchanged "
+            "feedback, or propose another helper first",
+            "- once the checked target skeleton retains the helper reference, bounded work on the "
+            "next residual helper may resume; final completion still requires an exact sorry-free "
+            "target verification",
         ]
     )
 
