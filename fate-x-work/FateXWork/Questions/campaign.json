@@ -8,7 +8,7 @@
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 7,
   "failure_class_counts": {
-    "budget_limit": 25,
+    "budget_limit": 26,
     "statement_generation_incomplete": 33,
     "infrastructure": 14,
     "proof_incomplete": 2
@@ -16,7 +16,7 @@
   "statement_completed_batch_count": 7,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 127.213,
+  "spent_usd": 128.97682,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -218,26 +218,45 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "proof_incomplete"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-22T13:20:21+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 167226,
+            "completion_tokens": 3052,
+            "total_tokens": 170278
+          },
+          "cost_usd": 1.76382,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
         "success": false,
-        "exit_code": 130,
-        "recorded_at": "2026-08-22T11:30:04+00:00",
+        "exit_code": 2,
+        "recorded_at": "2026-08-22T13:20:21+00:00",
         "target_file": "FateXWork/Theorem002/Main.lean",
         "proof_obligations": 1,
-        "reason": "signal interrupt",
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 151591,
-          "completion_tokens": 5375,
-          "total_tokens": 156966
+          "prompt_tokens": 167226,
+          "completion_tokens": 3052,
+          "total_tokens": 170278
         },
-        "cost_usd": 1.67716,
+        "cost_usd": 1.76382,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
-        "failure_class": "proof_incomplete"
+        "failure_class": "budget_limit"
       }
     },
     {
