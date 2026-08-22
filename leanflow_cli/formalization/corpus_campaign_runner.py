@@ -18,6 +18,9 @@ from pathlib import Path
 from typing import Any
 
 from core.utils import atomic_json_write
+from leanflow_cli.formalization.bounded_statement_refinement import (
+    refine_campaign_statement_bounded,
+)
 from leanflow_cli.formalization.campaign_store import read_campaign, update_campaign_file
 from leanflow_cli.formalization.corpus_campaign import (
     build_campaign,
@@ -949,6 +952,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--review-file", default="")
     parser.add_argument("--accept-local-proof", default="")
     parser.add_argument("--review-agent-statement", default="")
+    parser.add_argument("--refine-statement-bounded", default="")
+    parser.add_argument("--max-statement-iterations", type=int, default=3)
     parser.add_argument("--review-provider", default="main")
     parser.add_argument("--review-model", default="")
     parser.add_argument("--review-timeout-seconds", type=int, default=90)
@@ -958,6 +963,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     campaign_path = Path(args.campaign).expanduser().resolve()
     project_root = Path(args.project_root).expanduser().resolve()
+    if args.refine_statement_bounded:
+        if args.reserve_usd is None or args.reserve_usd <= 0:
+            parser.error("--refine-statement-bounded requires a positive --reserve-usd")
+        if not 1 <= args.max_statement_iterations <= 3:
+            parser.error("--max-statement-iterations must be between 1 and 3")
+        outcome = refine_campaign_statement_bounded(
+            campaign_path,
+            project_root=project_root,
+            batch_id=args.refine_statement_bounded,
+            reserve_usd=args.reserve_usd,
+            provider=args.review_provider,
+            generator_model=args.statement_model or args.model,
+            judge_model=args.review_model,
+            lake_executable=args.lake_executable,
+            max_iterations=args.max_statement_iterations,
+            timeout_s=args.review_timeout_seconds,
+        )
+        print(json.dumps(outcome, ensure_ascii=False, indent=2))
+        return 0 if outcome["success"] else 1
     if args.review_agent_statement:
         if args.reserve_usd is None or args.reserve_usd <= 0:
             parser.error("--review-agent-statement requires a positive --reserve-usd")
