@@ -125,8 +125,8 @@ def plan_next_campaign_action(
         and str(statement_batch.get("selection_kind", "") or "") == "document"
         else None
     )
-    proof_batch = None if foundation_statement is not None else next_campaign_batch(
-        campaign, stage="proofs"
+    proof_batch = (
+        None if foundation_statement is not None else next_campaign_batch(campaign, stage="proofs")
     )
     if proof_batch is not None:
         target_file = _batch_target_file(proof_batch)
@@ -353,6 +353,13 @@ def execute_next_campaign_action(
     reserve_usd: float,
     provider: str = "",
     model: str = "",
+    statement_provider: str = "",
+    statement_planner_provider: str = "",
+    statement_planner_model: str = "",
+    statement_fallback_provider: str = "",
+    statement_fallback_model: str = "",
+    statement_judge_provider: str = "",
+    statement_judge_model: str = "",
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
@@ -386,6 +393,13 @@ def execute_next_campaign_action(
         reserve_usd=reserve_usd,
         provider=provider,
         model=select_campaign_model(campaign, action, fallback_model=model, policy=model_policy),
+        statement_provider=statement_provider,
+        statement_planner_provider=statement_planner_provider,
+        statement_planner_model=statement_planner_model,
+        statement_fallback_provider=statement_fallback_provider,
+        statement_fallback_model=statement_fallback_model,
+        statement_judge_provider=statement_judge_provider,
+        statement_judge_model=statement_judge_model,
         environ=environ,
         bounded_statements=bounded_statements,
         lake_executable=lake_executable,
@@ -401,6 +415,13 @@ def _execute_campaign_action(
     reserve_usd: float,
     provider: str = "",
     model: str = "",
+    statement_provider: str = "",
+    statement_planner_provider: str = "",
+    statement_planner_model: str = "",
+    statement_fallback_provider: str = "",
+    statement_fallback_model: str = "",
+    statement_judge_provider: str = "",
+    statement_judge_model: str = "",
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
     lake_executable: str = "lake",
@@ -455,8 +476,14 @@ def _execute_campaign_action(
             batch_id=action.batch_id,
             reserve_usd=reserve_usd,
             provider=provider or "auto",
+            planner_provider=statement_planner_provider,
+            generator_provider=statement_provider,
+            generator_fallback_provider=statement_fallback_provider,
+            generator_fallback_model=statement_fallback_model,
+            planner_model=statement_planner_model,
+            judge_provider=statement_judge_provider,
             generator_model=model,
-            judge_model=model,
+            judge_model=statement_judge_model or model,
             lake_executable=lake_executable,
             max_iterations=3,
             timeout_s=int(child_env.get("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")),
@@ -550,6 +577,13 @@ def execute_campaign_wave(
     reserve_usd: float,
     provider: str = "",
     model: str = "",
+    statement_provider: str = "",
+    statement_planner_provider: str = "",
+    statement_planner_model: str = "",
+    statement_fallback_provider: str = "",
+    statement_fallback_model: str = "",
+    statement_judge_provider: str = "",
+    statement_judge_model: str = "",
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     lease_ttl_seconds: int = 7200,
@@ -582,6 +616,13 @@ def execute_campaign_wave(
                 reserve_usd=reserve_usd,
                 provider=provider,
                 model=selected_model,
+                statement_provider=statement_provider,
+                statement_planner_provider=statement_planner_provider,
+                statement_planner_model=statement_planner_model,
+                statement_fallback_provider=statement_fallback_provider,
+                statement_fallback_model=statement_fallback_model,
+                statement_judge_provider=statement_judge_provider,
+                statement_judge_model=statement_judge_model,
                 environ={**dict(environ or os.environ), "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id},
                 bounded_statements=bounded_statements,
                 lake_executable=lake_executable,
@@ -986,6 +1027,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--provider", default="")
     parser.add_argument("--model", default="")
     parser.add_argument("--statement-model", default="")
+    parser.add_argument("--statement-provider", default="")
+    parser.add_argument("--statement-planner-provider", default="")
+    parser.add_argument("--statement-planner-model", default="")
+    parser.add_argument("--statement-fallback-provider", default="")
+    parser.add_argument("--statement-fallback-model", default="")
+    parser.add_argument("--statement-judge-provider", default="")
+    parser.add_argument("--statement-judge-model", default="")
     parser.add_argument("--proof-model", default="")
     parser.add_argument("--escalation-model", default="")
     parser.add_argument("--escalate-after-failures", type=int, default=2)
@@ -1024,8 +1072,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             batch_id=args.refine_statement_bounded,
             reserve_usd=args.reserve_usd,
             provider=args.review_provider,
+            generator_provider=args.statement_provider,
+            planner_provider=args.statement_planner_provider,
+            generator_fallback_provider=args.statement_fallback_provider,
+            generator_fallback_model=args.statement_fallback_model,
+            planner_model=args.statement_planner_model,
+            judge_provider=args.statement_judge_provider or args.review_provider,
             generator_model=args.statement_model or args.model,
-            judge_model=args.review_model,
+            judge_model=args.statement_judge_model or args.review_model,
             lake_executable=args.lake_executable,
             max_iterations=args.max_statement_iterations,
             timeout_s=args.review_timeout_seconds,
@@ -1133,6 +1187,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reserve_usd=args.reserve_usd,
                 provider=args.provider,
                 model=args.model,
+                statement_provider=args.statement_provider,
+                statement_planner_provider=args.statement_planner_provider,
+                statement_planner_model=args.statement_planner_model,
+                statement_fallback_provider=args.statement_fallback_provider,
+                statement_fallback_model=args.statement_fallback_model,
+                statement_judge_provider=args.statement_judge_provider,
+                statement_judge_model=args.statement_judge_model,
                 model_policy=model_policy,
                 environ=execution_env,
                 bounded_statements=args.bounded_statements,
@@ -1147,6 +1208,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reserve_usd=args.reserve_usd,
                 provider=args.provider,
                 model=args.model,
+                statement_provider=args.statement_provider,
+                statement_planner_provider=args.statement_planner_provider,
+                statement_planner_model=args.statement_planner_model,
+                statement_fallback_provider=args.statement_fallback_provider,
+                statement_fallback_model=args.statement_fallback_model,
+                statement_judge_provider=args.statement_judge_provider,
+                statement_judge_model=args.statement_judge_model,
                 model_policy=model_policy,
                 environ=execution_env,
                 lease_ttl_seconds=args.lease_ttl_seconds,

@@ -59,18 +59,23 @@ def test_retrieval_queries_ignore_fence_language_marker():
 
 
 def test_bounded_target_derivation_matches_document_layout(tmp_path):
-    assert bounded.derive_bounded_statement_target(
-        tmp_path / "fate-x-work",
-        source_file="HDP/source/full/qa/questions.json",
-        batch_id="items-0.5",
-        selection_kind="items",
-    ) == "FateXWork/Questions/Items05784E1F74/Main.lean"
+    assert (
+        bounded.derive_bounded_statement_target(
+            tmp_path / "fate-x-work",
+            source_file="HDP/source/full/qa/questions.json",
+            batch_id="items-0.5",
+            selection_kind="items",
+        )
+        == "FateXWork/Questions/Items05784E1F74/Main.lean"
+    )
 
 
 def test_bounded_statement_lane_compiles_judges_records_and_writes(tmp_path, monkeypatch):
     source = tmp_path / "source.json"
     source.write_text(
-        json.dumps({"questions": [{"label": "0.1", "question": "Prove True.", "proof": "Immediate."}]}),
+        json.dumps(
+            {"questions": [{"label": "0.1", "question": "Prove True.", "proof": "Immediate."}]}
+        ),
         encoding="utf-8",
     )
     target = tmp_path / "Book" / "Main.lean"
@@ -132,7 +137,9 @@ def test_bounded_statement_lane_compiles_judges_records_and_writes(tmp_path, mon
     assert outcome["success"] is True
     assert outcome["cost_usd"] == pytest.approx(0.3)
     assert target.read_text(encoding="utf-8").endswith("by sorry\n")
-    assert "approved by main verifier" in target.with_name("Blueprint.md").read_text(encoding="utf-8")
+    assert "approved by main verifier" in target.with_name("Blueprint.md").read_text(
+        encoding="utf-8"
+    )
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert campaign["spent_usd"] == pytest.approx(1.3)
     assert campaign["batches"][0]["status"] == "statements_completed"
@@ -211,7 +218,9 @@ def test_bounded_statement_lane_fails_fast_on_provider_error(tmp_path):
         nonlocal calls
         calls += 1
         result = _review("")
-        return VerificationReviewResult(**{**result.__dict__, "status": "error", "error": "no credentials"})
+        return VerificationReviewResult(
+            **{**result.__dict__, "status": "error", "error": "no credentials"}
+        )
 
     outcome = bounded.refine_campaign_statement_bounded(
         campaign_path,
@@ -225,6 +234,91 @@ def test_bounded_statement_lane_fails_fast_on_provider_error(tmp_path):
     assert calls == 1
     assert outcome["success"] is False
     assert outcome["iterations"] == 1
+
+
+def test_bounded_statement_lane_uses_independent_roles_and_generator_fallback(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "source.json"
+    source.write_text(
+        json.dumps([{"question": "Prove True.", "proof": "Immediate."}]),
+        encoding="utf-8",
+    )
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "source.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [
+                    {
+                        "id": "b",
+                        "source_file": "source.json",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    def routed_call(**kwargs):
+        calls.append((kwargs["provider"], kwargs["task"]))
+        if len(calls) == 1:
+            return _review("```\nTrue theorem\n```")
+        if len(calls) == 2:
+            failed = _review("")
+            return VerificationReviewResult(
+                **{**failed.__dict__, "status": "unavailable", "error": "endpoint offline"}
+            )
+        if len(calls) == 3:
+            return _review(
+                json.dumps(
+                    {
+                        "lean_code": "import Mathlib\n\ntheorem demo : True := by sorry\n",
+                        "declarations": ["demo"],
+                    }
+                )
+            )
+        return _review("PASS\nFaithful.")
+
+    monkeypatch.setattr(
+        bounded.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+    outcome = bounded.refine_campaign_statement_bounded(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="b",
+        reserve_usd=1.0,
+        provider="main",
+        planner_provider="planner",
+        generator_provider="mathform",
+        generator_fallback_provider="gpt-fallback",
+        judge_provider="independent-judge",
+        model_call=routed_call,
+        search_call=lambda *args, **kwargs: SimpleNamespace(to_dict=lambda: {"results": []}),
+    )
+
+    assert outcome["success"] is True
+    assert [provider for provider, _task in calls] == [
+        "planner",
+        "mathform",
+        "gpt-fallback",
+        "independent-judge",
+    ]
+    assert outcome["statement_providers"] == {
+        "planner": "planner",
+        "generator": "mathform",
+        "generator_fallback": "gpt-fallback",
+        "judge": "independent-judge",
+    }
+    review = (tmp_path / "Book" / "IndependentReview.md").read_text(encoding="utf-8")
+    assert "`independent-judge`" in review
 
 
 def test_bounded_statement_lane_rejects_completed_batch_without_model_call(tmp_path):

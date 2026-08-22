@@ -59,7 +59,9 @@ def parse_statement_draft(text: str) -> StatementDraft:
     payload = _extract_json_object(text)
     lean_code = str(payload.get("lean_code", "") or "").strip()
     if not lean_code or "sorry" not in lean_code:
-        raise BoundedStatementRefinementError("draft must contain Lean code with a sorry placeholder")
+        raise BoundedStatementRefinementError(
+            "draft must contain Lean code with a sorry placeholder"
+        )
     forbidden = re.search(r"\b(?:admit|axiom|set_option\s+maxRecDepth|unsafe)\b", lean_code)
     if forbidden:
         raise BoundedStatementRefinementError(
@@ -110,7 +112,12 @@ def parse_retrieval_queries(text: str, *, limit: int = 3) -> tuple[str, ...]:
     for line in body.splitlines():
         query = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip()
         key = query.casefold()
-        if not query or key in {"lean", "json", "text", "plaintext"} or len(query) > 160 or key in seen:
+        if (
+            not query
+            or key in {"lean", "json", "text", "plaintext"}
+            or len(query) > 160
+            or key in seen
+        ):
             continue
         seen.add(key)
         queries.append(query)
@@ -132,9 +139,7 @@ def _source_statement(source_file: Path, *, labels: Sequence[str] = ()) -> tuple
     payload = json.loads(source_file.read_text(encoding="utf-8"))
     raw_items = payload.get("questions", []) if isinstance(payload, Mapping) else payload
     if not isinstance(raw_items, list):
-        raise BoundedStatementRefinementError(
-            "bounded statement lane requires a QA JSON item list"
-        )
+        raise BoundedStatementRefinementError("bounded statement lane requires a QA JSON item list")
     requested = {str(label) for label in labels if str(label)}
     selected = [
         item
@@ -163,13 +168,23 @@ def _format_retrieval_context(entries: Sequence[Mapping[str, Any]]) -> str:
         chunks.append(f"Query: {query}")
         for result in results[:2]:
             if isinstance(result, Mapping):
-                compact = {key: result[key] for key in ("name", "module", "statement", "file", "line", "preview", "match") if key in result}
+                compact = {
+                    key: result[key]
+                    for key in ("name", "module", "statement", "file", "line", "preview", "match")
+                    if key in result
+                }
                 chunks.append(json.dumps(compact, ensure_ascii=False)[:2400])
     return "\n".join(chunks)[:12000]
 
 
 def _render_blueprint(
-    *, source_file: str, target_file: str, label: str, statement: str, proof: str, draft: StatementDraft
+    *,
+    source_file: str,
+    target_file: str,
+    label: str,
+    statement: str,
+    proof: str,
+    draft: StatementDraft,
 ) -> str:
     declarations = ", ".join(f"`{name}`" for name in draft.declarations)
     return (
@@ -221,7 +236,13 @@ def refine_campaign_statement_bounded(
     batch_id: str,
     reserve_usd: float,
     provider: str,
+    planner_provider: str = "",
+    generator_provider: str = "",
+    judge_provider: str = "",
+    generator_fallback_provider: str = "",
+    planner_model: str = "",
     generator_model: str = "",
+    generator_fallback_model: str = "",
     judge_model: str = "",
     lake_executable: str = "lake",
     max_iterations: int = 3,
@@ -236,9 +257,15 @@ def refine_campaign_statement_bounded(
     budget = float(campaign.get("budget_usd", 0.0) or 0.0)
     spent = float(campaign.get("spent_usd", 0.0) or 0.0)
     if reserve_usd <= 0 or spent + reserve_usd > budget:
-        raise BoundedStatementRefinementError("campaign budget does not cover bounded statement action")
+        raise BoundedStatementRefinementError(
+            "campaign budget does not cover bounded statement action"
+        )
     batch = next(
-        (item for item in campaign.get("batches", []) or [] if isinstance(item, Mapping) and str(item.get("id", "")) == batch_id),
+        (
+            item
+            for item in campaign.get("batches", []) or []
+            if isinstance(item, Mapping) and str(item.get("id", "")) == batch_id
+        ),
         None,
     )
     if not isinstance(batch, Mapping):
@@ -254,7 +281,9 @@ def refine_campaign_statement_bounded(
     source_relative = str(batch.get("source_file", campaign.get("source", "")) or "").strip()
     if not source_relative:
         source_relative = str(campaign.get("source", "") or "").strip()
-    target_relative = str(dict(batch.get("last_outcome", {}) or {}).get("target_file", "") or "").strip()
+    target_relative = str(
+        dict(batch.get("last_outcome", {}) or {}).get("target_file", "") or ""
+    ).strip()
     if not target_relative and source_relative:
         target_relative = derive_bounded_statement_target(
             root,
@@ -282,7 +311,20 @@ def refine_campaign_statement_bounded(
     final_review = ""
     iterations = 0
 
-    def call_model(*, task: str, prompt: str, system_prompt: str, model: str, max_tokens: int) -> VerificationReviewResult:
+    default_provider = provider or "auto"
+    effective_planner_provider = planner_provider or default_provider
+    effective_generator_provider = generator_provider or default_provider
+    effective_judge_provider = judge_provider or default_provider
+
+    def call_model(
+        *,
+        task: str,
+        prompt: str,
+        system_prompt: str,
+        model: str,
+        max_tokens: int,
+        call_provider: str,
+    ) -> VerificationReviewResult:
         nonlocal cost_usd
         env_name = (
             "AUXILIARY_BLUEPRINT_VERIFICATION_MODEL"
@@ -294,7 +336,7 @@ def refine_campaign_statement_bounded(
             os.environ[env_name] = model
         try:
             result = model_call(
-                provider=provider,
+                provider=call_provider,
                 task=task,
                 prompt=prompt,
                 system_prompt=system_prompt,
@@ -317,7 +359,8 @@ def refine_campaign_statement_bounded(
         iterations = iteration
         planner = call_model(
             task=AUTOFORMALIZER_VERIFICATION_TASK,
-            model=generator_model,
+            call_provider=effective_planner_provider,
+            model=planner_model,
             max_tokens=512,
             system_prompt="You are a Lean 4 retrieval planner. Return only concise search queries.",
             prompt=(
@@ -346,10 +389,13 @@ def refine_campaign_statement_bounded(
                 limit=2,
             )
             payload = result.to_dict() if hasattr(result, "to_dict") else dict(result or {})
-            retrieval_history.append({"query": query, "results": list(payload.get("results", []) or [])[:2]})
+            retrieval_history.append(
+                {"query": query, "results": list(payload.get("results", []) or [])[:2]}
+            )
         retrieval_context = _format_retrieval_context(retrieval_history)
         generated = call_model(
             task=AUTOFORMALIZER_VERIFICATION_TASK,
+            call_provider=effective_generator_provider,
             model=generator_model,
             max_tokens=5000,
             system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
@@ -365,6 +411,30 @@ def refine_campaign_statement_bounded(
                 f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
             ),
         )
+        if (
+            generated.status != "ok"
+            and generator_fallback_provider
+            and generator_fallback_provider != effective_generator_provider
+            and cost_usd < reserve_usd
+        ):
+            generated = call_model(
+                task=AUTOFORMALIZER_VERIFICATION_TASK,
+                call_provider=generator_fallback_provider,
+                model=generator_fallback_model or generator_model,
+                max_tokens=5000,
+                system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
+                prompt=(
+                    "The preferred statement generator was unavailable. Produce exactly one JSON object "
+                    "with keys lean_code, declarations (array), source_qualifiers, scope_changes, "
+                    "proof_notes. lean_code must be a complete Lean file whose theorem bodies are "
+                    "`by sorry`. Preserve every quantifier and condition. Do not output proof steps.\n\n"
+                    f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
+                    f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
+                    f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
+                    f"COMPILER ERROR\n{compile_error or '[none]'}\n\n"
+                    f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
+                ),
+            )
         if generated.status != "ok":
             semantic_feedback = generated.error or "statement generator provider failed"
             break
@@ -391,7 +461,9 @@ def refine_campaign_statement_bounded(
             candidate.unlink(missing_ok=True)
         if completed.returncode != 0:
             last_bad_code = draft.lean_code[:24000]
-            compile_error = (completed.stderr or completed.stdout or "Lean compilation failed")[-6000:]
+            compile_error = (completed.stderr or completed.stdout or "Lean compilation failed")[
+                -6000:
+            ]
             semantic_feedback = ""
             continue
         if cost_usd >= reserve_usd:
@@ -399,6 +471,7 @@ def refine_campaign_statement_bounded(
             break
         review = call_model(
             task=BLUEPRINT_VERIFICATION_TASK,
+            call_provider=effective_judge_provider,
             model=judge_model,
             max_tokens=2500,
             system_prompt="You are an independent source-fidelity judge, not a prover.",
@@ -429,25 +502,29 @@ def refine_campaign_statement_bounded(
                 statement=statement,
                 proof=proof,
                 draft=final_draft,
-            ).replace(
+            )
+            .replace(
                 "awaiting independent statement/source verification",
-                f"approved by {provider} verifier",
-            ).replace(
+                f"approved by {effective_judge_provider} verifier",
+            )
+            .replace(
                 "awaiting independent review",
-                f"approved by {provider} verifier",
+                f"approved by {effective_judge_provider} verifier",
             ),
             encoding="utf-8",
         )
         target.with_name("IndependentReview.md").write_text(
             "# Independent statement/source review\n\nVerdict: PASS\n\n"
-            f"Provider: `{provider}`\n\nReviewer response:\n\n{final_review}\n",
+            f"Provider: `{effective_judge_provider}`\n\nReviewer response:\n\n{final_review}\n",
             encoding="utf-8",
         )
     outcome = {
         "stage": "statements",
         "success": success,
         "exit_code": 0 if success else 2,
-        "reason": "bounded retrieval/refinement statement passed" if success else "bounded statement refinement exhausted",
+        "reason": "bounded retrieval/refinement statement passed"
+        if success
+        else "bounded statement refinement exhausted",
         "target_file": target_relative,
         "proof_obligations": final_draft.lean_code.count("sorry") if final_draft else 0,
         "cost_usd": round(cost_usd, 6),
@@ -456,7 +533,15 @@ def refine_campaign_statement_bounded(
         "provenance": "agent",
         "iterations": iterations,
         "retrieval_queries": [item["query"] for item in retrieval_history],
-        "review_evidence": str(target.with_name("IndependentReview.md").relative_to(root)) if success else "",
+        "statement_providers": {
+            "planner": effective_planner_provider,
+            "generator": effective_generator_provider,
+            "generator_fallback": generator_fallback_provider,
+            "judge": effective_judge_provider,
+        },
+        "review_evidence": str(target.with_name("IndependentReview.md").relative_to(root))
+        if success
+        else "",
         "review_decision": "PASS" if success else "BLOCK",
         "model": generator_model,
         "provider": provider,
@@ -465,6 +550,9 @@ def refine_campaign_statement_bounded(
     }
     update_campaign_file(
         campaign_path,
-        lambda current: (record_campaign_outcome(current, batch_id=batch_id, outcome=outcome), None),
+        lambda current: (
+            record_campaign_outcome(current, batch_id=batch_id, outcome=outcome),
+            None,
+        ),
     )
     return outcome
