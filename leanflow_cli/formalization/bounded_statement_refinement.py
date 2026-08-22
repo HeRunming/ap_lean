@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
 import uuid
@@ -326,29 +325,15 @@ def refine_campaign_statement_bounded(
         call_provider: str,
     ) -> VerificationReviewResult:
         nonlocal cost_usd
-        env_name = (
-            "AUXILIARY_BLUEPRINT_VERIFICATION_MODEL"
-            if task == BLUEPRINT_VERIFICATION_TASK
-            else "AUXILIARY_AUTOFORMALIZER_VERIFICATION_MODEL"
+        result = model_call(
+            provider=call_provider,
+            model=model,
+            task=task,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            timeout_s=timeout_s,
+            max_tokens=max_tokens,
         )
-        previous = os.environ.get(env_name)
-        if model:
-            os.environ[env_name] = model
-        try:
-            result = model_call(
-                provider=call_provider,
-                task=task,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                timeout_s=timeout_s,
-                max_tokens=max_tokens,
-            )
-        finally:
-            if model:
-                if previous is None:
-                    os.environ.pop(env_name, None)
-                else:
-                    os.environ[env_name] = previous
         measured = _result_usage(result)
         cost_usd += float(measured["cost_usd"])
         for key in usage:

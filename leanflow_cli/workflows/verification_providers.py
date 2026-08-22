@@ -197,6 +197,7 @@ def run_command_verification_review(
 def run_model_verification_review(
     *,
     provider: str,
+    model: str = "",
     task: str,
     prompt: str,
     system_prompt: str = "",
@@ -233,6 +234,7 @@ def run_model_verification_review(
         identity = resolve_auxiliary_call_identity(
             task=task,
             provider=effective_provider,
+            model=model or None,
         )
     except Exception:
         identity = None
@@ -262,6 +264,7 @@ def run_model_verification_review(
         response = run_isolated_auxiliary_text(
             task=task,
             provider=effective_provider,
+            model=model or None,
             messages=messages,
             temperature=0.1,
             max_tokens=max_tokens,

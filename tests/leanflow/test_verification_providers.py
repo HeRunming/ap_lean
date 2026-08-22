@@ -46,6 +46,36 @@ def test_model_review_uses_normalized_isolated_result(monkeypatch):
     assert result.cost_usd == pytest.approx(0.013)
 
 
+def test_model_review_forwards_explicit_model_without_process_env_mutation(monkeypatch):
+    observed = []
+
+    def fake_identity(**kwargs):
+        observed.append(("identity", kwargs.get("model")))
+        return SimpleNamespace(provider="custom", model=kwargs.get("model"))
+
+    def fake_call(**kwargs):
+        observed.append(("call", kwargs.get("model")))
+        return AuxiliaryTextResponse(content="PASS", model=kwargs.get("model") or "")
+
+    monkeypatch.setattr(verification_providers, "resolve_auxiliary_call_identity", fake_identity)
+    monkeypatch.setattr(verification_providers, "run_isolated_auxiliary_text", fake_call)
+    monkeypatch.setattr(
+        verification_providers,
+        "_record_verification_activity",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = verification_providers.run_model_verification_review(
+        provider="mathform-remote",
+        model="MathForm-8B",
+        task="autoformalizer_verification",
+        prompt="formalize",
+    )
+
+    assert observed == [("identity", "MathForm-8B"), ("call", "MathForm-8B")]
+    assert result.model == "MathForm-8B"
+
+
 def test_model_review_emits_progress_heartbeat(monkeypatch):
     events: list[tuple[str, dict]] = []
 
