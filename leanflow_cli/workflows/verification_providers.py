@@ -9,6 +9,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from agent.accounting.usage_pricing import estimate_cost_usd
 from agent.providers.isolated_auxiliary import (
     IsolatedAuxiliaryError,
     IsolatedAuxiliaryTimeout,
@@ -62,6 +63,10 @@ class VerificationReviewResult:
     timed_out: bool = False
     model: str = ""
     error: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
 
 
 def normalize_verification_provider(value: str) -> str:
@@ -220,6 +225,9 @@ def run_model_verification_review(
         elapsed_s=0.0,
     )
     timed_out = False
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
     resolved_provider = normalized
     try:
         identity = resolve_auxiliary_call_identity(
@@ -263,6 +271,12 @@ def run_model_verification_review(
         raise_if_interrupted("verification model review interrupted after provider return")
         content = response.content.strip()
         model = response.model
+        prompt_tokens = max(0, int(response.prompt_tokens or 0))
+        completion_tokens = max(0, int(response.completion_tokens or 0))
+        total_tokens = max(
+            prompt_tokens + completion_tokens,
+            int(response.total_tokens or 0),
+        )
         status = "ok" if content else "no_answer"
         error = "" if content else "the configured verifier returned no content"
     except IsolatedAuxiliaryTimeout as exc:
@@ -315,6 +329,10 @@ def run_model_verification_review(
         timed_out=timed_out,
         model=model,
         error=error,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        cost_usd=estimate_cost_usd(model, prompt_tokens, completion_tokens),
     )
     _record_verification_activity(
         "verification-review-result",
@@ -333,5 +351,9 @@ def run_model_verification_review(
         model=result.model,
         error=result.error,
         timed_out=result.timed_out,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+        total_tokens=result.total_tokens,
+        cost_usd=result.cost_usd,
     )
     return result

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -29,9 +30,104 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     execute_next_campaign_action,
     lease_next_campaign_actions,
     plan_next_campaign_action,
+    review_existing_agent_statement,
     select_campaign_model,
     validate_campaign_action_paths,
 )
+
+
+def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Batch1" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("import Mathlib\ntheorem demo : True := by sorry\n", encoding="utf-8")
+    blueprint = target.with_name("Blueprint.md")
+    blueprint.write_text(
+        "- Status: pending review\n"
+        "- [ ] Run independent statement/source verification review and apply corrections.\n"
+        "- [ ] Mark stable theorem/lemma/example `sorry` declarations ready for a user-started prove workflow.\n"
+        "- Statement verification status: awaiting independent review\n",
+        encoding="utf-8",
+    )
+    extracted = (
+        tmp_path
+        / ".leanflow"
+        / "workflow-state"
+        / "formalization"
+        / "book"
+        / "batches"
+        / "batch-1"
+        / "extracted.txt"
+    )
+    extracted.parent.mkdir(parents=True)
+    extracted.write_text("Prove that True.\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "spent_usd": 2.0,
+                "budget_usd": 10.0,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["1.1"],
+                        "status": "statement_retry",
+                        "attempts": [{"stage": "statements", "success": False, "cost_usd": 2.0}],
+                        "last_outcome": {"target_file": "Book/Batch1/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner,
+        "run_model_verification_review",
+        lambda **kwargs: SimpleNamespace(
+            task="blueprint_verification",
+            provider="openai-codex",
+            mode="model",
+            response="PASS\nFindings:\n- faithful statement",
+            status="ok",
+            command=[],
+            exit_status=None,
+            truncated=False,
+            response_chars=42,
+            max_response_chars=4000,
+            timed_out=False,
+            model="gpt-5.6-terra",
+            error="",
+            prompt_tokens=1000,
+            completion_tokens=100,
+            total_tokens=1100,
+            cost_usd=0.013,
+        ),
+    )
+
+    outcome = review_existing_agent_statement(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="batch-1",
+        reserve_usd=1.0,
+        provider="openai-codex",
+        model="gpt-5.6-terra",
+    )
+    updated = json.loads(campaign_path.read_text(encoding="utf-8"))
+
+    assert outcome["success"] is True
+    assert outcome["cost_scope"] == "independent_statement_reviewer"
+    assert outcome["usage"]["total_tokens"] == 1100
+    assert updated["spent_usd"] == pytest.approx(2.013)
+    assert updated["batches"][0]["agent_status"] == "statements_completed"
+    assert "approved by openai-codex verifier" in blueprint.read_text(encoding="utf-8")
+    assert "Verdict: PASS" in target.with_name("IndependentReview.md").read_text(encoding="utf-8")
 
 
 def test_campaign_leases_distinct_batches_and_recovers_expired_lease():

@@ -107,6 +107,9 @@ class AuxiliaryTextResponse:
 
     content: str
     model: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 def _timeout_seconds(value: float) -> float:
@@ -271,6 +274,9 @@ def _parse_worker_result(
         return AuxiliaryTextResponse(
             content=_redact_exact_secrets(payload.get("content", ""), exact_secrets),
             model=_sanitize_identity(payload.get("model", ""), exact_secrets=exact_secrets),
+            prompt_tokens=max(0, int(payload.get("prompt_tokens", 0) or 0)),
+            completion_tokens=max(0, int(payload.get("completion_tokens", 0) or 0)),
+            total_tokens=max(0, int(payload.get("total_tokens", 0) or 0)),
         )
 
     message = (
@@ -442,12 +448,28 @@ def worker_main() -> int:
             content = str(response.choices[0].message.content or "").strip()
         except Exception:
             content = ""
+        usage = getattr(response, "usage", None)
+        prompt_tokens = max(
+            0,
+            int(getattr(usage, "prompt_tokens", 0) or getattr(usage, "input_tokens", 0) or 0),
+        )
+        completion_tokens = max(
+            0,
+            int(getattr(usage, "completion_tokens", 0) or getattr(usage, "output_tokens", 0) or 0),
+        )
+        total_tokens = max(
+            prompt_tokens + completion_tokens,
+            int(getattr(usage, "total_tokens", 0) or 0),
+        )
         payload = {
             "ok": True,
             "content": _redact_exact_secrets(content, exact_secrets),
             "model": _sanitize_identity(
                 getattr(response, "model", ""), exact_secrets=exact_secrets
             ),
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
         }
     except Exception as exc:
         try:

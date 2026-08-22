@@ -17,7 +17,10 @@ def test_model_review_uses_normalized_isolated_result(monkeypatch):
         "run_isolated_auxiliary_text",
         lambda **_kwargs: AuxiliaryTextResponse(
             content='{"route":"probe"}',
-            model="control-model",
+            model="gpt-5.6-terra",
+            prompt_tokens=1000,
+            completion_tokens=100,
+            total_tokens=1100,
         ),
     )
     monkeypatch.setattr(
@@ -35,8 +38,12 @@ def test_model_review_uses_normalized_isolated_result(monkeypatch):
 
     assert result.status == "ok"
     assert result.response == '{"route":"probe"}'
-    assert result.model == "control-model"
+    assert result.model == "gpt-5.6-terra"
     assert result.timed_out is False
+    assert result.prompt_tokens == 1000
+    assert result.completion_tokens == 100
+    assert result.total_tokens == 1100
+    assert result.cost_usd == pytest.approx(0.013)
 
 
 def test_model_review_emits_progress_heartbeat(monkeypatch):

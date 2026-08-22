@@ -27,6 +27,18 @@ from leanflow_cli.formalization.corpus_campaign import (
     record_campaign_outcome,
     release_campaign_lease,
 )
+from leanflow_cli.formalization.formalization_document_runner import (
+    _approved_blueprint_statement_review_text,
+)
+from leanflow_cli.workflows.verification_providers import (
+    BLUEPRINT_VERIFICATION_TASK,
+    run_model_verification_review,
+)
+from leanflow_cli.workflows.verification_review import (
+    _verification_review_decision,
+    _verification_review_findings,
+    _verification_review_result_payload,
+)
 
 
 class CampaignExecutionBlocked(RuntimeError):
@@ -681,6 +693,174 @@ def accept_agent_reviewed_statement(
     return outcome
 
 
+def review_existing_agent_statement(
+    campaign_path: str | Path,
+    *,
+    project_root: str | Path,
+    batch_id: str,
+    reserve_usd: float,
+    provider: str = "main",
+    model: str = "",
+    timeout_s: int = 90,
+    target_file: str = "",
+    lake_executable: str = "lake",
+    project_build_target: str = "",
+) -> dict[str, Any]:
+    """Independently review and commit one existing agent statement draft.
+
+    This is deliberately separate from the drafting conversation: retries send
+    only the bounded source slice, blueprint, and generated Lean declarations,
+    and reviewer usage is recorded as its own campaign attempt.
+    """
+    path = Path(campaign_path).expanduser().resolve()
+    root = Path(project_root).expanduser().resolve()
+    campaign = read_campaign(path)
+    admitted, reason = campaign_execution_admitted(campaign, reserve_usd=reserve_usd)
+    if not admitted:
+        raise CampaignExecutionBlocked(reason)
+    batch = next(
+        (
+            item
+            for item in campaign.get("batches", []) or []
+            if isinstance(item, Mapping) and str(item.get("id", "")) == batch_id
+        ),
+        None,
+    )
+    if not isinstance(batch, Mapping):
+        raise CampaignExecutionBlocked(f"unknown campaign batch: {batch_id}")
+    selected_target = str(target_file or _batch_target_file(batch)).strip()
+    if not selected_target:
+        raise CampaignExecutionBlocked(f"batch {batch_id} has no recorded target file")
+    action = CampaignAction(
+        stage="proofs", batch_id=batch_id, labels=(), argv=(), target_file=selected_target
+    )
+    validate_campaign_action_paths(action, project_root=root)
+    target = (root / selected_target).resolve()
+    blueprint = target.with_name("Blueprint.md")
+    if not blueprint.is_file():
+        raise CampaignExecutionBlocked("agent statement has no sibling Blueprint.md")
+    source_candidates = list(
+        (root / ".leanflow" / "workflow-state" / "formalization").glob(
+            f"*/batches/{batch_id}/extracted.txt"
+        )
+    )
+    if len(source_candidates) != 1:
+        raise CampaignExecutionBlocked(
+            f"expected one bounded extracted source for {batch_id}, found {len(source_candidates)}"
+        )
+
+    verification_commands = [
+        [lake_executable, "env", "lean", selected_target],
+        [lake_executable, "build", *([project_build_target] if project_build_target else [])],
+    ]
+    for command in verification_commands:
+        completed = subprocess.run(
+            command,
+            cwd=str(root),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if completed.returncode != 0:
+            details = (completed.stderr or completed.stdout or "Lean verification failed").strip()
+            raise CampaignExecutionBlocked(details[-3000:])
+
+    source_text = source_candidates[0].read_text(encoding="utf-8")[:16000]
+    blueprint_text = blueprint.read_text(encoding="utf-8")
+    target_text = target.read_text(encoding="utf-8")
+    prompt = (
+        "Independently review this natural-language-to-Lean statement draft.\n\n"
+        "Start with exactly PASS or BLOCK on its own line. PASS only if every source claim, "
+        "quantifier, hypothesis, conclusion, sharpness/existence clause, and stated scope change "
+        "is faithfully represented by the Lean declarations. Explicit additional integrability or "
+        "representation assumptions are acceptable only when disclosed. The `sorry` bodies are "
+        "intentional and must not affect the statement verdict. Then give concise Findings and "
+        "Correction steps. Do not edit files and do not claim the proofs are complete.\n\n"
+        f"Batch: {batch_id}\nTarget: {selected_target}\n\n"
+        f"SOURCE SLICE\n```text\n{source_text}\n```\n\n"
+        f"BLUEPRINT\n```markdown\n{blueprint_text[:24000]}\n```\n\n"
+        f"LEAN DECLARATIONS\n```lean\n{target_text[:24000]}\n```"
+    )
+    previous_model = os.environ.get("AUXILIARY_BLUEPRINT_VERIFICATION_MODEL")
+    if model:
+        os.environ["AUXILIARY_BLUEPRINT_VERIFICATION_MODEL"] = model
+    try:
+        result = run_model_verification_review(
+            provider=provider,
+            task=BLUEPRINT_VERIFICATION_TASK,
+            prompt=prompt,
+            system_prompt=(
+                "You are a read-only mathematical formalization reviewer. Compare source meaning "
+                "against Lean types exactly; never approve based only on compilation."
+            ),
+            timeout_s=max(5, min(300, int(timeout_s))),
+            max_tokens=4000,
+        )
+    finally:
+        if model:
+            if previous_model is None:
+                os.environ.pop("AUXILIARY_BLUEPRINT_VERIFICATION_MODEL", None)
+            else:
+                os.environ["AUXILIARY_BLUEPRINT_VERIFICATION_MODEL"] = previous_model
+    payload = _verification_review_result_payload(result)
+    decision = _verification_review_decision(payload)
+    findings = _verification_review_findings(payload, limit=12)
+    evidence = target.with_name("IndependentReview.md")
+    evidence_text = (
+        "# Independent statement/source review\n\n"
+        f"Verdict: {decision or 'ERROR'}\n\n"
+        f"Provider: `{payload.get('provider') or provider}`\n\n"
+        f"Model: `{payload.get('model') or model or '[unknown]'}`\n\n"
+        "Reviewer response:\n\n"
+        f"{payload.get('response') or payload.get('error') or '[no response]'}\n"
+    )
+    evidence.write_text(evidence_text, encoding="utf-8")
+    success = decision == "PASS" and str(payload.get("status", "")) == "ok"
+    if success:
+        approved, changed = _approved_blueprint_statement_review_text(
+            blueprint_text, str(payload.get("provider") or provider)
+        )
+        if not changed:
+            raise CampaignExecutionBlocked(
+                "review passed but blueprint had no review stamp to apply"
+            )
+        blueprint.write_text(approved, encoding="utf-8")
+    outcome = {
+        "stage": "statements",
+        "success": success,
+        "exit_code": 0 if success else 2,
+        "reason": (
+            "independent bounded statement/source review passed"
+            if success
+            else "independent bounded statement/source review did not pass"
+        ),
+        "target_file": selected_target,
+        "proof_obligations": target_text.count("sorry"),
+        "cost_usd": float(payload.get("cost_usd", 0.0) or 0.0),
+        "cost_source": "reviewer_token_usage" if payload.get("total_tokens") else "unavailable",
+        "cost_scope": "independent_statement_reviewer",
+        "provenance": "agent",
+        "review_evidence": str(evidence.relative_to(root)),
+        "review_decision": decision,
+        "review_status": str(payload.get("status", "") or ""),
+        "review_findings": findings,
+        "model": str(payload.get("model", "") or model),
+        "provider": str(payload.get("provider", "") or provider),
+        "usage": {
+            "prompt_tokens": int(payload.get("prompt_tokens", 0) or 0),
+            "completion_tokens": int(payload.get("completion_tokens", 0) or 0),
+            "total_tokens": int(payload.get("total_tokens", 0) or 0),
+        },
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+    def commit(current: Mapping[str, Any]):
+        return record_campaign_outcome(current, batch_id=batch_id, outcome=outcome), None
+
+    update_campaign_file(path, commit)
+    return outcome
+
+
 def accept_locally_verified_proof(
     campaign_path: str | Path,
     *,
@@ -723,11 +903,33 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--accept-agent-reviewed-statement", default="")
     parser.add_argument("--review-file", default="")
     parser.add_argument("--accept-local-proof", default="")
+    parser.add_argument("--review-agent-statement", default="")
+    parser.add_argument("--review-provider", default="main")
+    parser.add_argument("--review-model", default="")
+    parser.add_argument("--review-timeout-seconds", type=int, default=90)
+    parser.add_argument("--project-build-target", default="")
     parser.add_argument("--local-target", default="")
     parser.add_argument("--lake-executable", default="lake")
     args = parser.parse_args(list(argv) if argv is not None else None)
     campaign_path = Path(args.campaign).expanduser().resolve()
     project_root = Path(args.project_root).expanduser().resolve()
+    if args.review_agent_statement:
+        if args.reserve_usd is None or args.reserve_usd <= 0:
+            parser.error("--review-agent-statement requires a positive --reserve-usd")
+        outcome = review_existing_agent_statement(
+            campaign_path,
+            project_root=project_root,
+            batch_id=args.review_agent_statement,
+            reserve_usd=args.reserve_usd,
+            provider=args.review_provider,
+            model=args.review_model,
+            timeout_s=args.review_timeout_seconds,
+            target_file=args.local_target,
+            lake_executable=args.lake_executable,
+            project_build_target=args.project_build_target,
+        )
+        print(json.dumps(outcome, ensure_ascii=False, indent=2))
+        return 0 if outcome["success"] else 1
     if args.accept_local_statement:
         outcome = accept_locally_verified_statement(
             campaign_path,

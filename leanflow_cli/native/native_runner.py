@@ -400,6 +400,7 @@ from leanflow_cli.formalization.campaign_store import update_campaign_file  # no
 from leanflow_cli.formalization.corpus_campaign import record_campaign_outcome  # noqa: E402
 from leanflow_cli.formalization.formalization_document_runner import (  # noqa: E402
     _BLUEPRINT_UNRESOLVED_FIDELITY_RE,  # noqa: F401
+    _approved_blueprint_statement_review_text,
     _autoformalizer_advisory_review_due,
     _blueprint_block_missing,  # noqa: F401
     _blueprint_bullet_block,  # noqa: F401
@@ -20433,58 +20434,8 @@ def _stamp_blueprint_statement_review_approved(
         text = path.read_text(encoding="utf-8")
     except Exception:
         return False
-    stamp = f"approved by {provider or 'configured'} verifier"
-    status_re = re.compile(
-        r"^(?P<prefix>\s*-\s*(?:Statement verification status|Statement/source verification|Source verification status|Verification status)\s*:\s*)(?P<value>.*)$",
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-
-    changed = False
-
-    def _replace_status(match: re.Match[str]) -> str:
-        nonlocal changed
-        value = str(match.group("value") or "").strip()
-        if re.search(r"\b(approved|verified|reviewed|accepted)\b", value, flags=re.IGNORECASE):
-            return match.group(0)
-        changed = True
-        return f"{match.group('prefix')}{stamp}"
-
-    updated = status_re.sub(_replace_status, text)
-    checklist_re = re.compile(
-        r"^(?P<prefix>\s*-\s*)\[(?P<checked>[ xX])\](?P<suffix>\s*Run independent statement/source verification review and apply corrections\.\s*)$",
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-    statement_match_re = re.compile(
-        r"^(?P<prefix>\s*-\s*)\[(?P<checked>[ xX])\](?P<suffix>\s*Verify drafted Lean statements match the source document\.\s*)$",
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-
-    def _replace_checklist(match: re.Match[str]) -> str:
-        nonlocal changed
-        if str(match.group("checked") or "").lower() == "x":
-            return match.group(0)
-        changed = True
-        return f"{match.group('prefix')}[x]{match.group('suffix')}"
-
-    updated = statement_match_re.sub(_replace_checklist, updated)
-    updated = checklist_re.sub(_replace_checklist, updated)
-    proof_ready_re = re.compile(
-        r"^(?P<prefix>\s*-\s*)\[(?P<checked>[ xX])\](?P<suffix>\s*(?:Hand stable (?:theorem/lemma/example )?`sorry` declarations to the managed prover queue|Mark stable theorem/lemma/example `sorry` declarations ready for a user-started prove workflow)\.\s*(?:\(Only check after independent review approves every source entry\.?\)\s*)?)$",
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-    updated = proof_ready_re.sub(_replace_checklist, updated)
-    status_line_re = re.compile(
-        r"^(?P<prefix>\s*-\s*Status\s*:\s*)(?P<value>planner draft in progress|draft in progress|pending review|ready for review)\s*$",
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-
-    def _replace_status_line(match: re.Match[str]) -> str:
-        nonlocal changed
-        changed = True
-        return f"{match.group('prefix')}statement/source review approved; ready for user-started prove workflow"
-
-    updated = status_line_re.sub(_replace_status_line, updated)
-    if not changed or updated == text:
+    updated, changed = _approved_blueprint_statement_review_text(text, provider)
+    if not changed:
         return False
     try:
         path.write_text(updated, encoding="utf-8")

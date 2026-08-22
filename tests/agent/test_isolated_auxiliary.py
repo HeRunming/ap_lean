@@ -179,6 +179,7 @@ def test_worker_protocol_serializes_provider_response(monkeypatch, capsys):
     response = SimpleNamespace(
         choices=[SimpleNamespace(message=SimpleNamespace(content="continue"))],
         model="control-model",
+        usage=SimpleNamespace(prompt_tokens=120, completion_tokens=8, total_tokens=128),
     )
     calls = []
 
@@ -211,6 +212,9 @@ def test_worker_protocol_serializes_provider_response(monkeypatch, capsys):
         "ok": True,
         "content": "continue",
         "model": "control-model",
+        "prompt_tokens": 120,
+        "completion_tokens": 8,
+        "total_tokens": 128,
     }
     assert calls == [
         {

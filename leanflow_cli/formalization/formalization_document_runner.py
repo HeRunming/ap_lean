@@ -23,6 +23,7 @@ from leanflow_cli.native.native_config import (
 __all__ = [
     "_BLUEPRINT_UNRESOLVED_FIDELITY_RE",
     "_autoformalizer_advisory_review_due",
+    "_approved_blueprint_statement_review_text",
     "_blueprint_block_missing",
     "_blueprint_bullet_block",
     "_blueprint_bullet_value",
@@ -48,6 +49,58 @@ __all__ = [
     "_document_formalization_review_prompt",
     "_document_formalization_waiting_for_independent_review",
 ]
+
+
+def _approved_blueprint_statement_review_text(text: str, provider: str) -> tuple[str, bool]:
+    """Return a blueprint with verifier-owned review/checklist stamps applied."""
+    stamp = f"approved by {provider or 'configured'} verifier"
+    changed = False
+    status_re = re.compile(
+        r"^(?P<prefix>\s*-\s*(?:Statement verification status|Statement/source verification|Source verification status|Verification status)\s*:\s*)(?P<value>.*)$",
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+
+    def replace_status(match: re.Match[str]) -> str:
+        nonlocal changed
+        value = str(match.group("value") or "").strip()
+        if re.search(r"\b(approved|verified|reviewed|accepted)\b", value, flags=re.IGNORECASE):
+            return match.group(0)
+        changed = True
+        return f"{match.group('prefix')}{stamp}"
+
+    updated = status_re.sub(replace_status, str(text or ""))
+    checklist_patterns = (
+        r"Run independent statement/source verification review and apply corrections\.",
+        r"Verify drafted Lean statements match the source document\.",
+        r"(?:Hand stable (?:theorem/lemma/example )?`sorry` declarations to the managed prover queue|Mark stable theorem/lemma/example `sorry` declarations ready for a user-started prove workflow)\.\s*(?:\(Only check after independent review approves every source entry\.?\)\s*)?",
+    )
+
+    def replace_checklist(match: re.Match[str]) -> str:
+        nonlocal changed
+        if str(match.group("checked") or "").lower() == "x":
+            return match.group(0)
+        changed = True
+        return f"{match.group('prefix')}[x]{match.group('suffix')}"
+
+    for pattern in checklist_patterns:
+        updated = re.sub(
+            rf"^(?P<prefix>\s*-\s*)\[(?P<checked>[ xX])\](?P<suffix>\s*{pattern}\s*)$",
+            replace_checklist,
+            updated,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+    status_line_re = re.compile(
+        r"^(?P<prefix>\s*-\s*Status\s*:\s*)(?P<value>planner draft in progress|draft in progress|pending review|ready for review)\s*$",
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+
+    def replace_status_line(match: re.Match[str]) -> str:
+        nonlocal changed
+        changed = True
+        return f"{match.group('prefix')}statement/source review approved; ready for user-started prove workflow"
+
+    updated = status_line_re.sub(replace_status_line, updated)
+    return updated, changed and updated != text
 
 
 def _document_formalization_waiting_for_independent_review(

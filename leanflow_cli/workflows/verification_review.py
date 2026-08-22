@@ -42,6 +42,10 @@ def _verification_review_result_payload(result: Any) -> dict[str, Any]:
         "timed_out": bool(getattr(result, "timed_out", False)),
         "model": str(getattr(result, "model", "") or ""),
         "error": str(getattr(result, "error", "") or ""),
+        "prompt_tokens": int(getattr(result, "prompt_tokens", 0) or 0),
+        "completion_tokens": int(getattr(result, "completion_tokens", 0) or 0),
+        "total_tokens": int(getattr(result, "total_tokens", 0) or 0),
+        "cost_usd": float(getattr(result, "cost_usd", 0.0) or 0.0),
     }
 
 
