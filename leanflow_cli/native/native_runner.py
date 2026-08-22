@@ -11414,6 +11414,30 @@ def _research_helper_candidate_pre_tool_guard(
         target_symbol=target_symbol,
         active_file=active_file,
     )
+    if consumption_pending and function_name == "lean_incremental_check":
+        action = str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
+        if action == "check_helper":
+            record = research_helper_candidate_priority.target_consumption_record(autonomy_state)
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "target_proof_consumption_required",
+                    "blocked_tool": function_name,
+                    "blocked_action": action,
+                    "target_symbol": target_symbol,
+                    "previous_helper": record.get("helper_name", ""),
+                    "required_action": (
+                        "Use the integrated helper in a complete replacement for the assigned "
+                        "declaration and run `check_target`. New helper checks remain paused until "
+                        "the assigned proof consumes the verified progress."
+                    ),
+                    "reason": (
+                        "Checking another standalone helper would continue the helper-only loop "
+                        "before the assigned theorem made deterministic obligation progress."
+                    ),
+                },
+                ensure_ascii=False,
+            )
     if (
         consumption_pending
         and function_name in _MANAGED_SOURCE_EDIT_TOOLS

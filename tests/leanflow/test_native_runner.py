@@ -14322,6 +14322,21 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     )
     assert blocked_decompose["status"] == "target_proof_consumption_required"
     assert blocked_decompose["blocked_tool"] == "lean_decompose_helpers"
+    blocked_helper_check = json.loads(
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_incremental_check",
+            {
+                "action": "check_helper",
+                "theorem_id": "demo",
+                "file_path": str(active),
+                "replacement": "private lemma another_helper : True := by trivial",
+            },
+        )
+    )
+    assert blocked_helper_check["status"] == "target_proof_consumption_required"
+    assert blocked_helper_check["blocked_action"] == "check_helper"
+    assert blocked_helper_check["previous_helper"] == "first_helper"
     blocked_helper_edit = json.loads(
         runner._managed_pre_tool_call(
             agent,
