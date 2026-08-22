@@ -11415,6 +11415,37 @@ def _research_helper_candidate_pre_tool_guard(
         autonomy_state[search_key] = search_count + 1
     if consumption_pending and function_name == "lean_incremental_check":
         action = str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
+        if action == "feedback":
+            feedback_key = "_research_helper_target_consumption_feedback_count"
+            try:
+                feedback_count = max(0, int(autonomy_state.get(feedback_key, 0) or 0))
+            except (TypeError, ValueError):
+                feedback_count = 0
+            if feedback_count >= 1:
+                record = research_helper_candidate_priority.target_consumption_record(
+                    autonomy_state
+                )
+                return json.dumps(
+                    {
+                        "success": False,
+                        "status": "target_proof_consumption_required",
+                        "blocked_tool": function_name,
+                        "blocked_action": action,
+                        "target_symbol": target_symbol,
+                        "previous_helper": record.get("helper_name", ""),
+                        "feedback_checks_allowed": 1,
+                        "feedback_checks_used": feedback_count,
+                        "required_action": (
+                            "The current goal has already been inspected. Patch the assigned proof "
+                            "to use the integrated helper, then run `check_target`."
+                        ),
+                        "reason": (
+                            "Repeating unchanged feedback does not test a new proof candidate."
+                        ),
+                    },
+                    ensure_ascii=False,
+                )
+            autonomy_state[feedback_key] = feedback_count + 1
         if action == "check_helper":
             record = research_helper_candidate_priority.target_consumption_record(autonomy_state)
             return json.dumps(

@@ -10011,6 +10011,24 @@ def test_search_synthesis_reservation_keeps_concrete_tools_available(monkeypatch
         runner._managed_pre_tool_call(
             agent,
             "lean_incremental_check",
+            {"action": "feedback", "theorem_id": "demo", "file_path": str(active)},
+        )
+        is None
+    )
+    blocked_feedback = json.loads(
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_incremental_check",
+            {"action": "feedback", "theorem_id": "demo", "file_path": str(active)},
+        )
+    )
+    assert blocked_feedback["status"] == "target_proof_consumption_required"
+    assert blocked_feedback["blocked_action"] == "feedback"
+    assert blocked_feedback["feedback_checks_allowed"] == 1
+    assert (
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_incremental_check",
             {
                 "action": "check_target",
                 "file": str(active),
