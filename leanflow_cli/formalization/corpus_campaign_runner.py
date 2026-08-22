@@ -360,6 +360,8 @@ def execute_next_campaign_action(
     statement_fallback_model: str = "",
     statement_judge_provider: str = "",
     statement_judge_model: str = "",
+    statement_candidates: int = 1,
+    statement_candidate_workers: int = 4,
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
@@ -400,6 +402,8 @@ def execute_next_campaign_action(
         statement_fallback_model=statement_fallback_model,
         statement_judge_provider=statement_judge_provider,
         statement_judge_model=statement_judge_model,
+        statement_candidates=statement_candidates,
+        statement_candidate_workers=statement_candidate_workers,
         environ=environ,
         bounded_statements=bounded_statements,
         lake_executable=lake_executable,
@@ -422,6 +426,8 @@ def _execute_campaign_action(
     statement_fallback_model: str = "",
     statement_judge_provider: str = "",
     statement_judge_model: str = "",
+    statement_candidates: int = 1,
+    statement_candidate_workers: int = 4,
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
     lake_executable: str = "lake",
@@ -484,6 +490,8 @@ def _execute_campaign_action(
             judge_provider=statement_judge_provider,
             generator_model=model,
             judge_model=statement_judge_model or model,
+            candidates_per_iteration=statement_candidates,
+            candidate_workers=statement_candidate_workers,
             lake_executable=lake_executable,
             max_iterations=3,
             timeout_s=int(child_env.get("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")),
@@ -584,6 +592,8 @@ def execute_campaign_wave(
     statement_fallback_model: str = "",
     statement_judge_provider: str = "",
     statement_judge_model: str = "",
+    statement_candidates: int = 1,
+    statement_candidate_workers: int = 4,
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     lease_ttl_seconds: int = 7200,
@@ -623,6 +633,8 @@ def execute_campaign_wave(
                 statement_fallback_model=statement_fallback_model,
                 statement_judge_provider=statement_judge_provider,
                 statement_judge_model=statement_judge_model,
+                statement_candidates=statement_candidates,
+                statement_candidate_workers=statement_candidate_workers,
                 environ={**dict(environ or os.environ), "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id},
                 bounded_statements=bounded_statements,
                 lake_executable=lake_executable,
@@ -1034,6 +1046,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--statement-fallback-model", default="")
     parser.add_argument("--statement-judge-provider", default="")
     parser.add_argument("--statement-judge-model", default="")
+    parser.add_argument("--statement-candidates", type=int, default=1)
+    parser.add_argument("--statement-candidate-workers", type=int, default=4)
     parser.add_argument("--proof-model", default="")
     parser.add_argument("--escalation-model", default="")
     parser.add_argument("--escalate-after-failures", type=int, default=2)
@@ -1066,6 +1080,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--refine-statement-bounded requires a positive --reserve-usd")
         if not 1 <= args.max_statement_iterations <= 3:
             parser.error("--max-statement-iterations must be between 1 and 3")
+        if not 1 <= args.statement_candidates <= 8:
+            parser.error("--statement-candidates must be between 1 and 8")
         outcome = refine_campaign_statement_bounded(
             campaign_path,
             project_root=project_root,
@@ -1082,6 +1098,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             judge_model=args.statement_judge_model or args.review_model,
             lake_executable=args.lake_executable,
             max_iterations=args.max_statement_iterations,
+            candidates_per_iteration=args.statement_candidates,
+            candidate_workers=args.statement_candidate_workers,
             timeout_s=args.review_timeout_seconds,
         )
         print(json.dumps(outcome, ensure_ascii=False, indent=2))
@@ -1165,6 +1183,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--workers must be positive")
         if not 1 <= args.lean_slots <= 8:
             parser.error("--lean-slots must be between 1 and 8")
+        if not 1 <= args.statement_candidates <= 8:
+            parser.error("--statement-candidates must be between 1 and 8")
+        if args.statement_candidate_workers <= 0:
+            parser.error("--statement-candidate-workers must be positive")
         execution_env = {
             **os.environ,
             "LEANFLOW_PROJECT_LEAN_CAPACITY": str(args.lean_slots),
@@ -1194,6 +1216,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 statement_fallback_model=args.statement_fallback_model,
                 statement_judge_provider=args.statement_judge_provider,
                 statement_judge_model=args.statement_judge_model,
+                statement_candidates=args.statement_candidates,
+                statement_candidate_workers=args.statement_candidate_workers,
                 model_policy=model_policy,
                 environ=execution_env,
                 bounded_statements=args.bounded_statements,
@@ -1215,6 +1239,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 statement_fallback_model=args.statement_fallback_model,
                 statement_judge_provider=args.statement_judge_provider,
                 statement_judge_model=args.statement_judge_model,
+                statement_candidates=args.statement_candidates,
+                statement_candidate_workers=args.statement_candidate_workers,
                 model_policy=model_policy,
                 environ=execution_env,
                 lease_ttl_seconds=args.lease_ttl_seconds,

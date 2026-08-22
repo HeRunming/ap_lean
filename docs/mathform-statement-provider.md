@@ -45,7 +45,8 @@ python -m leanflow_cli.formalization.corpus_campaign_runner \
   --statement-fallback-provider openai-codex \
   --statement-fallback-model gpt-5.5 \
   --statement-judge-provider openai-codex \
-  --statement-judge-model gpt-5.5
+  --statement-judge-model gpt-5.5 \
+  --statement-candidates 8 --statement-candidate-workers 4
 ```
 
 The planner defaults to the campaign provider and its configured default model;
@@ -53,3 +54,9 @@ the explicit planner flags above make the routing auditable. The generator uses
 `--statement-provider`; transport/model failure invokes the configured fallback
 once. The source-fidelity judge always uses `--statement-judge-provider`, so a
 specialized generator never approves its own statement.
+
+Candidate generation and Lean compilation are parallelized, duplicate Lean
+files are removed before compilation, and semantic review stops at the first
+PASS. Use `--statement-candidates 8` only for a local/unmetered endpoint. Keep
+the default value `1` while the generator is a paid API: the campaign reserve
+limits total recorded cost but cannot cancel already concurrent requests.

@@ -321,6 +321,87 @@ def test_bounded_statement_lane_uses_independent_roles_and_generator_fallback(
     assert "`independent-judge`" in review
 
 
+def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, monkeypatch):
+    source = tmp_path / "source.json"
+    source.write_text(json.dumps([{"question": "Prove True."}]), encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "source.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [
+                    {
+                        "id": "b",
+                        "source_file": "source.json",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    generated = iter(
+        [
+            json.dumps(
+                {
+                    "lean_code": "import Mathlib\n\ntheorem bad : MissingName := by sorry\n",
+                    "declarations": ["bad"],
+                }
+            ),
+            json.dumps(
+                {
+                    "lean_code": "import Mathlib\n\ntheorem good : True := by sorry\n",
+                    "declarations": ["good"],
+                }
+            ),
+        ]
+    )
+    call_kinds = []
+
+    def model_call(**kwargs):
+        call_kinds.append(kwargs["task"])
+        if len(call_kinds) == 1:
+            return _review("```\nTrue theorem\n```")
+        if kwargs["task"] == "autoformalizer_verification":
+            return _review(next(generated))
+        return _review("PASS\nFaithful.")
+
+    compile_calls = []
+
+    def compile_candidate(argv, **_kwargs):
+        candidate = tmp_path / argv[-1]
+        code = candidate.read_text(encoding="utf-8")
+        compile_calls.append(code)
+        return SimpleNamespace(
+            returncode=1 if "MissingName" in code else 0,
+            stdout="",
+            stderr="unknown identifier" if "MissingName" in code else "",
+        )
+
+    monkeypatch.setattr(bounded.subprocess, "run", compile_candidate)
+    outcome = bounded.refine_campaign_statement_bounded(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="b",
+        reserve_usd=1.0,
+        provider="main",
+        candidates_per_iteration=2,
+        candidate_workers=2,
+        model_call=model_call,
+        search_call=lambda *args, **kwargs: SimpleNamespace(to_dict=lambda: {"results": []}),
+    )
+
+    assert outcome["success"] is True
+    assert outcome["candidate_attempts"] == 2
+    assert outcome["candidates_per_iteration"] == 2
+    assert len(compile_calls) == 2
+    assert (tmp_path / "Book" / "Main.lean").read_text(encoding="utf-8").find("theorem good") >= 0
+    assert not list((tmp_path / "Book").glob("StatementCandidate_*.lean"))
+
+
 def test_bounded_statement_lane_rejects_completed_batch_without_model_call(tmp_path):
     source = tmp_path / "source.json"
     source.write_text(json.dumps([{"question": "Prove True."}]), encoding="utf-8")

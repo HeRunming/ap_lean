@@ -8,9 +8,11 @@ import re
 import subprocess
 import uuid
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from leanflow_cli.formalization.campaign_store import read_campaign, update_campaign_file
@@ -245,6 +247,8 @@ def refine_campaign_statement_bounded(
     judge_model: str = "",
     lake_executable: str = "lake",
     max_iterations: int = 3,
+    candidates_per_iteration: int = 1,
+    candidate_workers: int = 4,
     timeout_s: int = 120,
     model_call: Callable[..., VerificationReviewResult] = run_model_verification_review,
     search_call: Callable[..., Any] = lean_search,
@@ -309,6 +313,10 @@ def refine_campaign_statement_bounded(
     final_draft: StatementDraft | None = None
     final_review = ""
     iterations = 0
+    candidate_attempts = 0
+    candidate_count = max(1, min(8, int(candidates_per_iteration or 1)))
+    pool_workers = max(1, min(candidate_count, int(candidate_workers or 1)))
+    usage_lock = Lock()
 
     default_provider = provider or "auto"
     effective_planner_provider = planner_provider or default_provider
@@ -335,9 +343,10 @@ def refine_campaign_statement_bounded(
             max_tokens=max_tokens,
         )
         measured = _result_usage(result)
-        cost_usd += float(measured["cost_usd"])
-        for key in usage:
-            usage[key] += int(measured[key])
+        with usage_lock:
+            cost_usd += float(measured["cost_usd"])
+            for key in usage:
+                usage[key] += int(measured[key])
         return result
 
     for iteration in range(1, max(1, min(3, max_iterations)) + 1):
@@ -378,102 +387,146 @@ def refine_campaign_statement_bounded(
                 {"query": query, "results": list(payload.get("results", []) or [])[:2]}
             )
         retrieval_context = _format_retrieval_context(retrieval_history)
-        generated = call_model(
-            task=AUTOFORMALIZER_VERIFICATION_TASK,
-            call_provider=effective_generator_provider,
-            model=generator_model,
-            max_tokens=5000,
-            system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
-            prompt=(
-                "Produce exactly one JSON object with keys lean_code, declarations (array), "
-                "source_qualifiers, scope_changes, proof_notes. lean_code must be a complete Lean file "
-                "whose theorem bodies are `by sorry`. Preserve every quantifier and condition. Do not output "
-                "proof steps. Use the retrieved interfaces only when relevant.\n\n"
-                f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
-                f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
-                f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
-                f"COMPILER ERROR\n{compile_error or '[none]'}\n\n"
-                f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
-            ),
+        generation_prompt = (
+            "Produce exactly one JSON object with keys lean_code, declarations (array), "
+            "source_qualifiers, scope_changes, proof_notes. lean_code must be a complete Lean file "
+            "whose theorem bodies are `by sorry`. Preserve every quantifier and condition. Do not output "
+            "proof steps. Use the retrieved interfaces only when relevant.\n\n"
+            f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
+            f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
+            f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
+            f"COMPILER ERROR\n{compile_error or '[none]'}\n\n"
+            f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
         )
+
+        def generate_candidate() -> VerificationReviewResult:
+            return call_model(
+                task=AUTOFORMALIZER_VERIFICATION_TASK,
+                call_provider=effective_generator_provider,
+                model=generator_model,
+                max_tokens=5000,
+                system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
+                prompt=generation_prompt,
+            )
+
+        if candidate_count == 1:
+            generated_results = [generate_candidate()]
+        else:
+            with ThreadPoolExecutor(
+                max_workers=pool_workers,
+                thread_name_prefix="leanflow-statement-generate",
+            ) as pool:
+                generated_results = list(
+                    pool.map(lambda _index: generate_candidate(), range(candidate_count))
+                )
+        candidate_attempts += len(generated_results)
         if (
-            generated.status != "ok"
+            not any(result.status == "ok" for result in generated_results)
             and generator_fallback_provider
             and generator_fallback_provider != effective_generator_provider
             and cost_usd < reserve_usd
         ):
-            generated = call_model(
-                task=AUTOFORMALIZER_VERIFICATION_TASK,
-                call_provider=generator_fallback_provider,
-                model=generator_fallback_model or generator_model,
-                max_tokens=5000,
-                system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
-                prompt=(
-                    "The preferred statement generator was unavailable. Produce exactly one JSON object "
-                    "with keys lean_code, declarations (array), source_qualifiers, scope_changes, "
-                    "proof_notes. lean_code must be a complete Lean file whose theorem bodies are "
-                    "`by sorry`. Preserve every quantifier and condition. Do not output proof steps.\n\n"
-                    f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
-                    f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
-                    f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
-                    f"COMPILER ERROR\n{compile_error or '[none]'}\n\n"
-                    f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
-                ),
+            generated_results.append(
+                call_model(
+                    task=AUTOFORMALIZER_VERIFICATION_TASK,
+                    call_provider=generator_fallback_provider,
+                    model=generator_fallback_model or generator_model,
+                    max_tokens=5000,
+                    system_prompt="You translate mathematical statements to Lean 4 signatures only; never prove them.",
+                    prompt=generation_prompt,
+                )
             )
-        if generated.status != "ok":
-            semantic_feedback = generated.error or "statement generator provider failed"
+            candidate_attempts += 1
+        if not any(result.status == "ok" for result in generated_results):
+            semantic_feedback = next(
+                (result.error for result in generated_results if result.error),
+                "statement generator provider failed",
+            )
             break
         if cost_usd >= reserve_usd:
             semantic_feedback = "reserved cost exhausted after statement generation"
             break
-        try:
-            draft = parse_statement_draft(generated.response)
-        except BoundedStatementRefinementError as exc:
-            compile_error = str(exc)
+
+        drafts: list[StatementDraft] = []
+        draft_errors: list[str] = []
+        seen_drafts: set[str] = set()
+        for generated in generated_results:
+            if generated.status != "ok":
+                continue
+            try:
+                draft = parse_statement_draft(generated.response)
+            except BoundedStatementRefinementError as exc:
+                draft_errors.append(str(exc))
+                continue
+            digest = hashlib.sha256(draft.lean_code.encode("utf-8")).hexdigest()
+            if digest not in seen_drafts:
+                seen_drafts.add(digest)
+                drafts.append(draft)
+        if not drafts:
+            compile_error = "; ".join(dict.fromkeys(draft_errors))[:6000]
             continue
+
         target.parent.mkdir(parents=True, exist_ok=True)
-        candidate = target.with_name(f"StatementCandidate_{uuid.uuid4().hex}.lean")
-        candidate.write_text(draft.lean_code, encoding="utf-8")
-        try:
-            completed = subprocess.run(
-                [lake_executable, "env", "lean", str(candidate.relative_to(root))],
-                cwd=str(root),
-                check=False,
-                text=True,
-                capture_output=True,
-            )
-        finally:
-            candidate.unlink(missing_ok=True)
-        if completed.returncode != 0:
-            last_bad_code = draft.lean_code[:24000]
-            compile_error = (completed.stderr or completed.stdout or "Lean compilation failed")[
-                -6000:
-            ]
+
+        def compile_draft(draft: StatementDraft):
+            candidate = target.with_name(f"StatementCandidate_{uuid.uuid4().hex}.lean")
+            candidate.write_text(draft.lean_code, encoding="utf-8")
+            try:
+                completed = subprocess.run(
+                    [lake_executable, "env", "lean", str(candidate.relative_to(root))],
+                    cwd=str(root),
+                    check=False,
+                    text=True,
+                    capture_output=True,
+                )
+            finally:
+                candidate.unlink(missing_ok=True)
+            return draft, completed
+
+        with ThreadPoolExecutor(
+            max_workers=min(len(drafts), pool_workers),
+            thread_name_prefix="leanflow-statement-compile",
+        ) as pool:
+            compiled = list(pool.map(compile_draft, drafts))
+        compile_failures = [item for item in compiled if item[1].returncode != 0]
+        compilable_drafts = [draft for draft, result in compiled if result.returncode == 0]
+        if not compilable_drafts:
+            last_bad_code = compile_failures[0][0].lean_code[:24000]
+            compile_error = "\n\n".join(
+                (result.stderr or result.stdout or "Lean compilation failed")[-3000:]
+                for _draft, result in compile_failures[:2]
+            )[:6000]
             semantic_feedback = ""
             continue
-        if cost_usd >= reserve_usd:
-            semantic_feedback = "reserved cost exhausted before semantic review"
+
+        review_feedback: list[str] = []
+        for draft in compilable_drafts:
+            if cost_usd >= reserve_usd:
+                semantic_feedback = "reserved cost exhausted before semantic review"
+                break
+            review = call_model(
+                task=BLUEPRINT_VERIFICATION_TASK,
+                call_provider=effective_judge_provider,
+                model=judge_model,
+                max_tokens=2500,
+                system_prompt="You are an independent source-fidelity judge, not a prover.",
+                prompt=(
+                    "Start with exactly PASS or BLOCK. PASS only for a bidirectionally faithful Lean statement: "
+                    "same objects, domains, quantifier order, hypotheses, conclusion, and edge cases. Ignore sorry. "
+                    "Then give concise correction feedback.\n\n"
+                    f"SOURCE\n{statement}\n\nLEAN\n{draft.lean_code}"
+                ),
+            )
+            final_review = review.response
+            if review.status == "ok" and review.response.lstrip().startswith("PASS"):
+                final_draft = draft
+                break
+            review_feedback.append(review.response[:3000] or review.error[:1000])
+        if final_draft is not None:
             break
-        review = call_model(
-            task=BLUEPRINT_VERIFICATION_TASK,
-            call_provider=effective_judge_provider,
-            model=judge_model,
-            max_tokens=2500,
-            system_prompt="You are an independent source-fidelity judge, not a prover.",
-            prompt=(
-                "Start with exactly PASS or BLOCK. PASS only for a bidirectionally faithful Lean statement: "
-                "same objects, domains, quantifier order, hypotheses, conclusion, and edge cases. Ignore sorry. "
-                "Then give concise correction feedback.\n\n"
-                f"SOURCE\n{statement}\n\nLEAN\n{draft.lean_code}"
-            ),
-        )
-        final_review = review.response
-        if review.status == "ok" and review.response.lstrip().startswith("PASS"):
-            final_draft = draft
-            break
-        last_bad_code = draft.lean_code[:24000]
+        last_bad_code = compilable_drafts[0].lean_code[:24000]
         compile_error = ""
-        semantic_feedback = review.response[:6000] or review.error[:2000]
+        semantic_feedback = "\n\n".join(review_feedback)[:6000]
     success = final_draft is not None
     if success and final_draft is not None:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -517,6 +570,8 @@ def refine_campaign_statement_bounded(
         "cost_scope": "bounded_statement_pipeline",
         "provenance": "agent",
         "iterations": iterations,
+        "candidate_attempts": candidate_attempts,
+        "candidates_per_iteration": candidate_count,
         "retrieval_queries": [item["query"] for item in retrieval_history],
         "statement_providers": {
             "planner": effective_planner_provider,
