@@ -31281,8 +31281,10 @@ def _research_helper_consumption_prompt(
             "- required next action: patch the assigned proof body so it concretely invokes the "
             "previously banked helper; a typed intermediate `have` followed by the existing "
             "residual `sorry` is acceptable as a proof skeleton",
-            "- after that source edit, run `check_target`; do not search, request unchanged "
-            "feedback, or propose another helper first",
+            "- apply that partial skeleton with a managed source patch, then request one fresh "
+            "`feedback` check; `check_target` is reserved for a complete sorry-free replacement",
+            "- do not search, request unchanged feedback, or propose another helper before the "
+            "source skeleton concretely references the banked helper",
             "- once the checked target skeleton retains the helper reference, bounded work on the "
             "next residual helper may resume; final completion still requires an exact sorry-free "
             "target verification",
