@@ -155,6 +155,7 @@ def test_bounded_statement_lane_compiles_judges_records_and_writes(tmp_path, mon
     )
 
     assert outcome["success"] is True
+    assert outcome["final_diagnostic"] == ""
     assert outcome["cost_usd"] == pytest.approx(0.3)
     assert target.read_text(encoding="utf-8").endswith("by sorry\n")
     assert "approved by main verifier" in target.with_name("Blueprint.md").read_text(
@@ -433,6 +434,11 @@ def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, 
     assert "Use EuclideanSpace and require k ≤ n." in prompts[1]
     assert "Unknown identifier `nhds`." in prompts[0]
     assert "Unknown identifier `nhds`." in prompts[1]
+    assert any(
+        "actual typeclass semantics" in prompt
+        and "Use EuclideanSpace and require k ≤ n." in prompt
+        for prompt in prompts
+    )
     assert len(compile_calls) == 2
     assert (tmp_path / "Book" / "Main.lean").read_text(encoding="utf-8").find("theorem good") >= 0
     assert not list((tmp_path / "Book").glob("StatementCandidate_*.lean"))

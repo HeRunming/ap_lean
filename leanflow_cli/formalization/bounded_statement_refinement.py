@@ -581,8 +581,12 @@ def refine_campaign_statement_bounded(
                 prompt=(
                     "Start with exactly PASS or BLOCK. PASS only for a bidirectionally faithful Lean statement: "
                     "same objects, domains, quantifier order, hypotheses, conclusion, and edge cases. Ignore sorry. "
-                    "Then give concise correction feedback.\n\n"
-                    f"SOURCE\n{statement}\n\nLEAN\n{draft.lean_code}"
+                    "Check the actual typeclass semantics of notation such as norms, distances, division, and "
+                    "square roots; type-correct notation can still denote the wrong mathematics. Explicitly verify "
+                    "that every prior known semantic risk below was remedied, rather than merely changed. Then give "
+                    "concise correction feedback.\n\n"
+                    f"SOURCE\n{statement}\n\nPRIOR KNOWN SEMANTIC RISKS\n"
+                    f"{semantic_feedback or '[none]'}\n\nLEAN\n{draft.lean_code}"
                 ),
             )
             final_review = review.response
@@ -648,7 +652,7 @@ def refine_campaign_statement_bounded(
         "candidate_attempts": candidate_attempts,
         "candidates_per_iteration": candidate_count,
         "failure_stage": "" if success else failure_stage,
-        "final_diagnostic": (semantic_feedback or compile_error)[:6000],
+        "final_diagnostic": "" if success else (semantic_feedback or compile_error)[:6000],
         "candidate_diagnostics": candidate_diagnostics[-8:],
         "retry_feedback_source": "+".join(
             stage
