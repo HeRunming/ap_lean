@@ -14324,11 +14324,12 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     blocked_search = json.loads(
         runner._managed_pre_tool_call(
             agent,
-            "lean_search",
-            {"query": "unbounded third lookup", "file_path": str(active)},
+            "search_files",
+            {"pattern": "unbounded third lookup", "path": str(active.parent)},
         )
     )
     assert blocked_search["status"] == "target_proof_consumption_required"
+    assert blocked_search["blocked_tool"] == "search_files"
     assert blocked_search["searches_allowed"] == 2
     assert blocked_search["searches_used"] == 2
     blocked_decompose = json.loads(

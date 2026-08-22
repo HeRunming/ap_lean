@@ -11414,7 +11414,7 @@ def _research_helper_candidate_pre_tool_guard(
         target_symbol=target_symbol,
         active_file=active_file,
     )
-    if consumption_pending and function_name == "lean_search":
+    if consumption_pending and function_name in {"lean_search", "search_files"}:
         search_key = "_research_helper_target_consumption_search_count"
         try:
             search_count = max(0, int(autonomy_state.get(search_key, 0) or 0))
