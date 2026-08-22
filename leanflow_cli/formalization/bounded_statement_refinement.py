@@ -267,6 +267,9 @@ def refine_campaign_statement_bounded(
                 f"PRIOR QUERIES\n{[item['query'] for item in retrieval_history]}"
             ),
         )
+        if planner.status != "ok":
+            semantic_feedback = planner.error or "retrieval planner provider failed"
+            break
         if cost_usd >= reserve_usd:
             semantic_feedback = "reserved cost exhausted after retrieval planning"
             break
@@ -301,6 +304,9 @@ def refine_campaign_statement_bounded(
                 f"SEMANTIC FEEDBACK\n{semantic_feedback or '[none]'}"
             ),
         )
+        if generated.status != "ok":
+            semantic_feedback = generated.error or "statement generator provider failed"
+            break
         if cost_usd >= reserve_usd:
             semantic_feedback = "reserved cost exhausted after statement generation"
             break

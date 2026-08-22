@@ -155,3 +155,47 @@ def test_bounded_statement_lane_stops_after_reserve_is_consumed(tmp_path):
     assert calls == 1
     assert outcome["success"] is False
     assert outcome["cost_usd"] == pytest.approx(0.5)
+
+
+def test_bounded_statement_lane_fails_fast_on_provider_error(tmp_path):
+    source = tmp_path / "source.json"
+    source.write_text(json.dumps([{"question": "Prove True."}]), encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "source.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [
+                    {
+                        "id": "b",
+                        "source_file": "source.json",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = 0
+
+    def failed_call(**kwargs):
+        nonlocal calls
+        calls += 1
+        result = _review("")
+        return VerificationReviewResult(**{**result.__dict__, "status": "error", "error": "no credentials"})
+
+    outcome = bounded.refine_campaign_statement_bounded(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="b",
+        reserve_usd=1.0,
+        provider="main",
+        model_call=failed_call,
+    )
+
+    assert calls == 1
+    assert outcome["success"] is False
+    assert outcome["iterations"] == 1
