@@ -68,11 +68,14 @@ def _attempt_provenance(attempt: Mapping[str, Any]) -> str:
 
 
 def _successful_stages(attempts: list[Any], *, provenance: str | None = None) -> set[str]:
+    latest_by_stage: dict[str, Mapping[str, Any]] = {}
+    for attempt in attempts:
+        if isinstance(attempt, Mapping):
+            latest_by_stage[str(attempt.get("stage", "proofs") or "proofs")] = attempt
     return {
         str(attempt.get("stage", "proofs") or "proofs")
-        for attempt in attempts
-        if isinstance(attempt, Mapping)
-        and bool(attempt.get("success", False))
+        for attempt in latest_by_stage.values()
+        if bool(attempt.get("success", False))
         and (provenance is None or _attempt_provenance(attempt) == provenance)
     }
 

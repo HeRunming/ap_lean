@@ -36,6 +36,24 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
 )
 
 
+def test_latest_statement_audit_overrides_an_earlier_pass():
+    plan = {
+        "source": "book.json",
+        "item_count": 1,
+        "execution_plan": {"order": ["1"]},
+        "source_batches": [{"id": "b", "labels": ["1"]}],
+    }
+    campaign = build_campaign(plan)
+    campaign = record_campaign_outcome(
+        campaign, batch_id="b", outcome={"stage": "statements", "success": True}
+    )
+    campaign = record_campaign_outcome(
+        campaign, batch_id="b", outcome={"stage": "statements", "success": False}
+    )
+
+    assert campaign["batches"][0]["status"] == "statement_retry"
+
+
 def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path, monkeypatch):
     target = tmp_path / "Book" / "Batch1" / "Main.lean"
     target.parent.mkdir(parents=True)
@@ -191,9 +209,7 @@ def test_campaign_plans_book_foundation_from_its_own_document_source():
 
     campaign = build_campaign(plan)
     assert campaign["item_count"] == 366
-    assert campaign["batches"][0]["source_file"] == (
-        "book/foundations/theorem-0.0.2.json"
-    )
+    assert campaign["batches"][0]["source_file"] == ("book/foundations/theorem-0.0.2.json")
     assert next_campaign_batch(campaign, stage="statements")["id"] == "foundation-0.0.2"
     action = plan_next_campaign_action(campaign, python_executable="python")
     assert action is not None

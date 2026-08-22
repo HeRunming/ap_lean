@@ -60,8 +60,9 @@ def test_statement_draft_handles_let_bindings_multiple_theorems_and_lambda_name(
                 "def helper : ℕ := 1\n"
                 "theorem first (n : ℕ) : let x := n; x = n := by sorry\n"
                 "theorem second (λ : ℕ) : λ = λ := by sorry\n"
+                "theorem limit : Filter.Tendsto id Filter.atTop (𝓝 0) := by sorry\n"
             ),
-            "declarations": ["helper", "first", "second"],
+            "declarations": ["helper", "first", "second", "limit"],
         }
     )
 
@@ -69,7 +70,8 @@ def test_statement_draft_handles_let_bindings_multiple_theorems_and_lambda_name(
 
     assert "let x := n" in draft.lean_code
     assert "(coeff : ℕ) : coeff = coeff" in draft.lean_code
-    assert draft.declarations == ("helper", "first", "second")
+    assert "Filter.atTop (nhds 0)" in draft.lean_code
+    assert draft.declarations == ("helper", "first", "second", "limit")
 
 
 def test_retrieval_queries_ignore_fence_language_marker():

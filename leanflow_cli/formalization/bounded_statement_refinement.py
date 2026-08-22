@@ -63,6 +63,9 @@ def parse_statement_draft(text: str) -> StatementDraft:
     # it cannot be used as a binder name even though it is conventional on
     # paper. Normalize this common autoformalizer output before compilation.
     lean_code = re.sub(r"(?<![\w'])λ(?![\w'])", "coeff", lean_code)
+    # `𝓝` is notation for `nhds`, but it is unavailable unless the relevant
+    # scoped notation is open. The underlying declaration is import-stable.
+    lean_code = lean_code.replace("𝓝", "nhds")
     if not lean_code or "sorry" not in lean_code:
         raise BoundedStatementRefinementError(
             "draft must contain Lean code with a sorry placeholder"
