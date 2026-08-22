@@ -470,6 +470,24 @@ def _execute_campaign_action(
             "outcome": outcome,
         }
     last_outcome = dict(selected_batch.get("last_outcome", {}) or {})
+    if action.stage == "proofs" and any(
+        isinstance(attempt, Mapping) and str(attempt.get("stage", "") or "") == "proofs"
+        for attempt in selected_batch.get("attempts", []) or []
+    ):
+        target_path = (Path(project_root).expanduser().resolve() / action.target_file).resolve()
+        declarations: list[str] = []
+        if target_path.is_file():
+            declarations = re.findall(
+                r"(?m)^\s*(?:private\s+)?(?:theorem|lemma|def)\s+([A-Za-z0-9_'.]+)",
+                target_path.read_text(encoding="utf-8"),
+            )[:24]
+        child_env["LEANFLOW_PROOF_RESUME_EVIDENCE"] = (
+            "This is a paid campaign retry. Preserve and use the declarations already present in the "
+            f"target file: {declarations or '[none]'}. Previous outcome: "
+            f"{str(last_outcome.get('reason', '') or '[unspecified]')}. Do not repeat broad project search, "
+            "lean_decompose_helpers, or lean_reasoning_help before executing at least one concrete, "
+            "substantive lean_incremental_check that advances the next missing helper or the target."
+        )
     review_evidence = str(last_outcome.get("review_evidence", "") or "").strip()
     if (
         action.stage == "statements"

@@ -44,6 +44,7 @@ SOURCE_QUARANTINE_ORIGIN_TRANSACTION = "decomposition-source-transaction"
 SOURCE_QUARANTINE_ORIGIN_FALSE_CLEANUP = "false-decomposition-cleanup"
 SOURCE_QUARANTINE_ORIGIN_NEGATION_PROMOTION = "negation-promotion"
 _DECOMPOSE_ROUTE_REPEAT_GUARD_KEY = "_decompose_route_repeat_guard"
+_ADVISOR_SUCCESS_COOLDOWNS_KEY = "_advisor_success_cooldowns"
 _INFLIGHT_ROUTE_REPLAY_TOKEN_KEY = "_inflight_route_replay_token"
 _ROUTE_EXECUTION_STATE_KEY = "_orchestrator_route_execution"
 _QUEUE_MANAGER_STATE_RESTORED_KEY = "_queue_manager_state_restored"
@@ -773,7 +774,11 @@ def _record_formalization_campaign_stage(
         "target_file": str(
             current.get("active_file_label", "") or current.get("active_file", "") or ""
         ),
-        "proof_obligations": int(current.get("document_formalization_proof_sorry_count", 0) or 0),
+        "proof_obligations": int(
+            current.get("document_formalization_proof_sorry_count", 0)
+            or (current.get("sorry_count", 0) if stage == "proofs" else 0)
+            or 0
+        ),
         "reason": str(
             reason
             or (autonomy_state or {}).get("infrastructure_pause_reason", "")
@@ -10859,6 +10864,51 @@ def _decompose_route_repeat_pre_tool_guard(
     )
 
 
+def _advisor_success_cooldown_pre_tool_guard(
+    function_name: str,
+    *,
+    target_symbol: str,
+    active_file: str,
+    source_revision_sha256: str,
+    target_revision_sha256: str,
+    evidence_revision_sha256: str,
+    autonomy_state: dict[str, Any],
+) -> str | None:
+    """Block a repeated successful advisor call until concrete evidence changes."""
+    record = dict(
+        dict(autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}).get(function_name)
+        or {}
+    )
+    if not record:
+        return None
+    if not (
+        str(target_symbol or "").strip()
+        == str(record.get("target_symbol", "") or "").strip()
+        and _same_active_file(active_file, str(record.get("active_file", "") or ""))
+        and str(source_revision_sha256 or "").strip()
+        == str(record.get("source_revision_sha256", "") or "").strip()
+        and str(target_revision_sha256 or "").strip()
+        == str(record.get("target_revision_sha256", "") or "").strip()
+        and str(evidence_revision_sha256 or "").strip()
+        == str(record.get("evidence_revision_sha256", "") or "").strip()
+    ):
+        return None
+    return json.dumps(
+        {
+            "success": False,
+            "status": "successful_advisor_repeat_blocked",
+            "blocked_tool": function_name,
+            "provider_called": False,
+            "error": (
+                "This advisor already returned successfully for the unchanged source, target, and "
+                "proof evidence. Execute its concrete next experiment or make a checked source change "
+                "before requesting the same expensive advisor again."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
 def _planner_advice_pre_tool_guard(
     agent: Any,
     function_name: str,
@@ -12674,6 +12724,17 @@ def _managed_pre_tool_call(
                 )
             return json.dumps(banked_inspection, ensure_ascii=False)
         advisor_admission = _advisor_failure_admission(autonomy_state, function_name)
+        advisor_repeat = _advisor_success_cooldown_pre_tool_guard(
+            function_name,
+            target_symbol=advisor_admission.target_symbol,
+            active_file=advisor_admission.active_file,
+            source_revision_sha256=advisor_admission.source_revision_sha256,
+            target_revision_sha256=advisor_admission.target_revision_sha256,
+            evidence_revision_sha256=advisor_admission.evidence_revision_sha256,
+            autonomy_state=autonomy_state,
+        )
+        if advisor_repeat:
+            return advisor_repeat
         if advisor_admission.durable_blocked and not advisor_admission.local_blocked:
             tool_result_loop_guard.hydrate_advisor_failure_streak(
                 autonomy_state,
@@ -16528,6 +16589,19 @@ def _handle_managed_tool_result(
                 fallback_target_revision_sha256=current_target_revision,
                 fallback_evidence_revision_sha256=current_evidence_revision,
             )
+            advisor_payload = _json_tool_result_payload(_result)
+            if advisor_payload.get("success") is True:
+                cooldowns = dict(
+                    autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}
+                )
+                cooldowns[function_name] = {
+                    "target_symbol": target_symbol,
+                    "active_file": active_file,
+                    "source_revision_sha256": advisor_identity.source_revision_sha256,
+                    "target_revision_sha256": advisor_identity.target_revision_sha256,
+                    "evidence_revision_sha256": advisor_identity.evidence_revision_sha256,
+                }
+                autonomy_state[_ADVISOR_SUCCESS_COOLDOWNS_KEY] = cooldowns
             advisor_failure_circuit.observe_result(
                 function_name=function_name,
                 result_text=_result,
@@ -34887,11 +34961,13 @@ def _drive_autonomous_followups_inner(
             live_state = _build_live_proof_state_compat(history, checkpoint_state, autonomy_state)
             _record_managed_conversation_failure(result, phase=f"autonomous continuation #{cycle}")
             if _workflow_kind() == "prove":
+                failure_reason = str(result.get("error", "") or "provider/API failure")
                 autonomy_state["operational_pause"] = "paused_infrastructure"
+                autonomy_state["infrastructure_pause_reason"] = failure_reason
                 campaign_epoch.record_status(
                     autonomy_state,
                     "paused_infrastructure",
-                    reason=str(result.get("error", "") or "provider/API failure"),
+                    reason=failure_reason,
                 )
             else:
                 _maybe_generate_final_report("failed", autonomy_state, live_state)
@@ -35532,6 +35608,11 @@ def main() -> int:
         environment_block = environment_memory.prompt_block(autonomy_state)
         if environment_block:
             initial_message = f"{initial_message}\n\n{environment_block}"
+        proof_resume_evidence = _read_text_env("LEANFLOW_PROOF_RESUME_EVIDENCE", "").strip()
+        if proof_resume_evidence and _workflow_kind() == "prove":
+            initial_message = (
+                f"{initial_message}\n\n[CAMPAIGN RETRY EVIDENCE]\n{proof_resume_evidence[:6000]}"
+            )
         _record_turn_prompt_fingerprint(autonomy_state, initial_message, phase="startup", cycle=0)
         _set_runtime_active_skill(_effective_skill_name(live_state))
         effective_reasoning = _apply_managed_reasoning_policy(agent, live_state, autonomy_state)
