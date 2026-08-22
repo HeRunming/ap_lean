@@ -52,6 +52,26 @@ def test_statement_draft_normalizes_structured_declaration_names():
     assert bounded.parse_statement_draft(payload).declarations == ("demo",)
 
 
+def test_statement_draft_handles_let_bindings_multiple_theorems_and_lambda_name():
+    payload = json.dumps(
+        {
+            "lean_code": (
+                "import Mathlib\n"
+                "def helper : ℕ := 1\n"
+                "theorem first (n : ℕ) : let x := n; x = n := by sorry\n"
+                "theorem second (λ : ℕ) : λ = λ := by sorry\n"
+            ),
+            "declarations": ["helper", "first", "second"],
+        }
+    )
+
+    draft = bounded.parse_statement_draft(payload)
+
+    assert "let x := n" in draft.lean_code
+    assert "(coeff : ℕ) : coeff = coeff" in draft.lean_code
+    assert draft.declarations == ("helper", "first", "second")
+
+
 def test_retrieval_queries_ignore_fence_language_marker():
     assert bounded.parse_retrieval_queries("```lean\nconvexHull Euclidean norm\n```") == (
         "convexHull Euclidean norm",

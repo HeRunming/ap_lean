@@ -59,6 +59,10 @@ def parse_statement_draft(text: str) -> StatementDraft:
     """Parse one strict statement-only generator response."""
     payload = _extract_json_object(text)
     lean_code = str(payload.get("lean_code", "") or "").strip()
+    # Lean tokenizes the standalone Greek lambda as the `fun` syntax token, so
+    # it cannot be used as a binder name even though it is conventional on
+    # paper. Normalize this common autoformalizer output before compilation.
+    lean_code = re.sub(r"(?<![\w'])λ(?![\w'])", "coeff", lean_code)
     if not lean_code or "sorry" not in lean_code:
         raise BoundedStatementRefinementError(
             "draft must contain Lean code with a sorry placeholder"
@@ -68,11 +72,30 @@ def parse_statement_draft(text: str) -> StatementDraft:
         raise BoundedStatementRefinementError(
             f"draft contains forbidden statement-lane token: {forbidden.group(0)}"
         )
-    bodies = re.findall(
-        r"\b(?:theorem|lemma)\b[\s\S]*?\s:=\s*(by[\s\S]*?)(?=\n\s*(?:theorem|lemma|def|abbrev|structure|class|namespace|end)\b|\Z)",
-        lean_code,
+    declaration_starts = list(
+        re.finditer(
+            r"(?m)^\s*(?:private\s+)?(?:theorem|lemma|def|abbrev|structure|class)\b",
+            lean_code,
+        )
     )
-    if not bodies or any(re.sub(r"\s+", " ", body).strip() != "by sorry" for body in bodies):
+    theorem_bodies: list[str] = []
+    for index, declaration in enumerate(declaration_starts):
+        if not re.match(r"\s*(?:private\s+)?(?:theorem|lemma)\b", declaration.group()):
+            continue
+        end = (
+            declaration_starts[index + 1].start()
+            if index + 1 < len(declaration_starts)
+            else len(lean_code)
+        )
+        block = lean_code[declaration.start() : end]
+        proof_markers = list(re.finditer(r":=\s*by\b", block))
+        if not proof_markers:
+            theorem_bodies.append("")
+            continue
+        body = block[proof_markers[-1].start() + 2 :]
+        body = re.sub(r"/-(?:.|\n)*?-/|--[^\n]*", "", body)
+        theorem_bodies.append(re.sub(r"\s+", " ", body).strip())
+    if not theorem_bodies or any(body != "by sorry" for body in theorem_bodies):
         raise BoundedStatementRefinementError(
             "every theorem or lemma body in the statement lane must be exactly `by sorry`"
         )
@@ -314,6 +337,8 @@ def refine_campaign_statement_bounded(
     final_review = ""
     iterations = 0
     candidate_attempts = 0
+    failure_stage = "not_started"
+    candidate_diagnostics: list[dict[str, str]] = []
     candidate_count = max(1, min(8, int(candidates_per_iteration or 1)))
     pool_workers = max(1, min(candidate_count, int(candidate_workers or 1)))
     usage_lock = Lock()
@@ -366,9 +391,11 @@ def refine_campaign_statement_bounded(
             ),
         )
         if planner.status != "ok":
+            failure_stage = "retrieval_planner"
             semantic_feedback = planner.error or "retrieval planner provider failed"
             break
         if cost_usd >= reserve_usd:
+            failure_stage = "budget_after_planner"
             semantic_feedback = "reserved cost exhausted after retrieval planning"
             break
         prior = {str(item["query"]).casefold() for item in retrieval_history}
@@ -391,7 +418,8 @@ def refine_campaign_statement_bounded(
             "Produce exactly one JSON object with keys lean_code, declarations (array), "
             "source_qualifiers, scope_changes, proof_notes. lean_code must be a complete Lean file "
             "whose theorem bodies are `by sorry`. Preserve every quantifier and condition. Do not output "
-            "proof steps. Use the retrieved interfaces only when relevant.\n\n"
+            "proof steps. Never use standalone `λ` as an identifier; use `coeff` instead because Lean "
+            "reserves `λ` as lambda syntax. Use the retrieved interfaces only when relevant.\n\n"
             f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
             f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
             f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
@@ -438,12 +466,14 @@ def refine_campaign_statement_bounded(
             )
             candidate_attempts += 1
         if not any(result.status == "ok" for result in generated_results):
+            failure_stage = "statement_generation"
             semantic_feedback = next(
                 (result.error for result in generated_results if result.error),
                 "statement generator provider failed",
             )
             break
         if cost_usd >= reserve_usd:
+            failure_stage = "budget_after_generation"
             semantic_feedback = "reserved cost exhausted after statement generation"
             break
 
@@ -457,12 +487,14 @@ def refine_campaign_statement_bounded(
                 draft = parse_statement_draft(generated.response)
             except BoundedStatementRefinementError as exc:
                 draft_errors.append(str(exc))
+                candidate_diagnostics.append({"stage": "format", "diagnostic": str(exc)[:1000]})
                 continue
             digest = hashlib.sha256(draft.lean_code.encode("utf-8")).hexdigest()
             if digest not in seen_drafts:
                 seen_drafts.add(digest)
                 drafts.append(draft)
         if not drafts:
+            failure_stage = "format_check"
             compile_error = "; ".join(dict.fromkeys(draft_errors))[:6000]
             continue
 
@@ -491,17 +523,28 @@ def refine_campaign_statement_bounded(
         compile_failures = [item for item in compiled if item[1].returncode != 0]
         compilable_drafts = [draft for draft, result in compiled if result.returncode == 0]
         if not compilable_drafts:
+            failure_stage = "lean_compilation"
             last_bad_code = compile_failures[0][0].lean_code[:24000]
             compile_error = "\n\n".join(
                 (result.stderr or result.stdout or "Lean compilation failed")[-3000:]
                 for _draft, result in compile_failures[:2]
             )[:6000]
+            candidate_diagnostics.extend(
+                {
+                    "stage": "lean_compilation",
+                    "diagnostic": (result.stderr or result.stdout or "Lean compilation failed")[
+                        -1000:
+                    ],
+                }
+                for _draft, result in compile_failures[:2]
+            )
             semantic_feedback = ""
             continue
 
         review_feedback: list[str] = []
         for draft in compilable_drafts:
             if cost_usd >= reserve_usd:
+                failure_stage = "budget_before_semantic_review"
                 semantic_feedback = "reserved cost exhausted before semantic review"
                 break
             review = call_model(
@@ -522,11 +565,18 @@ def refine_campaign_statement_bounded(
                 final_draft = draft
                 break
             review_feedback.append(review.response[:3000] or review.error[:1000])
+            candidate_diagnostics.append(
+                {
+                    "stage": "semantic_review",
+                    "diagnostic": (review.response or review.error)[:1000],
+                }
+            )
         if final_draft is not None:
             break
         last_bad_code = compilable_drafts[0].lean_code[:24000]
         compile_error = ""
         semantic_feedback = "\n\n".join(review_feedback)[:6000]
+        failure_stage = "semantic_review"
     success = final_draft is not None
     if success and final_draft is not None:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -572,6 +622,9 @@ def refine_campaign_statement_bounded(
         "iterations": iterations,
         "candidate_attempts": candidate_attempts,
         "candidates_per_iteration": candidate_count,
+        "failure_stage": "" if success else failure_stage,
+        "final_diagnostic": (semantic_feedback or compile_error)[:6000],
+        "candidate_diagnostics": candidate_diagnostics[-8:],
         "retrieval_queries": [item["query"] for item in retrieval_history],
         "statement_providers": {
             "planner": effective_planner_provider,
