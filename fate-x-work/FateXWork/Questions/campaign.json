@@ -8,15 +8,15 @@
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 7,
   "failure_class_counts": {
-    "budget_limit": 26,
+    "budget_limit": 28,
     "statement_generation_incomplete": 33,
     "infrastructure": 14,
-    "proof_incomplete": 2
+    "proof_incomplete": 3
   },
   "statement_completed_batch_count": 7,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 128.97682,
+  "spent_usd": 132.03061,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -237,22 +237,79 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 130,
+          "recorded_at": "2026-08-22T13:26:20+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "signal interrupt",
+          "usage": {
+            "prompt_tokens": 76703,
+            "completion_tokens": 1934,
+            "total_tokens": 78637
+          },
+          "cost_usd": 0.82505,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "proof_incomplete"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-22T13:44:23+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 163064,
+            "completion_tokens": 3787,
+            "total_tokens": 166851
+          },
+          "cost_usd": 1.74425,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-22T13:47:26+00:00",
+          "target_file": "FateXWork/Theorem002/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 42980,
+            "completion_tokens": 1823,
+            "total_tokens": 44803
+          },
+          "cost_usd": 0.48449,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
         "success": false,
         "exit_code": 2,
-        "recorded_at": "2026-08-22T13:20:21+00:00",
+        "recorded_at": "2026-08-22T13:47:26+00:00",
         "target_file": "FateXWork/Theorem002/Main.lean",
         "proof_obligations": 1,
         "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 167226,
-          "completion_tokens": 3052,
-          "total_tokens": 170278
+          "prompt_tokens": 42980,
+          "completion_tokens": 1823,
+          "total_tokens": 44803
         },
-        "cost_usd": 1.76382,
+        "cost_usd": 0.48449,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",

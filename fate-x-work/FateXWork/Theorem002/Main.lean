@@ -83,6 +83,14 @@ private lemma weighted_deviation_sum_zero
           simp [← hx, hsum]
     _ = 0 := by simp
 
+private lemma sum_pi_weights_eq_one
+    {ι κ : Type} [Fintype ι] [Fintype κ] [DecidableEq κ]
+    (w : ι → ℝ) (hsum : (∑ i, w i) = 1) :
+    (∑ s : κ → ι, ∏ j : κ, w (s j)) = 1 := by
+  classical
+  rw [← Fintype.prod_sum]
+  simp [hsum]
+
 theorem approximate_caratheodory_equal_weights
     (n : ℕ) (T : Set (EuclideanSpace ℝ (Fin n)))
     (hT : ∀ y ∈ T, ‖y‖ ≤ 1) :
