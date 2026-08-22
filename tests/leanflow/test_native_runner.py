@@ -14232,7 +14232,9 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     monkeypatch.setattr(
         runner.decomposer,
         "prover_edit_evidence_helper_names",
-        lambda **_kwargs: (),
+        # Historical edit evidence must not erase the durable marker. Only an
+        # exact accepted target verification may do that permanently.
+        lambda **_kwargs: ("first_helper",),
     )
     state = {
         "campaign_id": "campaign",

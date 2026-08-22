@@ -11379,36 +11379,6 @@ def _research_helper_candidate_pre_tool_guard(
             target_symbol=target_symbol,
             active_file=active_file,
         )
-    consumption_record = research_helper_candidate_priority.target_consumption_record(
-        autonomy_state
-    )
-    consumption_helper = str(consumption_record.get("helper_name", "") or "").strip()
-    if consumption_helper:
-        evidence_helpers = decomposer.prover_edit_evidence_helper_names(
-            target_symbol=target_symbol,
-            active_file=active_file,
-            helper_names=(consumption_helper,),
-            assigned_changed=False,
-        )
-        if consumption_helper in evidence_helpers:
-            released = (
-                research_helper_candidate_priority.release_target_consumption_after_verified_target(
-                    autonomy_state,
-                    target_symbol=target_symbol,
-                    active_file=active_file,
-                )
-            )
-            if released:
-                with contextlib.suppress(Exception):
-                    _record_agent_activity(
-                        agent,
-                        "research-helper-evidence-consumption-exempted",
-                        f"Released target-consumption fence for evidence helper {consumption_helper}",
-                        target_symbol=target_symbol,
-                        active_file=active_file,
-                        helper_symbol=consumption_helper,
-                        campaign_progress=False,
-                    )
     consumption_pending = research_helper_candidate_priority.target_consumption_pending(
         autonomy_state,
         target_symbol=target_symbol,
