@@ -4154,7 +4154,7 @@ def test_successful_advisor_cooldown_blocks_unchanged_repeat(tmp_path):
     active.write_text("theorem goal : True := by\n  sorry\n", encoding="utf-8")
     state = {
         runner._ADVISOR_SUCCESS_COOLDOWNS_KEY: {
-            "lean_decompose_helpers": {
+            runner._REASONING_ADVISOR_FAMILY_KEY: {
                 "target_symbol": "goal",
                 "active_file": str(active),
                 "source_revision_sha256": "source-a",
@@ -4165,7 +4165,7 @@ def test_successful_advisor_cooldown_blocks_unchanged_repeat(tmp_path):
     }
 
     blocked = runner._advisor_success_cooldown_pre_tool_guard(
-        "lean_decompose_helpers",
+        "lean_reasoning_help",
         target_symbol="goal",
         active_file=str(active),
         source_revision_sha256="source-a",
@@ -4174,7 +4174,9 @@ def test_successful_advisor_cooldown_blocks_unchanged_repeat(tmp_path):
         autonomy_state=state,
     )
 
-    assert json.loads(str(blocked))["status"] == "successful_advisor_repeat_blocked"
+    payload = json.loads(str(blocked))
+    assert payload["status"] == "successful_advisor_repeat_blocked"
+    assert payload["blocked_tool"] == "lean_reasoning_help"
 
 
 def test_successful_advisor_cooldown_releases_after_source_change(tmp_path):
@@ -4182,7 +4184,7 @@ def test_successful_advisor_cooldown_releases_after_source_change(tmp_path):
     active.write_text("theorem goal : True := by\n  sorry\n", encoding="utf-8")
     state = {
         runner._ADVISOR_SUCCESS_COOLDOWNS_KEY: {
-            "lean_decompose_helpers": {
+            runner._REASONING_ADVISOR_FAMILY_KEY: {
                 "target_symbol": "goal",
                 "active_file": str(active),
                 "source_revision_sha256": "source-a",

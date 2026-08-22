@@ -45,6 +45,7 @@ SOURCE_QUARANTINE_ORIGIN_FALSE_CLEANUP = "false-decomposition-cleanup"
 SOURCE_QUARANTINE_ORIGIN_NEGATION_PROMOTION = "negation-promotion"
 _DECOMPOSE_ROUTE_REPEAT_GUARD_KEY = "_decompose_route_repeat_guard"
 _ADVISOR_SUCCESS_COOLDOWNS_KEY = "_advisor_success_cooldowns"
+_REASONING_ADVISOR_FAMILY_KEY = "reasoning_decomposition"
 _INFLIGHT_ROUTE_REPLAY_TOKEN_KEY = "_inflight_route_replay_token"
 _ROUTE_EXECUTION_STATE_KEY = "_orchestrator_route_execution"
 _QUEUE_MANAGER_STATE_RESTORED_KEY = "_queue_manager_state_restored"
@@ -10876,7 +10877,9 @@ def _advisor_success_cooldown_pre_tool_guard(
 ) -> str | None:
     """Block a repeated successful advisor call until concrete evidence changes."""
     record = dict(
-        dict(autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}).get(function_name)
+        dict(autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}).get(
+            _REASONING_ADVISOR_FAMILY_KEY
+        )
         or {}
     )
     if not record:
@@ -16594,7 +16597,7 @@ def _handle_managed_tool_result(
                 cooldowns = dict(
                     autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}
                 )
-                cooldowns[function_name] = {
+                cooldowns[_REASONING_ADVISOR_FAMILY_KEY] = {
                     "target_symbol": target_symbol,
                     "active_file": active_file,
                     "source_revision_sha256": advisor_identity.source_revision_sha256,
