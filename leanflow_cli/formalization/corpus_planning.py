@@ -88,11 +88,14 @@ def _dependency_schedule(
         )
         if not ready:
             break
-        for label in ready:
-            order.append(label)
-            remaining.pop(label)
+        # Select one source-priority node at a time.  Removing every currently
+        # ready node as one giant layer can strand a newly-unlocked, early
+        # foundation behind hundreds of unrelated later exercises.
+        selected = ready[0]
+        order.append(selected)
+        remaining.pop(selected)
         for values in remaining.values():
-            values.difference_update(ready)
+            values.discard(selected)
 
     cycle_labels = sorted(remaining, key=lambda label: ordinals[label])
     order.extend(cycle_labels)
@@ -169,6 +172,37 @@ def build_corpus_plan(
     """Build a typed, non-authoritative dependency and reuse plan for a whole corpus."""
     items: list[dict[str, Any]] = []
     known_labels: set[str] = set()
+    foundations: list[dict[str, Any]] = []
+    for index, raw_foundation in enumerate(metadata.get("source_foundations", []) or []):
+        if not isinstance(raw_foundation, Mapping):
+            continue
+        label = str(raw_foundation.get("label", "") or "").strip()
+        source_file = str(raw_foundation.get("source_file", "") or "").strip()
+        if not label or not source_file or label in known_labels:
+            continue
+        consumers = raw_foundation.get("consumers", []) or []
+        if isinstance(consumers, str):
+            consumers = [consumers]
+        dependencies = raw_foundation.get("dependencies", []) or []
+        if isinstance(dependencies, str):
+            dependencies = [dependencies]
+        foundation = {
+            "label": label,
+            "ordinal": index - len(metadata.get("source_foundations", []) or []),
+            "chapter": str(raw_foundation.get("chapter", "foundations") or "foundations"),
+            "kind": "source_foundation",
+            "source_locator": str(raw_foundation.get("source_locator", "") or ""),
+            "source_file": source_file,
+            "target_module": str(raw_foundation.get("target_module", "") or ""),
+            "concepts": concepts_for_text(str(raw_foundation.get("statement", "") or "")),
+            "declared_dependencies": [
+                str(value).strip() for value in dependencies if str(value).strip()
+            ],
+            "consumers": [str(value).strip() for value in consumers if str(value).strip()],
+        }
+        foundations.append(foundation)
+        items.append(foundation)
+        known_labels.add(label)
     for ordinal, raw_block in enumerate(metadata.get("theorem_blocks", []) or [], start=1):
         if not isinstance(raw_block, Mapping):
             continue
@@ -197,6 +231,18 @@ def build_corpus_plan(
         key=lambda concept: (-concept_counts[concept], concept),
     )
     edges: list[dict[str, Any]] = []
+    for foundation in foundations:
+        for consumer in foundation["consumers"]:
+            edges.append(
+                {
+                    "from": consumer,
+                    "to": foundation["label"],
+                    "kind": "uses_source_foundation",
+                    "status": "declared_unverified",
+                    "target_known": True,
+                    "evidence": foundation["source_locator"] or "source foundation sidecar",
+                }
+            )
     for item in items:
         for dependency in item["declared_dependencies"]:
             edges.append(
@@ -245,8 +291,19 @@ def build_corpus_plan(
     return {
         "schema_version": "1",
         "source": source_relative,
-        "item_count": len(items),
+        "item_count": len(items) - len(foundations),
+        "foundation_count": len(foundations),
+        "source_foundations": foundations,
         "source_batches": [
+            {
+                "id": "foundation-" + re.sub(r"[^A-Za-z0-9._-]+", "-", item["label"]),
+                "chapter": item["chapter"],
+                "selection_kind": "document",
+                "source_file": item["source_file"],
+                "labels": [item["label"]],
+            }
+            for item in foundations
+        ] + [
             dict(batch)
             for batch in metadata.get("qa_batches", []) or []
             if isinstance(batch, Mapping)

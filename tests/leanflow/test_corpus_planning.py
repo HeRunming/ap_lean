@@ -160,6 +160,62 @@ def test_campaign_leases_distinct_batches_and_recovers_expired_lease():
     assert recovered["batches"][0]["lease"]["worker_id"] == "w3"
 
 
+def test_campaign_plans_book_foundation_from_its_own_document_source():
+    plan = {
+        "source": "book/qa/questions.json",
+        "item_count": 366,
+        "execution_plan": {"order": ["foundation:0.0.2", "0.5"]},
+        "dependency_edges": [
+            {
+                "from": "0.5",
+                "to": "foundation:0.0.2",
+                "status": "declared_unverified",
+            }
+        ],
+        "source_batches": [
+            {
+                "id": "foundation-0.0.2",
+                "chapter": "0",
+                "selection_kind": "document",
+                "source_file": "book/foundations/theorem-0.0.2.json",
+                "labels": ["foundation:0.0.2"],
+            },
+            {
+                "id": "items-0.5",
+                "chapter": "0",
+                "selection_kind": "items",
+                "labels": ["0.5"],
+            },
+        ],
+    }
+
+    campaign = build_campaign(plan)
+    assert campaign["item_count"] == 366
+    assert campaign["batches"][0]["source_file"] == (
+        "book/foundations/theorem-0.0.2.json"
+    )
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "foundation-0.0.2"
+    action = plan_next_campaign_action(campaign, python_executable="python")
+    assert action is not None
+    assert action.batch_id == "foundation-0.0.2"
+    assert action.argv == (
+        "python",
+        "-m",
+        "leanflow_cli.main",
+        "workflow",
+        "formalize",
+        "book/foundations/theorem-0.0.2.json",
+    )
+    validate_campaign_action_paths(action, project_root=".")
+
+    foundation_done = record_campaign_outcome(
+        campaign,
+        batch_id="foundation-0.0.2",
+        outcome={"stage": "statements", "success": True, "provenance": "agent"},
+    )
+    assert next_campaign_batch(foundation_done, stage="statements")["id"] == "items-0.5"
+
+
 def test_parallel_claim_is_atomic_and_reserves_total_wave_budget(tmp_path):
     (tmp_path / "book.json").write_text("[]", encoding="utf-8")
     campaign_path = tmp_path / "campaign.json"
@@ -382,6 +438,58 @@ def test_build_corpus_plan_types_declared_and_candidate_edges():
         ("1.2", "1.1", "uses_theorem", "declared_unverified"),
         ("1.2", "1.1", "shared_foundation", "candidate"),
     }
+
+
+def test_build_corpus_plan_adds_source_foundation_without_inflating_qa_count():
+    plan = build_corpus_plan(
+        {
+            "theorem_blocks": [
+                {"label": "0.5", "statement": "Use approximate Caratheodory."},
+                {"label": "6.25", "statement": "Prove the ell-p version."},
+            ],
+            "qa_batches": [
+                {"id": "chapter-0", "chapter": "0", "labels": ["0.5"]},
+                {"id": "chapter-6", "chapter": "6", "labels": ["6.25"]},
+            ],
+            "source_foundations": [
+                {
+                    "label": "foundation:0.0.2",
+                    "chapter": "0",
+                    "source_file": "book/foundations/theorem-0.0.2.json",
+                    "source_locator": "HDP-2.pdf:physical-page-10",
+                    "statement": "Approximate Caratheodory theorem in the Euclidean norm.",
+                    "consumers": ["0.5", "6.25"],
+                }
+            ],
+        },
+        source_relative="book/qa/questions.json",
+        shared_module="Demo.Questions.Shared.Basic",
+    )
+
+    assert plan["item_count"] == 2
+    assert plan["foundation_count"] == 1
+    assert plan["execution_plan"]["order"][0] == "foundation:0.0.2"
+    assert plan["source_batches"][0] == {
+        "id": "foundation-foundation-0.0.2",
+        "chapter": "0",
+        "selection_kind": "document",
+        "source_file": "book/foundations/theorem-0.0.2.json",
+        "labels": ["foundation:0.0.2"],
+    }
+    hard_edges = {
+        (edge["from"], edge["to"])
+        for edge in plan["dependency_edges"]
+        if edge["status"] == "declared_unverified"
+    }
+    assert hard_edges == {
+        ("0.5", "foundation:0.0.2"),
+        ("6.25", "foundation:0.0.2"),
+    }
+
+    campaign = build_campaign(plan, existing={"batch_item_limit": 1})
+    foundation_batch = campaign["batches"][0]
+    assert foundation_batch["selection_kind"] == "document"
+    assert foundation_batch["source_file"] == "book/foundations/theorem-0.0.2.json"
 
 
 def test_prepare_qa_scope_writes_corpus_artifacts_and_shared_module(tmp_path, monkeypatch):

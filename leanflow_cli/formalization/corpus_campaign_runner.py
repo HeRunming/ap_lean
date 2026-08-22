@@ -149,6 +149,11 @@ def plan_next_campaign_action(
         selector = ("--qa-items", ",".join(labels))
     elif selection_kind == "batch":
         selector = ("--qa-batch", batch_id)
+    elif selection_kind == "document":
+        source = str(statement_batch.get("source_file", "") or "").strip()
+        if not source:
+            raise CampaignExecutionBlocked(f"document batch {batch_id} has no source file")
+        selector = ()
     else:
         raise CampaignExecutionBlocked(f"unknown batch selection kind: {selection_kind}")
     return CampaignAction(
@@ -267,7 +272,14 @@ def validate_campaign_action_paths(
 ) -> None:
     """Reject actions whose source or target escapes the registered Lean project."""
     root = Path(project_root).expanduser().resolve()
-    selected = action.target_file if action.stage == "proofs" else action.argv[-3]
+    if action.stage == "proofs":
+        selected = action.target_file
+    else:
+        try:
+            formalize_index = action.argv.index("formalize")
+            selected = action.argv[formalize_index + 1]
+        except (ValueError, IndexError) as exc:
+            raise CampaignExecutionBlocked("formalization action has no source path") from exc
     path = (root / selected).resolve()
     if not path.is_relative_to(root):
         raise CampaignExecutionBlocked("campaign action path escapes the project")

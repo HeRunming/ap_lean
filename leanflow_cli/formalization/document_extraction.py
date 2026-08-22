@@ -113,6 +113,16 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
             crop_by_label = {
                 str(label): item for label, item in crop_payload.items() if isinstance(item, dict)
             }
+    foundations_path = path.parent / "source_foundations.json"
+    source_foundations: list[dict[str, Any]] = []
+    if foundations_path.is_file():
+        foundations_payload = json.loads(foundations_path.read_text(encoding="utf-8"))
+        if isinstance(foundations_payload, dict):
+            foundations_payload = foundations_payload.get("foundations", [])
+        if isinstance(foundations_payload, list):
+            source_foundations = [
+                dict(item) for item in foundations_payload if isinstance(item, dict)
+            ]
 
     blocks: list[dict[str, Any]] = []
     extracted_parts: list[str] = []
@@ -193,6 +203,8 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
         "qa_schema_version": str(metadata.get("schema_version", "unversioned")),
         "qa_item_count": len(blocks),
         "qa_batches": _qa_batch_index(blocks),
+        "source_foundations": source_foundations,
+        "qa_sidecar_foundations": str(foundations_path) if source_foundations else "",
         "qa_sidecar_audit": str(audit_path) if audit_by_label else "",
         "qa_sidecar_crop_manifest": str(crop_path) if crop_by_label else "",
     }

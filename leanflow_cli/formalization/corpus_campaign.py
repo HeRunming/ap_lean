@@ -138,6 +138,9 @@ def _source_batches_for_limit(
     }
     shards: list[dict[str, Any]] = []
     for batch in source_batches:
+        if str(batch.get("selection_kind", "batch") or "batch") == "document":
+            shards.append(batch)
+            continue
         labels = [str(label) for label in batch.get("labels", []) or []]
         labels.sort(key=lambda label: positions.get(label, len(positions)))
         for start in range(0, len(labels), batch_item_limit):
@@ -258,6 +261,9 @@ def build_campaign(
                     or "batch"
                 ),
                 "labels": labels,
+                "source_file": str(
+                    source_batch.get("source_file", previous.get("source_file", "")) or ""
+                ),
                 "dependency_labels": dependency_labels,
                 "soft_dependency_labels": soft_dependency_labels,
                 "count": len(labels),
