@@ -329,18 +329,35 @@ def refine_campaign_statement_bounded(
 
     previous_outcome = dict(batch.get("last_outcome", {}) or {})
     previous_failure_stage = str(previous_outcome.get("failure_stage", "") or "")
-    previous_diagnostic = str(previous_outcome.get("final_diagnostic", "") or "")[:6000]
+    prior_feedback: dict[str, str] = {}
+    for attempt in reversed(list(batch.get("attempts", []) or []) + [previous_outcome]):
+        if not isinstance(attempt, Mapping):
+            continue
+        diagnostics = list(attempt.get("candidate_diagnostics", []) or [])
+        diagnostics.append(
+            {
+                "stage": attempt.get("failure_stage", ""),
+                "diagnostic": attempt.get("final_diagnostic", ""),
+            }
+        )
+        for item in reversed(diagnostics):
+            if not isinstance(item, Mapping):
+                continue
+            stage = str(item.get("stage", "") or "")
+            diagnostic = str(item.get("diagnostic", "") or "").strip()
+            if stage and diagnostic and stage not in prior_feedback:
+                prior_feedback[stage] = diagnostic
 
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     cost_usd = 0.0
     retrieval_history: list[dict[str, Any]] = []
     last_bad_code = ""
-    compile_error = (
-        previous_diagnostic
-        if previous_failure_stage in {"format_check", "lean_compilation"}
-        else ""
-    )
-    semantic_feedback = previous_diagnostic if previous_failure_stage == "semantic_review" else ""
+    compile_error = "\n\n".join(
+        prior_feedback[stage]
+        for stage in ("format_check", "lean_compilation")
+        if stage in prior_feedback
+    )[:6000]
+    semantic_feedback = prior_feedback.get("semantic_review", "")[:6000]
     final_draft: StatementDraft | None = None
     final_review = ""
     iterations = 0
@@ -633,7 +650,11 @@ def refine_campaign_statement_bounded(
         "failure_stage": "" if success else failure_stage,
         "final_diagnostic": (semantic_feedback or compile_error)[:6000],
         "candidate_diagnostics": candidate_diagnostics[-8:],
-        "retry_feedback_source": previous_failure_stage,
+        "retry_feedback_source": "+".join(
+            stage
+            for stage in ("semantic_review", "lean_compilation", "format_check")
+            if stage in prior_feedback
+        ),
         "retrieval_queries": [item["query"] for item in retrieval_history],
         "statement_providers": {
             "planner": effective_planner_provider,

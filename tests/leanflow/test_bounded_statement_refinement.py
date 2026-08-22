@@ -355,11 +355,16 @@ def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, 
                     {
                         "id": "b",
                         "source_file": "source.json",
-                        "attempts": [],
+                        "attempts": [
+                            {
+                                "failure_stage": "semantic_review",
+                                "final_diagnostic": "Use EuclideanSpace and require k ≤ n.",
+                            }
+                        ],
                         "last_outcome": {
                             "target_file": "Book/Main.lean",
-                            "failure_stage": "semantic_review",
-                            "final_diagnostic": "Use EuclideanSpace and require k ≤ n.",
+                            "failure_stage": "lean_compilation",
+                            "final_diagnostic": "Unknown identifier `nhds`.",
                         },
                     }
                 ],
@@ -423,9 +428,11 @@ def test_bounded_statement_lane_generates_and_compiles_candidate_pool(tmp_path, 
     assert outcome["success"] is True
     assert outcome["candidate_attempts"] == 2
     assert outcome["candidates_per_iteration"] == 2
-    assert outcome["retry_feedback_source"] == "semantic_review"
+    assert outcome["retry_feedback_source"] == "semantic_review+lean_compilation"
     assert "Use EuclideanSpace and require k ≤ n." in prompts[0]
     assert "Use EuclideanSpace and require k ≤ n." in prompts[1]
+    assert "Unknown identifier `nhds`." in prompts[0]
+    assert "Unknown identifier `nhds`." in prompts[1]
     assert len(compile_calls) == 2
     assert (tmp_path / "Book" / "Main.lean").read_text(encoding="utf-8").find("theorem good") >= 0
     assert not list((tmp_path / "Book").glob("StatementCandidate_*.lean"))
