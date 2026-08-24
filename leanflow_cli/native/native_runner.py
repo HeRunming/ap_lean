@@ -18006,7 +18006,7 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         "prove": (
             "autonomous proving session",
             (
-                "The campaign handoff below already includes the active proving contract, exact declaration, source-fidelity digest, capabilities, and current inspection state. Do not reload skills, Blueprint.md, capabilities, or unchanged inspection state. Start with at most one focused `lean_search` when needed, then submit a concrete candidate to Lean verification."
+                "The campaign handoff below already includes the active proving contract, exact declaration, source-fidelity digest, capabilities, and current inspection state. Do not reload skills, Blueprint.md, capabilities, or unchanged inspection state. Start with at most one focused `lean_search` when needed, then screen concrete candidates with `lean_multi_attempt` or `lean_incremental_check`. Never use `apply_verified_patch` as the first check: apply only a candidate that already passed the cheaper target-local Lean check."
                 if campaign_proof
                 else "Load the native proving contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, use `lean_search` before guessing; the live queue, route decision, and verification gate below are the state for this turn."
             ),

@@ -28428,6 +28428,7 @@ def test_campaign_proof_startup_guidance_skips_redundant_bootstrap(monkeypatch):
     assert "campaign handoff below already includes" in text
     assert "Do not reload skills" in text
     assert "begin with `lean_capabilities`" not in text
+    assert "Never use `apply_verified_patch` as the first check" in text
 
 
 def test_startup_user_message_surfaces_effective_prompt(monkeypatch):
