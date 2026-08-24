@@ -32101,9 +32101,19 @@ def _research_scope_entry_setup(
             )
             if part
         )
-    proved_helper_prompt = _proved_decomposition_helper_handback_prompt(
+    priority_target, priority_file = _research_helper_assignment(autonomy_state, live_state)
+    staged_exact_candidate = research_helper_candidate_priority.matching(
         autonomy_state,
-        live_state,
+        target_symbol=priority_target,
+        active_file=priority_file,
+    )
+    proved_helper_prompt = (
+        ""
+        if staged_exact_candidate is not None
+        else _proved_decomposition_helper_handback_prompt(
+            autonomy_state,
+            live_state,
+        )
     )
     if proved_helper_prompt:
         # A verified decomposition changed the graph frontier. Give the parent
@@ -32134,7 +32144,7 @@ def _research_scope_entry_setup(
         active_file=active_file,
     )
     queued_helper_priority_prompt = ""
-    if not reusable_negate_due:
+    if not reusable_negate_due and staged_exact_candidate is None:
         queued_helper_priority_prompt = _queued_decomposition_helper_priority_prompt(
             autonomy_state,
             live_state,
