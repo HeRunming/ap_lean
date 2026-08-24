@@ -203,6 +203,10 @@ def _consumption_record(raw: object) -> dict[str, str]:
         target_placeholders = max(0, int(raw.get("target_placeholder_count", 1) or 0))
     except (TypeError, ValueError):
         target_placeholders = 1
+    try:
+        target_attempt_count = max(0, int(raw.get("target_attempt_count", 0) or 0))
+    except (TypeError, ValueError):
+        target_attempt_count = 0
     if (
         not TheoremKey.make(target_symbol, active_file).is_valid()
         or len(target_signature) != 64
@@ -221,6 +225,7 @@ def _consumption_record(raw: object) -> dict[str, str]:
         "candidate_id": candidate_id,
         "helper_name": helper_name,
         "integrated_at": str(raw.get("integrated_at", "") or "").strip(),
+        "target_attempt_count": str(target_attempt_count),
     }
 
 
@@ -780,6 +785,24 @@ def target_consumption_record(
     """Return the current helper-consumption marker for observability."""
     _hydrate_state(autonomy_state)
     return _consumption_record(autonomy_state.get(CONSUMPTION_STATE_KEY))
+
+
+def note_target_candidate_attempt(
+    autonomy_state: dict[str, Any],
+    *,
+    candidate_id: str,
+) -> int:
+    """Durably count one complete target attempt for the active helper handoff."""
+    _hydrate_state(autonomy_state)
+    record = _consumption_record(autonomy_state.get(CONSUMPTION_STATE_KEY))
+    if not record or record.get("candidate_id") != str(candidate_id or "").strip():
+        return 0
+    count = int(record.get("target_attempt_count", "0") or 0) + 1
+    record["target_attempt_count"] = str(count)
+    _update_durable_state(consumption=record)
+    _set_memory_consumption(autonomy_state, record)
+    autonomy_state[_HYDRATION_KEY] = _PROCESS_HYDRATION_TOKEN
+    return count
 
 
 def exact_source_duplicate(
@@ -1471,6 +1494,7 @@ def resolve(
                 "candidate_id": existing.candidate_id,
                 "helper_name": existing.helper_name,
                 "integrated_at": _now_iso(),
+                "target_attempt_count": "0",
             }
     promoted, queued = research_helper_candidate_backlog.promote(backlog(autonomy_state))
     _update_durable_state(

@@ -11408,21 +11408,22 @@ def _research_helper_candidate_pre_tool_guard(
         autonomy_state
     )
     attempt_record = autonomy_state.get("_research_helper_target_candidate_attempted")
-    attempt_matches = bool(
-        isinstance(attempt_record, Mapping)
+    durable_attempt_count = int(consumption_record.get("target_attempt_count", 0) or 0)
+    transient_attempt_count = (
+        int(attempt_record.get("count", 0) or 0)
+        if isinstance(attempt_record, Mapping)
         and str(attempt_record.get("candidate_id", "") or "")
         == str(consumption_record.get("candidate_id", "") or "")
+        else 0
     )
+    attempt_count = max(durable_attempt_count, transient_attempt_count)
+    attempt_matches = bool(consumption_record and attempt_count > 0)
     normalized_action = (
         str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
         if function_name == "lean_incremental_check"
         else ""
     )
-    if (
-        attempt_matches
-        and normalized_action == "check_target"
-        and int(attempt_record.get("count", 0) or 0) >= 2
-    ):
+    if attempt_matches and normalized_action == "check_target" and attempt_count >= 2:
         return json.dumps(
             {
                 "success": False,
@@ -11430,7 +11431,7 @@ def _research_helper_candidate_pre_tool_guard(
                 "blocked_tool": function_name,
                 "blocked_action": normalized_action,
                 "target_symbol": target_symbol,
-                "target_attempts_used": int(attempt_record.get("count", 0) or 0),
+                "target_attempts_used": attempt_count,
                 "required_action": (
                     "The last complete target candidates exposed a local failing lemma. "
                     "Isolate that lemma as a standalone `check_helper` candidate now."
@@ -24066,16 +24067,13 @@ def _build_agent() -> AIAgent:
                 consumption = research_helper_candidate_priority.target_consumption_record(
                     managed_autonomy
                 )
-                prior_attempt = managed_autonomy.get("_research_helper_target_candidate_attempted")
-                prior_count = (
-                    int(prior_attempt.get("count", 0) or 0)
-                    if isinstance(prior_attempt, Mapping)
-                    and prior_attempt.get("candidate_id") == consumption.get("candidate_id")
-                    else 0
+                durable_count = research_helper_candidate_priority.note_target_candidate_attempt(
+                    managed_autonomy,
+                    candidate_id=str(consumption.get("candidate_id", "") or ""),
                 )
                 managed_autonomy["_research_helper_target_candidate_attempted"] = {
                     "candidate_id": consumption.get("candidate_id", ""),
-                    "count": prior_count + 1,
+                    "count": durable_count,
                 }
                 _record_agent_activity(
                     agent,

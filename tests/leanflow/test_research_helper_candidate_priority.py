@@ -1266,8 +1266,25 @@ def test_target_consumption_marker_survives_summary_hydration(monkeypatch, tmp_p
         target_symbol="demo",
         active_file=str(active),
     )
+    assert (
+        priority.note_target_candidate_attempt(
+            resumed,
+            candidate_id=record.candidate_id,
+        )
+        == 1
+    )
+    assert (
+        priority.note_target_candidate_attempt(
+            resumed,
+            candidate_id=record.candidate_id,
+        )
+        == 2
+    )
+    restarted = {priority._HYDRATION_KEY: "another-process"}
+    assert priority.target_consumption_record(restarted)["target_attempt_count"] == "2"
     summary = priority.read_json_file(priority.plan_state.plan_state_paths().summary_json)
     assert summary[priority.CONSUMPTION_SUMMARY_KEY]["candidate_id"] == record.candidate_id
+    assert summary[priority.CONSUMPTION_SUMMARY_KEY]["target_attempt_count"] == "2"
 
     active.write_text(
         record.declaration
