@@ -794,6 +794,39 @@ def test_campaign_tracks_statement_and_proof_stages_separately():
     assert next_campaign_batch(campaign, stage="proofs") is None
 
 
+def test_campaign_scheduler_deprioritizes_expensive_repeated_batch():
+    plan = {
+        "source": "book.json",
+        "item_count": 3,
+        "execution_plan": {"order": ["1.1", "1.2", "1.3"]},
+        "source_batches": [
+            {"id": "hard", "chapter": "1", "labels": ["1.1"]},
+            {"id": "fresh-a", "chapter": "1", "labels": ["1.2"]},
+            {"id": "fresh-b", "chapter": "1", "labels": ["1.3"]},
+        ],
+    }
+    campaign = build_campaign(plan)
+    for _ in range(3):
+        campaign = record_campaign_outcome(
+            campaign,
+            batch_id="hard",
+            outcome={
+                "stage": "statements",
+                "success": False,
+                "reason": "bounded statement refinement exhausted",
+                "cost_usd": 1.0,
+            },
+        )
+
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "fresh-a"
+    _leased, claims = lease_campaign_batches(
+        campaign,
+        stage="statements",
+        worker_ids=["w1", "w2"],
+    )
+    assert [claim["id"] for claim in claims] == ["fresh-a", "fresh-b"]
+
+
 def test_campaign_failure_taxonomy_is_reported_without_counting_successes():
     plan = {
         "source": "book.json",

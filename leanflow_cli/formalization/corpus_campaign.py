@@ -122,6 +122,37 @@ def classify_campaign_failure(attempt: Mapping[str, Any]) -> str:
     return "statement_generation_incomplete" if stage == "statements" else "proof_incomplete"
 
 
+def _batch_stage_priority(batch: Mapping[str, Any], *, stage: str) -> tuple[float, int, int]:
+    """Prefer untouched/cheap work over repeatedly expensive local blockers."""
+    attempts = [
+        attempt
+        for attempt in batch.get("attempts", []) or []
+        if isinstance(attempt, Mapping) and str(attempt.get("stage", "proofs") or "proofs") == stage
+    ]
+    cost = sum(max(0.0, float(attempt.get("cost_usd", 0.0) or 0.0)) for attempt in attempts)
+    failures = sum(not bool(attempt.get("success", False)) for attempt in attempts)
+    return (round(cost, 9), failures, len(attempts))
+
+
+def _select_economic_frontier(
+    frontier: Sequence[Mapping[str, Any]],
+    *,
+    stage: str,
+    label_statuses: Mapping[str, str],
+    allow_unready_soft: bool = True,
+) -> Mapping[str, Any] | None:
+    """Select the cheapest resumable batch while respecting hard dependencies."""
+    soft_ready = [
+        batch
+        for batch in frontier
+        if _batch_soft_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
+    ]
+    candidates = soft_ready or (list(frontier) if allow_unready_soft else [])
+    return min(
+        candidates, key=lambda batch: _batch_stage_priority(batch, stage=stage), default=None
+    )
+
+
 def _source_batches_for_limit(
     corpus_plan: Mapping[str, Any], batch_item_limit: int
 ) -> list[dict[str, Any]]:
@@ -354,13 +385,10 @@ def next_campaign_batch(
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         )
     ]
-    selected = next(
-        (
-            batch
-            for batch in frontier
-            if _batch_soft_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
-        ),
-        frontier[0] if frontier else None,
+    selected = _select_economic_frontier(
+        frontier,
+        stage=stage,
+        label_statuses=label_statuses,
     )
     return dict(selected) if selected is not None else None
 
@@ -397,13 +425,11 @@ def lease_campaign_batches(
             and not _lease_is_active(batch, now=moment)
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         ]
-        selected = next(
-            (
-                batch
-                for batch in frontier
-                if _batch_soft_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
-            ),
-            frontier[0] if frontier and not leased else None,
+        selected = _select_economic_frontier(
+            frontier,
+            stage=stage,
+            label_statuses=label_statuses,
+            allow_unready_soft=not leased,
         )
         if selected is None:
             break
