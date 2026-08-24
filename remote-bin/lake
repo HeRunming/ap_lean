@@ -23,17 +23,19 @@ done
   --exclude='.campaign_*.tmp' \
   --exclude=.venv \
   --exclude=.venv/ \
-  -e '/usr/bin/ssh -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 -p 49322 -o BatchMode=yes -o ControlMaster=auto -o ControlPersist=300 -o ControlPath=/tmp/leanflow-lake-%r@%h:%p' \
+  -e '/usr/bin/ssh -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 -p 49322 -o BatchMode=yes -o ControlMaster=no -o ControlPath=none' \
   "$host_root/" \
   "hrm@140.143.244.199:$remote_root/"
 
+# Campaign workers start these wrappers concurrently. A shared opportunistic
+# master races during socket creation and leaks ControlSocket warnings into
+# Lean diagnostics, so use independent noninteractive connections here.
 exec /usr/bin/ssh \
   -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 \
   -p 49322 \
   -o BatchMode=yes \
-  -o ControlMaster=auto \
-  -o ControlPersist=300 \
-  -o ControlPath=/tmp/leanflow-lake-%r@%h:%p \
+  -o ControlMaster=no \
+  -o ControlPath=none \
   hrm@140.143.244.199 \
   "cd /home/hrm/ap_lean/fate-x-work && exec /home/hrm/.elan/bin/lake" \
   "${mapped_args[@]}"
