@@ -8,7 +8,7 @@
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 7,
   "failure_class_counts": {
-    "budget_limit": 48,
+    "budget_limit": 49,
     "statement_generation_incomplete": 33,
     "infrastructure": 14,
     "proof_incomplete": 5
@@ -16,7 +16,7 @@
   "statement_completed_batch_count": 7,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 158.67019,
+  "spent_usd": 159.43448,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -1947,22 +1947,41 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T07:53:14+00:00",
+          "target_file": "FateXWork/Questions/Items0438222EE4/Main.lean",
+          "proof_obligations": 2,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 72418,
+            "completion_tokens": 1337,
+            "total_tokens": 73755
+          },
+          "cost_usd": 0.76429,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
         "success": false,
         "exit_code": 2,
-        "recorded_at": "2026-08-24T07:36:39+00:00",
+        "recorded_at": "2026-08-24T07:53:14+00:00",
         "target_file": "FateXWork/Questions/Items0438222EE4/Main.lean",
         "proof_obligations": 2,
         "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 45164,
-          "completion_tokens": 509,
-          "total_tokens": 45673
+          "prompt_tokens": 72418,
+          "completion_tokens": 1337,
+          "total_tokens": 73755
         },
-        "cost_usd": 0.46691,
+        "cost_usd": 0.76429,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
