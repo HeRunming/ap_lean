@@ -208,6 +208,99 @@ def classify_statement_semantic_risks(attempt: Mapping[str, Any]) -> set[str]:
     }
 
 
+def _nearest_rank_percentile(values: Sequence[float], percentile: float) -> float | None:
+    clean = sorted(float(value) for value in values if float(value) >= 0)
+    if not clean:
+        return None
+    index = max(0, min(len(clean) - 1, int((len(clean) * percentile + 0.999999) // 1) - 1))
+    return round(clean[index], 6)
+
+
+def campaign_marginal_cost_report(
+    campaign: Mapping[str, Any], *, recent_attempt_limit: int = 30
+) -> dict[str, Any]:
+    """Estimate current one-pass economics without letting early experiments dominate."""
+    samples: list[dict[str, Any]] = []
+    batches = [item for item in campaign.get("batches", []) or [] if isinstance(item, Mapping)]
+    for batch in batches:
+        tier = str(batch.get("source_complexity_tier", "routine") or "routine")
+        for attempt in batch.get("attempts", []) or []:
+            if not isinstance(attempt, Mapping):
+                continue
+            cost = float(attempt.get("cost_usd", 0.0) or 0.0)
+            stage = str(attempt.get("stage", "proofs") or "proofs")
+            if cost <= 0 or stage not in {"statements", "proofs"}:
+                continue
+            samples.append(
+                {
+                    "stage": stage,
+                    "tier": tier,
+                    "cost_usd": cost,
+                    "success": bool(attempt.get("success", False)),
+                    "recorded_at": str(attempt.get("recorded_at", "") or ""),
+                }
+            )
+    samples.sort(key=lambda item: item["recorded_at"] or "0000", reverse=True)
+    recent = samples[: max(1, int(recent_attempt_limit))]
+
+    cohorts: dict[str, dict[str, Any]] = {}
+    for stage in ("statements", "proofs"):
+        for tier in ("routine", "moderate", "complex"):
+            selected = [item for item in recent if item["stage"] == stage and item["tier"] == tier]
+            if not selected:
+                continue
+            costs = [float(item["cost_usd"]) for item in selected]
+            key = f"{stage}:{tier}"
+            cohorts[key] = {
+                "attempts": len(selected),
+                "successes": sum(bool(item["success"]) for item in selected),
+                "success_rate": round(
+                    sum(bool(item["success"]) for item in selected) / len(selected), 4
+                ),
+                "median_cost_usd": _nearest_rank_percentile(costs, 0.5),
+                "p75_cost_usd": _nearest_rank_percentile(costs, 0.75),
+                "max_cost_usd": round(max(costs), 6),
+            }
+
+    stage_p75 = {
+        stage: _nearest_rank_percentile(
+            [float(item["cost_usd"]) for item in recent if item["stage"] == stage], 0.75
+        )
+        for stage in ("statements", "proofs")
+    }
+    # Forecast one successful pass per unfinished stage. This deliberately does
+    # not pretend to predict retries; the p75 column is a conservative wave-sizing
+    # input, while observed success rates expose where that assumption is weak.
+    forecast = 0.0
+    forecast_coverage = 0
+    remaining_stage_actions = 0
+    for batch in batches:
+        status = str(batch.get("agent_status", batch.get("status", "pending")) or "pending")
+        tier = str(batch.get("source_complexity_tier", "routine") or "routine")
+        needed = []
+        if status in {"pending", "retry", "statement_retry"}:
+            needed.append("statements")
+        if status not in {"proofs_completed", "completed"}:
+            needed.append("proofs")
+        for stage in needed:
+            remaining_stage_actions += 1
+            cohort = cohorts.get(f"{stage}:{tier}", {})
+            estimate = cohort.get("p75_cost_usd", stage_p75.get(stage))
+            if estimate is not None:
+                forecast += float(estimate)
+                forecast_coverage += 1
+    return {
+        "window_attempt_limit": max(1, int(recent_attempt_limit)),
+        "observed_attempts": len(recent),
+        "cohorts": cohorts,
+        "stage_p75_cost_usd": stage_p75,
+        "remaining_stage_actions": remaining_stage_actions,
+        "forecast_covered_actions": forecast_coverage,
+        "one_pass_p75_forecast_usd": round(forecast, 2) if forecast_coverage else None,
+        "forecast_caveat": "one pass per unfinished stage; retries and unsampled cohorts are excluded",
+    }
+
+
 def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
     """Summarize coverage lanes and empirical proof difficulty for automation."""
     lanes = {
@@ -276,6 +369,7 @@ def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
         "spent_usd": spent,
         "cost_per_completed_batch_usd": round(spent / completed, 6) if completed else None,
         "statement_risk_counts": dict(sorted(statement_risk_counts.items())),
+        "marginal_cost": campaign_marginal_cost_report(campaign),
         "top_cost_batches": ranked_costs[:10],
     }
 
@@ -564,6 +658,86 @@ def validate_campaign_action_paths(
         raise CampaignExecutionBlocked("proof target is not a Lean file")
 
 
+_ZERO_COST_PROOF = (
+    "by\n  first"
+    " | (rfl; done)"
+    " | (assumption; done)"
+    " | (simp; done)"
+    " | (norm_num; done)"
+    " | (omega; done)"
+    " | (linarith; done)"
+    " | (nlinarith; done)"
+    " | (ring; done)"
+    " | (aesop (config := { maxRuleApplications := 100 }); done)"
+)
+
+
+def try_zero_cost_proof_preflight(
+    campaign_path: str | Path,
+    *,
+    project_root: str | Path,
+    action: CampaignAction,
+    lake_executable: str = "lake",
+    timeout_s: int = 30,
+    failure_diagnostics: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """Close mechanically trivial approved goals before launching a paid prover."""
+    if action.stage != "proofs" or not action.target_file:
+        return None
+    root = Path(project_root).expanduser().resolve()
+    target = (root / action.target_file).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        return None
+    source = target.read_text(encoding="utf-8")
+    candidate_source, replacements = re.subn(r"\bby\s+sorry\b", _ZERO_COST_PROOF, source)
+    if replacements <= 0 or re.search(r"\bby\s+sorry\b", candidate_source):
+        return None
+    candidate = target.with_name(f"ZeroCostCandidate_{uuid.uuid4().hex}.lean")
+    candidate.write_text(candidate_source, encoding="utf-8")
+    try:
+        completed = subprocess.run(
+            [lake_executable, "env", "lean", str(candidate)],
+            cwd=str(root),
+            text=True,
+            capture_output=True,
+            timeout=max(1, int(timeout_s)),
+            check=False,
+        )
+        if completed.returncode != 0:
+            if failure_diagnostics is not None:
+                failure_diagnostics.append((completed.stderr or completed.stdout or "")[-4000:])
+            return None
+        target.write_text(candidate_source, encoding="utf-8")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        if failure_diagnostics is not None:
+            failure_diagnostics.append(str(exc))
+        return None
+    finally:
+        candidate.unlink(missing_ok=True)
+
+    outcome = {
+        "stage": "proofs",
+        "success": True,
+        "exit_code": 0,
+        "recorded_at": datetime.now(UTC).isoformat(),
+        "target_file": action.target_file,
+        "proof_obligations": 0,
+        "reason": "zero-cost deterministic tactic preflight",
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "cost_usd": 0.0,
+        "cost_source": "none",
+        "cost_scope": "local_lean_preflight",
+        "provenance": "agent",
+    }
+
+    def commit(current: Mapping[str, Any]):
+        updated = record_campaign_outcome(current, batch_id=action.batch_id, outcome=outcome)
+        return updated, None
+
+    update_campaign_file(campaign_path, commit)
+    return outcome
+
+
 def describe_next_campaign_action(
     campaign: Mapping[str, Any],
     *,
@@ -696,6 +870,21 @@ def _execute_campaign_action(
     """Launch one already selected action without re-running global selection."""
     path = Path(campaign_path).expanduser().resolve()
     validate_campaign_action_paths(action, project_root=project_root)
+    zero_cost_outcome = try_zero_cost_proof_preflight(
+        path,
+        project_root=project_root,
+        action=action,
+        lake_executable=lake_executable,
+    )
+    if zero_cost_outcome is not None:
+        return {
+            "executed": True,
+            "stage": action.stage,
+            "batch_id": action.batch_id,
+            "exit_code": 0,
+            "success": True,
+            "outcome": zero_cost_outcome,
+        }
     child_env = dict(environ or os.environ)
     plan_state_slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", action.batch_id).strip("-_") or "batch"
     child_env.update(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -26,6 +27,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     accept_locally_verified_statement,
     campaign_economics_report,
     campaign_execution_admitted,
+    campaign_marginal_cost_report,
     classify_statement_semantic_risks,
     describe_next_campaign_action,
     execute_campaign_wave,
@@ -36,6 +38,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     refresh_campaign_source_complexity,
     review_existing_agent_statement,
     select_campaign_model,
+    try_zero_cost_proof_preflight,
     validate_campaign_action_paths,
 )
 
@@ -509,6 +512,117 @@ def test_statement_risk_report_groups_remediation_categories():
         "measurability_integrability": 2,
         "meta_proof_repair": 2,
     }
+
+
+def test_marginal_cost_report_uses_recent_stage_and_complexity_cohorts():
+    campaign = {
+        "batches": [
+            {
+                "id": "routine-done",
+                "status": "proofs_completed",
+                "source_complexity_tier": "routine",
+                "attempts": [
+                    {
+                        "stage": "statements",
+                        "success": True,
+                        "cost_usd": 0.2,
+                        "recorded_at": "2026-08-24T01:00:00Z",
+                    },
+                    {
+                        "stage": "proofs",
+                        "success": True,
+                        "cost_usd": 0.3,
+                        "recorded_at": "2026-08-24T02:00:00Z",
+                    },
+                ],
+            },
+            {
+                "id": "routine-pending",
+                "status": "pending",
+                "source_complexity_tier": "routine",
+                "attempts": [],
+            },
+            {
+                "id": "complex-statement-ready",
+                "status": "statements_completed",
+                "source_complexity_tier": "complex",
+                "attempts": [
+                    {
+                        "stage": "proofs",
+                        "success": False,
+                        "cost_usd": 0.9,
+                        "recorded_at": "2026-08-24T03:00:00Z",
+                    }
+                ],
+            },
+        ]
+    }
+
+    report = campaign_marginal_cost_report(campaign)
+
+    assert report["observed_attempts"] == 3
+    assert report["cohorts"]["statements:routine"]["median_cost_usd"] == 0.2
+    assert report["cohorts"]["proofs:complex"]["success_rate"] == 0
+    assert report["remaining_stage_actions"] == 3
+    assert report["forecast_covered_actions"] == 3
+    assert report["one_pass_p75_forecast_usd"] == 1.4
+
+
+def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "import Mathlib\n-- retain the word sorry in documentation\ntheorem demo : True := by sorry\n",
+        encoding="utf-8",
+    )
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 2.0,
+                "budget_usd": 3.0,
+                "batches": [
+                    {
+                        "id": "item",
+                        "status": "statements_completed",
+                        "agent_status": "statements_completed",
+                        "attempts": [{"stage": "statements", "success": True, "cost_usd": 2.0}],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    observed = {}
+
+    def compile_candidate(argv, **kwargs):
+        observed["source"] = (
+            (tmp_path / "Book" / argv[-1]).read_text(encoding="utf-8")
+            if not Path(argv[-1]).is_absolute()
+            else Path(argv[-1]).read_text(encoding="utf-8")
+        )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(corpus_campaign_runner.subprocess, "run", compile_candidate)
+    action = CampaignAction(
+        stage="proofs", batch_id="item", labels=("1",), target_file="Book/Main.lean", argv=()
+    )
+
+    outcome = try_zero_cost_proof_preflight(
+        campaign_path,
+        project_root=tmp_path,
+        action=action,
+    )
+
+    assert outcome is not None
+    assert outcome["cost_usd"] == 0
+    assert "(simp; done)" in observed["source"]
+    assert "maxRuleApplications := 100" in observed["source"]
+    assert "by sorry" not in target.read_text(encoding="utf-8")
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert campaign["spent_usd"] == 2.0
+    assert campaign["batches"][0]["status"] == "proofs_completed"
 
 
 def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkeypatch):
