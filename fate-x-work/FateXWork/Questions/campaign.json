@@ -6,17 +6,17 @@
   "completed_batch_count": 4,
   "agent_e2e_completed_batch_count": 4,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 11,
+  "agent_e2e_statement_completed_batch_count": 15,
   "failure_class_counts": {
-    "budget_limit": 53,
-    "statement_generation_incomplete": 33,
+    "budget_limit": 56,
+    "statement_generation_incomplete": 34,
     "infrastructure": 15,
     "proof_incomplete": 5
   },
-  "statement_completed_batch_count": 11,
+  "statement_completed_batch_count": 15,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 162.7251,
+  "spent_usd": 166.91243,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -3262,11 +3262,89 @@
         "1.1"
       ],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.11044,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 2,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "ConvexOn max",
+            "ConvexOn Finset sup",
+            "ConvexOn iSup finite"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items1261D0ADA8/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 2767,
+            "completion_tokens": 2759,
+            "total_tokens": 5526
+          },
+          "recorded_at": "2026-08-24T09:31:57+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:36:56+00:00",
+          "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 52243,
+            "completion_tokens": 1794,
+            "total_tokens": 54037
+          },
+          "cost_usd": 0.57625,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:36:56+00:00",
+        "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 52243,
+          "completion_tokens": 1794,
+          "total_tokens": 54037
+        },
+        "cost_usd": 0.57625,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-1.3",
@@ -3282,11 +3360,137 @@
         "1.2"
       ],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items13E1BE4B26/Main.lean",
+          "proof_obligations": 2,
+          "cost_usd": 0.80035,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "candidate_attempts": 6,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nPart (a) changes the function’s domain: the source has `f : K → ℝ`, while Lean states `f : (Fin n → ℝ) → ℝ` with `ConvexOn ℝ K f`. Although closely related by restriction/extension, these are not the same objects or domains as required.\n\nTo match the source exactly, quantify `f : K → ℝ` and formulate convex-combination evaluation using subtype elements (with a proof that the weighted sum lies in `K`).\n\nNo prior semantic risks were listed. The scalar action and finite sums correctly express real weighted vector combinations; the Bochner integrals in part (b) correctly express expectations for finite-dimensional real vectors."
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:23:37: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\ni : Fin m\nx✝ : i ∈ Finset.univ\n⊢ ∀ (i : Fin m), 0 ≤ coeff i\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:24:26: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\n⊢ ∑ i, coeff i = 1\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:30:8: warning: declaration uses `sorry`\n"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:16:13: error(lean.invalidField): Invalid field `combo_mem`: The environment does not contain `Function.combo_mem`, so it is not possible to project the field `combo_mem` from an expression\n  hK\nof type\n  ?m.42 ∈ K → StarConvex ℝ ?m.42 K\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:22:33: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\ni : Fin m\nx✝ : i ∈ Finset.univ\n⊢ 0 ≤ coeff i\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:22:48: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\n⊢ ∑ i, coeff i = 1\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:28:8: warning: declaration uses `sorry`\n"
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. Part (a) changes the function’s domain: the source has \\(f : K \\to \\mathbb R\\), whereas Lean uses an ambient function `f : (Fin n → ℝ) → ℝ`. Although `ConvexOn` and the stated sums only constrain values on `K`, this is not the same object/domain under the required strict fidelity criterion. Formalize `f : K → ℝ` (using subtype coercions and `hK` to prove weighted sums lie in `K`), or explicitly state that the source convention treats \\(f\\) as ambiently defined.\n\nNo prior semantic risks were listed; norms, distances, division, and square roots do not occur here."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "convexOn_iff_pair convexOn Jensen Finset.sum",
+            "Convex.combo_self Finset.sum_nonneg Finset.sum_eq_one",
+            "MeasureTheory.integral_finset simpleFunc expectation Jensen convex",
+            "ConvexOn subtype domain convex Jensen Finset weighted sum",
+            "Convex.mem_sum Finset.sum_smul_mem_of_nonneg_of_sum_eq_one",
+            "ConvexOn.map_sum_le Finset sum weights subtype",
+            "Convex.centerMass_mem Finset centerMass convexOn_le_centerMass",
+            "ConvexOn.le_map_centerMass Finset.univ probability weights",
+            "Finset.centerMass_eq_sum_ite affineMap convex Jensen"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items13E1BE4B26/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 23476,
+            "completion_tokens": 18853,
+            "total_tokens": 42329
+          },
+          "recorded_at": "2026-08-24T09:40:25+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": true,
+        "exit_code": 0,
+        "reason": "bounded retrieval/refinement statement passed",
+        "target_file": "FateXWork/Questions/Items13E1BE4B26/Main.lean",
+        "proof_obligations": 2,
+        "cost_usd": 0.80035,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 3,
+        "candidate_attempts": 6,
+        "candidates_per_iteration": 2,
+        "failure_stage": "",
+        "final_diagnostic": "",
+        "candidate_diagnostics": [
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\nPart (a) changes the function’s domain: the source has `f : K → ℝ`, while Lean states `f : (Fin n → ℝ) → ℝ` with `ConvexOn ℝ K f`. Although closely related by restriction/extension, these are not the same objects or domains as required.\n\nTo match the source exactly, quantify `f : K → ℝ` and formulate convex-combination evaluation using subtype elements (with a proof that the weighted sum lies in `K`).\n\nNo prior semantic risks were listed. The scalar action and finite sums correctly express real weighted vector combinations; the Bochner integrals in part (b) correctly express expectations for finite-dimensional real vectors."
+          },
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "FateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:23:37: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\ni : Fin m\nx✝ : i ∈ Finset.univ\n⊢ ∀ (i : Fin m), 0 ≤ coeff i\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:24:26: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\n⊢ ∑ i, coeff i = 1\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_d0f14d3409724bed8debb354160080c8.lean:30:8: warning: declaration uses `sorry`\n"
+          },
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "FateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:16:13: error(lean.invalidField): Invalid field `combo_mem`: The environment does not contain `Function.combo_mem`, so it is not possible to project the field `combo_mem` from an expression\n  hK\nof type\n  ?m.42 ∈ K → StarConvex ℝ ?m.42 K\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:22:33: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\ni : Fin m\nx✝ : i ∈ Finset.univ\n⊢ 0 ≤ coeff i\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:22:48: error: Tactic `assumption` failed\n\nn : ℕ\nK : Set (Fin n → ℝ)\nhK : Convex ℝ K\nf : ↑K → ℝ\nm : ℕ\nx : Fin m → ↑K\ncoeff : Fin m → ℝ\n⊢ ∑ i, coeff i = 1\nFateXWork/Questions/Items13E1BE4B26/StatementCandidate_a64ad6ccec6f483992894d7c8976cd2b.lean:28:8: warning: declaration uses `sorry`\n"
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK. Part (a) changes the function’s domain: the source has \\(f : K \\to \\mathbb R\\), whereas Lean uses an ambient function `f : (Fin n → ℝ) → ℝ`. Although `ConvexOn` and the stated sums only constrain values on `K`, this is not the same object/domain under the required strict fidelity criterion. Formalize `f : K → ℝ` (using subtype coercions and `hK` to prove weighted sums lie in `K`), or explicitly state that the source convention treats \\(f\\) as ambiently defined.\n\nNo prior semantic risks were listed; norms, distances, division, and square roots do not occur here."
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "convexOn_iff_pair convexOn Jensen Finset.sum",
+          "Convex.combo_self Finset.sum_nonneg Finset.sum_eq_one",
+          "MeasureTheory.integral_finset simpleFunc expectation Jensen convex",
+          "ConvexOn subtype domain convex Jensen Finset weighted sum",
+          "Convex.mem_sum Finset.sum_smul_mem_of_nonneg_of_sum_eq_one",
+          "ConvexOn.map_sum_le Finset sum weights subtype",
+          "Convex.centerMass_mem Finset centerMass convexOn_le_centerMass",
+          "ConvexOn.le_map_centerMass Finset.univ probability weights",
+          "Finset.centerMass_eq_sum_ite affineMap convex Jensen"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "FateXWork/Questions/Items13E1BE4B26/IndependentReview.md",
+        "review_decision": "PASS",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 23476,
+          "completion_tokens": 18853,
+          "total_tokens": 42329
+        },
+        "recorded_at": "2026-08-24T09:40:25+00:00"
+      }
     },
     {
       "id": "items-1.4",
@@ -3362,11 +3566,155 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
+      "status": "statement_retry",
       "agent_status": "pending",
       "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items174C86FA4D/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.61402,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "candidate_attempts": 6,
+          "candidates_per_iteration": 2,
+          "failure_stage": "lean_compilation",
+          "final_diagnostic": "FateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:7:83: error: unexpected identifier; expected 'lemma'\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:18:18: error(lean.unknownIdentifier): Unknown constant `Real.log`\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:17:15: error: Function expected at\n  HasIndependentFriendEdges\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  μ\n\nHint: The identifier `HasIndependentFriendEdges` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n",
+          "candidate_diagnostics": [
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "format",
+              "diagnostic": "draft contains forbidden statement-lane token: axiom"
+            },
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:7:83: error: unexpected identifier; expected 'lemma'\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:18:18: error(lean.unknownIdentifier): Unknown constant `Real.log`\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:17:15: error: Function expected at\n  HasIndependentFriendEdges\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  μ\n\nHint: The identifier `HasIndependentFriendEdges` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n"
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib ProbabilityTheory poisson distribution mean",
+            "Mathlib Data Real Log inequalities exp log",
+            "Mathlib combinatorics SimpleGraph ErdosRenyi random graph",
+            "Mathlib ProbabilityTheory Distributions Poisson pmf",
+            "Mathlib ProbabilityTheory Independence Finset probability product",
+            "Mathlib Analysis SpecialFunctions Log exp_le_iff_le_log",
+            "Mathlib ProbabilityTheory ProbabilityMassFunction poisson",
+            "Mathlib ProbabilityTheory Binomial poisson thinning",
+            "Mathlib MeasureTheory Integral setLIntegral countable sum probability"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 7411,
+            "completion_tokens": 17997,
+            "total_tokens": 25408
+          },
+          "recorded_at": "2026-08-24T09:34:53+00:00",
+          "failure_class": "statement_generation_incomplete"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": false,
+        "exit_code": 2,
+        "reason": "bounded statement refinement exhausted",
+        "target_file": "FateXWork/Questions/Items174C86FA4D/Main.lean",
+        "proof_obligations": 0,
+        "cost_usd": 0.61402,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 3,
+        "candidate_attempts": 6,
+        "candidates_per_iteration": 2,
+        "failure_stage": "lean_compilation",
+        "final_diagnostic": "FateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:7:83: error: unexpected identifier; expected 'lemma'\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:18:18: error(lean.unknownIdentifier): Unknown constant `Real.log`\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:17:15: error: Function expected at\n  HasIndependentFriendEdges\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  μ\n\nHint: The identifier `HasIndependentFriendEdges` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n",
+        "candidate_diagnostics": [
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "format",
+            "diagnostic": "draft contains forbidden statement-lane token: axiom"
+          },
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "FateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:7:83: error: unexpected identifier; expected 'lemma'\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:18:18: error(lean.unknownIdentifier): Unknown constant `Real.log`\nFateXWork/Questions/Items174C86FA4D/StatementCandidate_bfaca2e8ad464b46b94f1a396d01924c.lean:17:15: error: Function expected at\n  HasIndependentFriendEdges\nbut this term has type\n  ?m.1\n\nNote: Expected a function because this term is being applied to the argument\n  μ\n\nHint: The identifier `HasIndependentFriendEdges` is unknown, and Lean's `autoImplicit` option causes an unknown identifier to be treated as an implicitly bound variable with an unknown type. However, the unknown type cannot be a function, and a function is what Lean expects here. This is often the result of a typo or a missing `import` or `open` statement.\n"
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "Mathlib ProbabilityTheory poisson distribution mean",
+          "Mathlib Data Real Log inequalities exp log",
+          "Mathlib combinatorics SimpleGraph ErdosRenyi random graph",
+          "Mathlib ProbabilityTheory Distributions Poisson pmf",
+          "Mathlib ProbabilityTheory Independence Finset probability product",
+          "Mathlib Analysis SpecialFunctions Log exp_le_iff_le_log",
+          "Mathlib ProbabilityTheory ProbabilityMassFunction poisson",
+          "Mathlib ProbabilityTheory Binomial poisson thinning",
+          "Mathlib MeasureTheory Integral setLIntegral countable sum probability"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "",
+        "review_decision": "BLOCK",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 7411,
+          "completion_tokens": 17997,
+          "total_tokens": 25408
+        },
+        "recorded_at": "2026-08-24T09:34:53+00:00",
+        "failure_class": "statement_generation_incomplete"
+      }
     },
     {
       "id": "items-1.8",
@@ -3379,11 +3727,101 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items18BCE67B4F/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.43323,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. The event is logically reversed. It asserts that **every** subset `S` with cardinality exceeding `2 log₂ n` is independent:\n```lean\n∀ S, threshold < S.card → ∀ e ⊆ S, e ∉ edges ω\n```\nThe source requires that **no** such independent subset exists:\n```lean\n¬ ∃ S, threshold < S.card ∧ ∀ e, e.1 ⊆ S → e ∉ edges ω\n```\n(or equivalently, every sufficiently large `S` contains some friendship edge).\n\nThe pair encoding, base-2 logarithm, strict “more than” threshold, and Bernoulli edge parameter `1/2` otherwise match the intended objects. There were no prior listed semantic risks to remedy."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n`friends` is not required to be measurable. Thus the conclusion applies `μ` to a potentially nonmeasurable event; in Lean this is not automatically the ordinary probability of that event. Likewise, the cylinder conditions in `FairIndependentFriendships` do not themselves establish measurability of the friendship-coordinate events.\n\nRequire each map `fun ω => friends ω i j` to be measurable (with `Bool`’s measurable structure), or directly require the relevant cylinder events and the final graph property event to be measurable. The ENNReal denominator is correctly typed, `Real.logb 2` is base-2 logarithm, and the strict inequality correctly expresses “more than.” No prior semantic risks were listed."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib Probability independence Bernoulli graph random graph",
+            "Mathlib Finset.card powerset filter cardinality subsets",
+            "Mathlib Real.logb Nat.ceil inequalities pow_two",
+            "ProbabilityTheory.Measure.map_apply MeasurableSet measurableSet_preimage",
+            "Measurable.aemeasurable Bool measurable_const measurable_fintype",
+            "Finset.exists_subset_card_lt card_powerset sum_biUnion probability_union_bound"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items18BCE67B4F/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 7917,
+            "completion_tokens": 11802,
+            "total_tokens": 19719
+          },
+          "recorded_at": "2026-08-24T09:34:23+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:36:45+00:00",
+          "target_file": "FateXWork/Questions/Items18BCE67B4F/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 52642,
+            "completion_tokens": 1419,
+            "total_tokens": 54061
+          },
+          "cost_usd": 0.56899,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:36:45+00:00",
+        "target_file": "FateXWork/Questions/Items18BCE67B4F/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 52642,
+          "completion_tokens": 1419,
+          "total_tokens": 54061
+        },
+        "cost_usd": 0.56899,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-1.9",
@@ -3396,11 +3834,105 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items1998B298B8/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.5258,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. The Lean statement does not model the stated random-graph experiment or the independent friendship edges. It replaces that structure with arbitrary sets `isolated n v` and assumes outright the derived isolation-probability formula; thus independence and the graph/event objects are not represented bidirectionally.\n\nAlso, Lean quantifies over `n : ℕ`, including `n = 0`, whereas the source concerns graphs with `n` freshmen (normally positive). In Lean, `n - 1` is truncated natural subtraction and division by `(0 : ℝ)` is defined as `0`, introducing an extra edge case not present in the source."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. The graph event itself is correctly expressed: `∀ v, ∃ w, Adj v w` means every vertex has a neighbor because `SimpleGraph.Adj` is irreflexive, and the density inequality uses real logarithm/division as intended.\n\nHowever, `ErdosRenyiLaw` does not require `X n` to be measurable, nor the graph-fiber events `{ω | X n ω = G}` to be measurable. For arbitrary sets, `Measure.real` uses the measure’s value/outer-measure behavior and does not supply the ordinary finite additivity needed to interpret these fiber values as a probability distribution on graphs. Thus the displayed per-graph equations need not encode an independent-edge random graph law, and the probability of the union event need not be determined by them.\n\nRequire measurability of each `X n` (with the discrete measurable structure on finite simple graphs), or explicitly require all graph fibers/events involved to be measurable and use a probability measure. No prior semantic risks were listed."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. The prior graph-modeling risk is remedied: `X n` is an actual `SimpleGraph (Fin n)`, and the event `∀ v, ∃ w, Adj v w` correctly states no isolated vertices. The exact fiber law, together with measurable fibers and `[IsProbabilityMeasure μ]`, adequately encodes the finite Erdős–Rényi distribution; the prior measurability risk is remedied.\n\nHowever, the prior `n = 0` semantic risk remains. The theorem quantifies over all `n : ℕ`, and `hp_lower 0` uses Lean’s `Real.log 0 = 0` and division by zero, so it imposes the artificial condition `0 < p 0`. The source’s threshold expression is not defined for zero freshmen. Restrict the threshold assumptions to `n ≥ 1` (or formulate the theorem eventually / over positive `n`) to match the source’s domain and edge cases."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib probability union bound finite measure exists",
+            "Mathlib tendsto pow_mul_exp log n asymptotic",
+            "Mathlib SimpleGraph ErdosRenyi isolated vertex probability",
+            "Mathlib ProbabilityTheory measurable finite type discrete random variable fibers measure",
+            "Mathlib MeasureTheory ProbabilityMeasure measurableSet preimage singleton finite",
+            "Mathlib SimpleGraph completeGraph edgeFinset Fin n measurableSpace finite"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items1998B298B8/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 10445,
+            "completion_tokens": 14045,
+            "total_tokens": 24490
+          },
+          "recorded_at": "2026-08-24T09:34:51+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:37:20+00:00",
+          "target_file": "FateXWork/Questions/Items1998B298B8/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 51418,
+            "completion_tokens": 1469,
+            "total_tokens": 52887
+          },
+          "cost_usd": 0.55825,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:37:20+00:00",
+        "target_file": "FateXWork/Questions/Items1998B298B8/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 51418,
+          "completion_tokens": 1469,
+          "total_tokens": 52887
+        },
+        "cost_usd": 0.55825,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-1.10",
