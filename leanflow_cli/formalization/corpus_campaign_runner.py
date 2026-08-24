@@ -499,6 +499,10 @@ def _execute_campaign_action(
             # launched from a TTY.  Do not let the child inherit that TTY and
             # strand the campaign in the post-run chat prompt.
             "LEANFLOW_NATIVE_INTERACTIVE": "0",
+            # A corpus worker should pay the cold Lean startup cost only after
+            # it has produced a concrete candidate.  The first foreground
+            # check still starts Lean and remains kernel authoritative.
+            "LEANFLOW_DEFER_FIRST_QUEUE_WARMUP": "1",
             # Checked helpers are safety-critical paid-work artifacts. Give
             # every batch a stable durable queue even outside research mode,
             # and isolate parallel batches so their pending candidates cannot

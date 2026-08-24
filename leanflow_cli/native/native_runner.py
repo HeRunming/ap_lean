@@ -18611,15 +18611,24 @@ def _prepare_queue_assignment_state(
         target_symbol=label,
         active_file=active_file,
     )
-    defer_incremental_warmup = bool(current.get("defer_incremental_warmup"))
+    defer_campaign_warmup = bool(
+        str(os.getenv("LEANFLOW_DEFER_FIRST_QUEUE_WARMUP", "") or "").strip().lower()
+        in {"1", "true", "yes", "on"}
+        and not autonomy_state.get("_first_queue_warmup_deferred")
+    )
+    defer_incremental_warmup = bool(
+        current.get("defer_incremental_warmup") or defer_campaign_warmup
+    )
     if defer_incremental_warmup:
+        if defer_campaign_warmup:
+            autonomy_state["_first_queue_warmup_deferred"] = True
         prepare_dict = {
             "success": False,
             "ok": False,
             "elapsed_s": 0.0,
             "cache": {},
             "error": (
-                "startup warmup deferred after bounded exact verification timeout; "
+                "startup warmup deferred until the first foreground candidate check; "
                 "use foreground LeanProbe checks after inspecting the proof hotspot"
             ),
         }

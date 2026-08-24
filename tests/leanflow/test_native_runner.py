@@ -20264,6 +20264,33 @@ def test_prepare_queue_assignment_defers_warmup_after_startup_timeout(monkeypatc
     assert "startup warmup deferred" in prepare["error"]
 
 
+def test_campaign_defers_only_first_eager_queue_warmup(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by\n  trivial\n", encoding="utf-8")
+    calls = []
+    monkeypatch.setenv("LEANFLOW_DEFER_FIRST_QUEUE_WARMUP", "1")
+    monkeypatch.setattr(
+        runner,
+        "_manager_prepare_incremental_queue_item",
+        lambda *_args: calls.append(_args) or {"success": True, "ok": True},
+    )
+    monkeypatch.setattr(runner, "_record_activity", lambda *args, **kwargs: None)
+    live_state = {
+        "active_file": str(active),
+        "current_queue_item": {"label": "demo"},
+        "current_queue_item_slice": active.read_text(encoding="utf-8"),
+    }
+    first_state = {}
+
+    runner._prepare_queue_assignment_state(first_state, live_state)
+    assert calls == []
+    assert first_state["_first_queue_warmup_deferred"] is True
+
+    first_state["current_queue_assignment"] = {}
+    runner._prepare_queue_assignment_state(first_state, live_state)
+    assert calls == [(str(active), "demo")]
+
+
 def test_prepare_queue_assignment_reassigns_earlier_incremental_blocker(monkeypatch, tmp_path):
     active = tmp_path / "Main.lean"
     active.write_text(

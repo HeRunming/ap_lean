@@ -463,6 +463,7 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
     namespaces = {env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] for _, env in calls}
     assert len(namespaces) == 2
     assert all(value.startswith("campaign-") for value in namespaces)
+    assert all(env["LEANFLOW_DEFER_FIRST_QUEUE_WARMUP"] == "1" for _, env in calls)
     persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert all("lease" not in batch for batch in persisted["batches"])
 
