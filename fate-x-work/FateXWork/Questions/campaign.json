@@ -8,7 +8,7 @@
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 20,
   "failure_class_counts": {
-    "budget_limit": 60,
+    "budget_limit": 61,
     "statement_generation_incomplete": 34,
     "infrastructure": 15,
     "proof_incomplete": 5
@@ -16,7 +16,7 @@
   "statement_completed_batch_count": 20,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 170.34652,
+  "spent_usd": 170.93465,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -3537,59 +3537,45 @@
             "total_tokens": 13278
           },
           "recorded_at": "2026-08-24T10:03:26+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T10:13:03+00:00",
+          "target_file": "FateXWork/Questions/Items1491E4B429/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 55174,
+            "completion_tokens": 1213,
+            "total_tokens": 56387
+          },
+          "cost_usd": 0.58813,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
-        "stage": "statements",
-        "success": true,
-        "exit_code": 0,
-        "reason": "bounded retrieval/refinement statement passed",
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T10:13:03+00:00",
         "target_file": "FateXWork/Questions/Items1491E4B429/Main.lean",
         "proof_obligations": 1,
-        "cost_usd": 0.2088,
-        "cost_source": "auxiliary_token_usage",
-        "cost_scope": "bounded_statement_pipeline",
-        "provenance": "agent",
-        "iterations": 2,
-        "candidate_attempts": 4,
-        "candidates_per_iteration": 2,
-        "failure_stage": "",
-        "final_diagnostic": "",
-        "candidate_diagnostics": [
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "ControlSocket /tmp/leanflow-lake-hrm@140.143.244.199:49322 already exists, disabling multiplexing\n"
-          },
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "d with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items1491E4B429/StatementCandidate_0bd32febcdc448208e0ff66937f8bc49.lean:8:15: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  Semiring ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items1491E4B429/StatementCandidate_0bd32febcdc448208e0ff66937f8bc49.lean:8:4: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  SupSet ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items1491E4B429/StatementCandidate_0bd32febcdc448208e0ff66937f8bc49.lean:8:33: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  SupSet ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\n"
-          }
-        ],
-        "retry_feedback_source": "",
-        "retrieval_queries": [
-          "Mathlib convexOn_convexHull_le_sup",
-          "Mathlib ConvexOn le_on_convexHull",
-          "Mathlib Set.convexHull induction",
-          "#check ConvexOn.sup_convexHull",
-          "#check sSup_image",
-          "#check Real.instLinearOrderedField"
-        ],
-        "statement_providers": {
-          "planner": "openai-codex",
-          "generator": "openai-codex",
-          "generator_fallback": "",
-          "judge": "openai-codex"
-        },
-        "review_evidence": "FateXWork/Questions/Items1491E4B429/IndependentReview.md",
-        "review_decision": "PASS",
-        "model": "gpt-5.6-terra",
-        "provider": "openai-codex",
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 9477,
-          "completion_tokens": 3801,
-          "total_tokens": 13278
+          "prompt_tokens": 55174,
+          "completion_tokens": 1213,
+          "total_tokens": 56387
         },
-        "recorded_at": "2026-08-24T10:03:26+00:00"
+        "cost_usd": 0.58813,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
       }
     },
     {
