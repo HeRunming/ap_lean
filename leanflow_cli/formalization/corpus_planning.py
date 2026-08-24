@@ -40,13 +40,28 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
     source = str(text or "")
     subpart_count = len(re.findall(r"(?m)^\s*\([a-z0-9]+\)\s+", source))
     display_count = len(re.findall(r"\$\$", source)) // 2
-    score = subpart_count * 3 + min(4, len(source) // 500) + min(4, display_count)
+    meta_proof_repair = bool(
+        re.search(
+            r"\b(?:fix|correct|repair)\b.{0,80}\b(?:proof|argument)\b|"
+            r"\b(?:proof|argument)\b.{0,80}\b(?:flawed|incorrect|wrong|gap)\b|"
+            r"\bwhat (?:is|goes) wrong\b",
+            source,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    )
+    score = (
+        subpart_count * 3
+        + min(4, len(source) // 500)
+        + min(4, display_count)
+        + (8 if meta_proof_repair else 0)
+    )
     tier = "complex" if score >= 8 else "moderate" if score >= 4 else "routine"
     return {
         "source_complexity_score": score,
         "source_complexity_tier": tier,
         "source_subpart_count": subpart_count,
         "source_display_count": display_count,
+        "source_meta_proof_repair": int(meta_proof_repair),
     }
 
 

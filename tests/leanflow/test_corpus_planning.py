@@ -757,6 +757,27 @@ def test_corpus_plan_records_source_shape_complexity():
     assert next_campaign_batch(campaign, stage="statements")["id"] == "routine"
 
 
+def test_corpus_plan_defers_meta_proof_repair_exercises():
+    plan = build_corpus_plan(
+        {
+            "theorem_blocks": [
+                {
+                    "label": "2.16",
+                    "statement": "The proof of Theorem 2.4.1 is slightly flawed. Fix this.",
+                }
+            ],
+            "qa_batches": [{"id": "repair", "labels": ["2.16"]}],
+        },
+        source_relative="book/questions.json",
+        shared_module="Demo.Questions.Shared.Basic",
+    )
+
+    item = plan["items"][0]
+    assert item["source_meta_proof_repair"] == 1
+    assert item["source_complexity_tier"] == "complex"
+    assert build_campaign(plan)["batches"][0]["source_complexity_tier"] == "complex"
+
+
 def test_fresh_proofs_prefer_fewer_obligations():
     plan = {
         "source": "book.json",
