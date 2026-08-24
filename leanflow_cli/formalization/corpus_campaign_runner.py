@@ -103,6 +103,71 @@ def select_campaign_model(
     return stage_model or fallback_model
 
 
+def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
+    """Summarize coverage lanes and empirical proof difficulty for automation."""
+    lanes = {
+        "fresh_statements": 0,
+        "statement_retries": 0,
+        "fresh_proofs": 0,
+        "proof_retries": 0,
+        "hard_proof_retries": 0,
+    }
+    ranked_costs: list[dict[str, Any]] = []
+    for raw_batch in campaign.get("batches", []) or []:
+        if not isinstance(raw_batch, Mapping):
+            continue
+        batch = dict(raw_batch)
+        status = str(batch.get("agent_status", batch.get("status", "pending")) or "pending")
+        statement_attempts = [
+            item
+            for item in batch.get("attempts", []) or []
+            if isinstance(item, Mapping)
+            and str(item.get("stage", "proofs") or "proofs") == "statements"
+        ]
+        proof_attempts = [
+            item
+            for item in batch.get("attempts", []) or []
+            if isinstance(item, Mapping)
+            and str(item.get("stage", "proofs") or "proofs") == "proofs"
+        ]
+        proof_cost = sum(float(item.get("cost_usd", 0.0) or 0.0) for item in proof_attempts)
+        total_cost = proof_cost + sum(
+            float(item.get("cost_usd", 0.0) or 0.0) for item in statement_attempts
+        )
+        if status in {"pending", "retry", "statement_retry"}:
+            lane = "fresh_statements" if not statement_attempts else "statement_retries"
+            lanes[lane] += 1
+        elif status in {"statements_completed", "proof_retry"}:
+            lane = "fresh_proofs" if not proof_attempts else "proof_retries"
+            lanes[lane] += 1
+            substantive_failures = sum(
+                classify_campaign_failure(item) in {"proof_incomplete", "verification_timeout"}
+                for item in proof_attempts
+            )
+            if substantive_failures >= 2 or proof_cost >= 2.0:
+                lanes["hard_proof_retries"] += 1
+        ranked_costs.append(
+            {
+                "batch_id": str(batch.get("id", "") or ""),
+                "status": status,
+                "cost_usd": round(total_cost, 6),
+                "proof_attempts": len(proof_attempts),
+            }
+        )
+    ranked_costs.sort(key=lambda item: (-float(item["cost_usd"]), item["batch_id"]))
+    completed = int(campaign.get("agent_e2e_completed_batch_count", 0) or 0)
+    if not completed:
+        completed = int(campaign.get("completed_batch_count", 0) or 0)
+    spent = float(campaign.get("spent_usd", 0.0) or 0.0)
+    return {
+        **lanes,
+        "completed_batches": completed,
+        "spent_usd": spent,
+        "cost_per_completed_batch_usd": round(spent / completed, 6) if completed else None,
+        "top_cost_batches": ranked_costs[:10],
+    }
+
+
 def _batch_target_file(batch: Mapping[str, Any]) -> str:
     """Return the statement stage's generated Lean target when durably recorded."""
     outcome = dict(batch.get("last_outcome", {}) or {})
@@ -125,9 +190,17 @@ def plan_next_campaign_action(
         and str(statement_batch.get("selection_kind", "") or "") == "document"
         else None
     )
-    proof_batch = (
-        None if foundation_statement is not None else next_campaign_batch(campaign, stage="proofs")
+    fresh_proof_batch = (
+        None
+        if foundation_statement is not None
+        else next_campaign_batch(campaign, stage="proofs", max_stage_attempts=0)
     )
+    # Give every approved statement one cheap proof attempt, then continue
+    # corpus coverage. A few difficult theorems must not starve the rest of the
+    # book; their retries resume after the fresh statement frontier is empty.
+    proof_batch = fresh_proof_batch
+    if proof_batch is None and statement_batch is None and foundation_statement is None:
+        proof_batch = next_campaign_batch(campaign, stage="proofs")
     if proof_batch is not None:
         target_file = _batch_target_file(proof_batch)
         if not target_file:
@@ -284,7 +357,11 @@ def lease_next_campaign_actions(
             )
         working: Mapping[str, Any] = current
         claimed: list[tuple[str, CampaignAction]] = []
-        for stage in ("proofs", "statements"):
+        for stage, max_stage_attempts in (
+            ("proofs", 0),
+            ("statements", None),
+            ("proofs", None),
+        ):
             open_slots = capacity - len(claimed)
             if open_slots <= 0:
                 break
@@ -294,6 +371,7 @@ def lease_next_campaign_actions(
                 stage=stage,
                 worker_ids=worker_ids,
                 ttl_seconds=lease_ttl_seconds,
+                max_stage_attempts=max_stage_attempts,
             )
             for worker_id, batch in zip(worker_ids, leased, strict=False):
                 claimed.append(
@@ -377,6 +455,7 @@ def describe_next_campaign_action(
             campaign.get("manual_gold_completed_batch_count", 0) or 0
         ),
         "failure_class_counts": dict(campaign.get("failure_class_counts", {}) or {}),
+        "economics": campaign_economics_report(campaign),
         "spent_usd": float(campaign.get("spent_usd", 0.0) or 0.0),
         "budget_usd": campaign.get("budget_usd"),
         "execution_admitted": admitted,

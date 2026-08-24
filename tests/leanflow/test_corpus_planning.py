@@ -24,6 +24,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     accept_agent_reviewed_statement,
     accept_locally_verified_proof,
     accept_locally_verified_statement,
+    campaign_economics_report,
     campaign_execution_admitted,
     describe_next_campaign_action,
     execute_campaign_wave,
@@ -364,6 +365,110 @@ def test_campaign_model_policy_escalates_only_non_infrastructure_failures():
         select_campaign_model(campaign, action, fallback_model="fallback", policy=policy)
         == "strong"
     )
+
+
+def test_coverage_first_scheduler_drafts_fresh_item_before_costly_proof_retry(tmp_path):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign = {
+        "source": "book.json",
+        "batches": [
+            {
+                "id": "hard",
+                "labels": ["1.1"],
+                "status": "statements_completed",
+                "last_outcome": {"target_file": "Book/Hard/Main.lean"},
+                "attempts": [{"stage": "proofs", "success": False, "cost_usd": 0.5}],
+            },
+            {"id": "fresh", "labels": ["1.2"], "status": "pending"},
+        ],
+    }
+
+    action = plan_next_campaign_action(campaign, python_executable="python")
+
+    assert action is not None
+    assert (action.batch_id, action.stage) == ("fresh", "statements")
+
+
+def test_coverage_first_wave_leases_fresh_proof_then_fresh_statement(tmp_path):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0,
+                "budget_usd": 10,
+                "batches": [
+                    {
+                        "id": "fresh-proof",
+                        "labels": ["1.1"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/A/Main.lean"},
+                        "attempts": [{"stage": "statements", "success": True}],
+                    },
+                    {
+                        "id": "old-proof",
+                        "labels": ["1.2"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/B/Main.lean"},
+                        "attempts": [{"stage": "proofs", "success": False}],
+                    },
+                    {"id": "fresh-statement", "labels": ["1.3"], "status": "pending"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=2,
+        python_executable="python",
+        reserve_usd=1,
+    )
+
+    assert [(action.batch_id, action.stage) for _, action in claims] == [
+        ("fresh-proof", "proofs"),
+        ("fresh-statement", "statements"),
+    ]
+
+
+def test_campaign_economics_report_separates_fresh_and_hard_work():
+    report = campaign_economics_report(
+        {
+            "spent_usd": 6,
+            "completed_batch_count": 2,
+            "batches": [
+                {"id": "statement", "status": "pending", "attempts": []},
+                {"id": "proof", "status": "statements_completed", "attempts": []},
+                {
+                    "id": "hard",
+                    "status": "statements_completed",
+                    "attempts": [
+                        {
+                            "stage": "proofs",
+                            "success": False,
+                            "failure_class": "proof_incomplete",
+                            "cost_usd": 1.2,
+                        },
+                        {
+                            "stage": "proofs",
+                            "success": False,
+                            "failure_class": "proof_incomplete",
+                            "cost_usd": 1.1,
+                        },
+                    ],
+                },
+            ],
+        }
+    )
+
+    assert report["fresh_statements"] == 1
+    assert report["fresh_proofs"] == 1
+    assert report["proof_retries"] == 1
+    assert report["hard_proof_retries"] == 1
+    assert report["cost_per_completed_batch_usd"] == 3
+    assert report["top_cost_batches"][0]["batch_id"] == "hard"
 
 
 def test_campaign_store_preserves_concurrent_outcomes(tmp_path):

@@ -134,6 +134,15 @@ def _batch_stage_priority(batch: Mapping[str, Any], *, stage: str) -> tuple[floa
     return (round(cost, 9), failures, len(attempts))
 
 
+def batch_stage_attempt_count(batch: Mapping[str, Any], *, stage: str) -> int:
+    """Return durable attempts for one stage, including infrastructure outcomes."""
+    return sum(
+        1
+        for attempt in batch.get("attempts", []) or []
+        if isinstance(attempt, Mapping) and str(attempt.get("stage", "proofs") or "proofs") == stage
+    )
+
+
 def _select_economic_frontier(
     frontier: Sequence[Mapping[str, Any]],
     *,
@@ -355,7 +364,10 @@ def build_campaign(
 
 
 def next_campaign_batch(
-    campaign: Mapping[str, Any], *, stage: str = "statements"
+    campaign: Mapping[str, Any],
+    *,
+    stage: str = "statements",
+    max_stage_attempts: int | None = None,
 ) -> dict[str, Any] | None:
     """Return the next agent-lane batch independently of paid-action admission.
 
@@ -385,6 +397,12 @@ def next_campaign_batch(
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         )
     ]
+    if max_stage_attempts is not None:
+        frontier = [
+            batch
+            for batch in frontier
+            if batch_stage_attempt_count(batch, stage=stage) <= max_stage_attempts
+        ]
     selected = _select_economic_frontier(
         frontier,
         stage=stage,
@@ -400,6 +418,7 @@ def lease_campaign_batches(
     worker_ids: Sequence[str],
     ttl_seconds: int = 7200,
     now: datetime | None = None,
+    max_stage_attempts: int | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Lease distinct eligible batches without treating them as completed work."""
     if stage not in {"statements", "proofs"}:
@@ -425,6 +444,12 @@ def lease_campaign_batches(
             and not _lease_is_active(batch, now=moment)
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         ]
+        if max_stage_attempts is not None:
+            frontier = [
+                batch
+                for batch in frontier
+                if batch_stage_attempt_count(batch, stage=stage) <= max_stage_attempts
+            ]
         selected = _select_economic_frontier(
             frontier,
             stage=stage,
