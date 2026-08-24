@@ -31,6 +31,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     execute_next_campaign_action,
     lease_next_campaign_actions,
     plan_next_campaign_action,
+    recover_agent_verified_proof,
     review_existing_agent_statement,
     select_campaign_model,
     validate_campaign_action_paths,
@@ -469,6 +470,69 @@ def test_campaign_economics_report_separates_fresh_and_hard_work():
     assert report["hard_proof_retries"] == 1
     assert report["cost_per_completed_batch_usd"] == 3
     assert report["top_cost_batches"][0]["batch_id"] == "hard"
+
+
+def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    source = "theorem demo : True := by sorry\n"
+    target.write_text(source, encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 1,
+                "budget_usd": 2,
+                "batches": [
+                    {
+                        "id": "item",
+                        "labels": ["1.1"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                        "attempts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = tmp_path / ".leanflow" / "workflow-state" / "workers" / "w1" / "outcomes.jsonl"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(
+        json.dumps(
+            {
+                "kind": "lean-multi-attempt",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "payload": {
+                    "file_path": str(target),
+                    "line": 1,
+                    "column": source.index("sorry") + 1,
+                    "target_verified": True,
+                    "verified_attempts": ["exact True.intro"],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    outcome = recover_agent_verified_proof(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="item",
+    )
+
+    assert outcome["success"] is True
+    assert outcome["provenance"] == "agent"
+    assert target.read_text(encoding="utf-8") == "theorem demo : True := by exact True.intro\n"
+    persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert persisted["batches"][0]["agent_status"] == "proofs_completed"
 
 
 def test_campaign_store_preserves_concurrent_outcomes(tmp_path):

@@ -33,6 +33,9 @@ from leanflow_cli.formalization.corpus_campaign import (
 from leanflow_cli.formalization.formalization_document_runner import (
     _approved_blueprint_statement_review_text,
 )
+from leanflow_cli.lean.lean_attempt_location import _multi_attempt_replacement_candidate
+from leanflow_cli.lean.lean_parsing import _declaration_line_index_from_text
+from leanflow_cli.workflows import decomposition_provenance
 from leanflow_cli.workflows.verification_providers import (
     BLUEPRINT_VERIFICATION_TASK,
     run_model_verification_review,
@@ -1188,6 +1191,122 @@ def accept_locally_verified_proof(
     )
 
 
+def recover_agent_verified_proof(
+    campaign_path: str | Path,
+    *,
+    project_root: str | Path,
+    batch_id: str,
+    lake_executable: str = "lake",
+) -> dict[str, Any]:
+    """Recover a durable exact LeanProbe candidate after budget/crash finalization."""
+    root = Path(project_root).expanduser().resolve()
+    path = Path(campaign_path).expanduser().resolve()
+    campaign = json.loads(path.read_text(encoding="utf-8"))
+    batch = next(
+        (item for item in campaign.get("batches", []) or [] if str(item.get("id", "")) == batch_id),
+        None,
+    )
+    if not isinstance(batch, Mapping):
+        raise CampaignExecutionBlocked(f"unknown campaign batch: {batch_id}")
+    target_file = str(_batch_target_file(batch)).strip()
+    target = (root / target_file).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        raise CampaignExecutionBlocked("campaign target is missing or escapes the project")
+
+    matches: list[tuple[str, dict[str, Any], Path]] = []
+    outcome_roots = [root / ".leanflow" / "workflow-state" / "outcomes.jsonl"]
+    outcome_roots.extend(
+        (root / ".leanflow" / "workflow-state" / "workers").glob("*/outcomes.jsonl")
+    )
+    for evidence in outcome_roots:
+        if not evidence.is_file():
+            continue
+        for line in evidence.read_text(encoding="utf-8").splitlines():
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            payload = dict(record.get("payload", {}) or {})
+            candidate_file = Path(str(payload.get("file_path", "") or "")).expanduser()
+            if not candidate_file.is_absolute():
+                candidate_file = root / candidate_file
+            verified = [
+                str(item or "").strip()
+                for item in payload.get("verified_attempts", []) or []
+                if str(item or "").strip()
+            ]
+            if (
+                str(record.get("kind", "") or "") == "lean-multi-attempt"
+                and payload.get("target_verified") is True
+                and candidate_file.resolve() == target
+                and len(verified) == 1
+            ):
+                matches.append((str(record.get("timestamp", "") or ""), payload, evidence))
+    if not matches:
+        raise CampaignExecutionBlocked("no durable exact LeanProbe candidate found for batch")
+    _timestamp, payload, evidence = max(matches, key=lambda item: item[0])
+    try:
+        line = int(payload.get("line", 0) or 0)
+        raw_column = payload.get("column")
+        column = int(raw_column) if raw_column not in (None, "") else None
+    except (TypeError, ValueError) as exc:
+        raise CampaignExecutionBlocked("verified candidate has invalid source coordinates") from exc
+    tactic = str(payload["verified_attempts"][0]).strip()
+    replacement = _multi_attempt_replacement_candidate(target, line, column, tactic)
+    if replacement is None:
+        raise CampaignExecutionBlocked("verified candidate no longer matches current source")
+    before = target.read_bytes()
+    source = before.decode("utf-8")
+    declaration_name, declaration = replacement
+    old_declaration = next(
+        (
+            str(item.get("text", "") or "")
+            for item in _declaration_line_index_from_text(source)
+            if str(item.get("name", "") or "") == declaration_name
+        ),
+        "",
+    )
+    if not old_declaration or source.count(old_declaration) != 1:
+        raise CampaignExecutionBlocked("verified declaration cannot be uniquely recovered")
+    after = source.replace(old_declaration, declaration, 1).encode("utf-8")
+    if not decomposition_provenance.compare_and_swap_source(
+        target, expected_bytes=before, replacement_bytes=after
+    ):
+        raise CampaignExecutionBlocked("target changed while recovering verified candidate")
+    completed = subprocess.run(
+        [lake_executable, "env", "lean", target_file],
+        cwd=str(root),
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    output = (completed.stdout or "") + (completed.stderr or "")
+    if completed.returncode != 0 or "declaration uses `sorry`" in output:
+        decomposition_provenance.compare_and_swap_source(
+            target, expected_bytes=after, replacement_bytes=before
+        )
+        raise CampaignExecutionBlocked((output or "Lean verification failed")[-2000:])
+    outcome = {
+        "stage": "proofs",
+        "success": True,
+        "exit_code": 0,
+        "reason": "recovered durable agent LeanProbe proof candidate",
+        "target_file": target_file,
+        "proof_obligations": 0,
+        "cost_usd": 0.0,
+        "cost_source": "durable_agent_evidence",
+        "cost_scope": "no_additional_provider_call",
+        "provenance": "agent",
+        "recovery_evidence": str(evidence.relative_to(root)),
+        "recovered_tactic": tactic,
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    updated = record_campaign_outcome(campaign, batch_id=batch_id, outcome=outcome)
+    atomic_json_write(path, updated)
+    return outcome
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Inspect a campaign or explicitly execute one budget-admitted action."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1227,6 +1346,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--accept-agent-reviewed-statement", default="")
     parser.add_argument("--review-file", default="")
     parser.add_argument("--accept-local-proof", default="")
+    parser.add_argument("--recover-agent-proof", default="")
     parser.add_argument("--review-agent-statement", default="")
     parser.add_argument("--refine-statement-bounded", default="")
     parser.add_argument("--max-statement-iterations", type=int, default=3)
@@ -1314,6 +1434,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             project_root=project_root,
             batch_id=args.accept_local_proof,
             target_file=args.local_target,
+            lake_executable=args.lake_executable,
+        )
+        print(json.dumps(outcome, ensure_ascii=False, indent=2))
+        return 0
+    if args.recover_agent_proof:
+        outcome = recover_agent_verified_proof(
+            campaign_path,
+            project_root=project_root,
+            batch_id=args.recover_agent_proof,
             lake_executable=args.lake_executable,
         )
         print(json.dumps(outcome, ensure_ascii=False, indent=2))
