@@ -1034,6 +1034,48 @@ def test_campaign_wave_does_not_mix_complex_statements_into_routine_frontier(tmp
     assert [action.batch_id for _worker, action in claims] == ["complex"]
 
 
+def test_campaign_defers_fresh_complex_proof_behind_routine_statement(tmp_path):
+    campaign = {
+        "source": "book.json",
+        "budget_usd": 10.0,
+        "spent_usd": 0.0,
+        "batches": [
+            {
+                "id": "deep-proof",
+                "labels": ["1.1"],
+                "status": "statements_completed",
+                "agent_status": "statements_completed",
+                "source_complexity_tier": "complex",
+                "last_outcome": {"target_file": "Book/Deep.lean"},
+                "attempts": [],
+            },
+            {
+                "id": "routine-statement",
+                "labels": ["1.2"],
+                "status": "pending",
+                "agent_status": "pending",
+                "source_complexity_tier": "routine",
+                "attempts": [],
+            },
+        ],
+    }
+
+    action = plan_next_campaign_action(campaign, python_executable="python")
+    assert (action.batch_id, action.stage) == ("routine-statement", "statements")
+
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(json.dumps(campaign), encoding="utf-8")
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=2,
+        python_executable="python",
+        reserve_usd=1.0,
+    )
+    assert [(item.batch_id, item.stage) for _worker, item in claims] == [
+        ("routine-statement", "statements")
+    ]
+
+
 def test_refresh_campaign_source_complexity_migrates_legacy_campaign(tmp_path):
     source = tmp_path / "questions.json"
     source.write_text(

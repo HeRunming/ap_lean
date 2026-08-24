@@ -390,15 +390,17 @@ def plan_next_campaign_action(
     python_executable: str,
 ) -> CampaignAction | None:
     """Plan proof-first continuation so each approved batch closes before drafting more."""
-    statement_batch = next_campaign_batch(
+    noncomplex_statement = next_campaign_batch(
         campaign,
         stage="statements",
         allowed_complexity_tiers=("routine", "moderate"),
-    ) or next_campaign_batch(
+    )
+    complex_statement = next_campaign_batch(
         campaign,
         stage="statements",
         allowed_complexity_tiers=("complex",),
     )
+    statement_batch = noncomplex_statement or complex_statement
     # A source foundation unlocks downstream book items and should be drafted as
     # soon as its own statement dependencies are ready.  Ordinary item drafts
     # retain proof-first behavior so the corpus does not accumulate sorries.
@@ -411,12 +413,24 @@ def plan_next_campaign_action(
     fresh_proof_batch = (
         None
         if foundation_statement is not None
-        else next_campaign_batch(campaign, stage="proofs", max_stage_attempts=0)
+        else next_campaign_batch(
+            campaign,
+            stage="proofs",
+            max_stage_attempts=0,
+            allowed_complexity_tiers=("routine", "moderate"),
+        )
     )
     # Give every approved statement one cheap proof attempt, then continue
     # corpus coverage. A few difficult theorems must not starve the rest of the
     # book; their retries resume after the fresh statement frontier is empty.
     proof_batch = fresh_proof_batch
+    if proof_batch is None and noncomplex_statement is None and foundation_statement is None:
+        proof_batch = next_campaign_batch(
+            campaign,
+            stage="proofs",
+            max_stage_attempts=0,
+            allowed_complexity_tiers=("complex",),
+        )
     if proof_batch is None and statement_batch is None and foundation_statement is None:
         proof_batch = next_campaign_batch(campaign, stage="proofs")
     if proof_batch is not None:
@@ -575,6 +589,14 @@ def lease_next_campaign_actions(
             )
         working: Mapping[str, Any] = current
         claimed: list[tuple[str, CampaignAction]] = []
+        noncomplex_proof_ready = (
+            next_campaign_batch(
+                current,
+                stage="proofs",
+                allowed_complexity_tiers=("routine", "moderate"),
+            )
+            is not None
+        )
         noncomplex_statement_ready = (
             next_campaign_batch(
                 current,
@@ -584,12 +606,14 @@ def lease_next_campaign_actions(
             is not None
         )
         lanes: list[tuple[str, int | None, tuple[str, ...] | None]] = [
-            ("proofs", 0, None),
+            ("proofs", 0, ("routine", "moderate")),
             ("statements", None, ("routine", "moderate")),
         ]
-        if not noncomplex_statement_ready:
+        if not noncomplex_statement_ready and not noncomplex_proof_ready:
+            lanes.append(("proofs", 0, ("complex",)))
             lanes.append(("statements", None, ("complex",)))
-        lanes.append(("proofs", None, None))
+            lanes.append(("proofs", None, ("complex",)))
+        lanes.append(("proofs", None, ("routine", "moderate")))
         for stage, max_stage_attempts, allowed_complexity_tiers in lanes:
             open_slots = capacity - len(claimed)
             if open_slots <= 0:
