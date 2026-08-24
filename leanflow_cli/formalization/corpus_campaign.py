@@ -404,6 +404,7 @@ def next_campaign_batch(
     *,
     stage: str = "statements",
     max_stage_attempts: int | None = None,
+    allowed_complexity_tiers: Sequence[str] | None = None,
 ) -> dict[str, Any] | None:
     """Return the next agent-lane batch independently of paid-action admission.
 
@@ -433,6 +434,15 @@ def next_campaign_batch(
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         )
     ]
+    allowed_tiers = {
+        str(tier or "").strip() for tier in (allowed_complexity_tiers or []) if str(tier).strip()
+    }
+    if allowed_tiers:
+        frontier = [
+            batch
+            for batch in frontier
+            if str(batch.get("source_complexity_tier", "routine") or "routine") in allowed_tiers
+        ]
     if max_stage_attempts is not None:
         frontier = [
             batch
@@ -455,6 +465,7 @@ def lease_campaign_batches(
     ttl_seconds: int = 7200,
     now: datetime | None = None,
     max_stage_attempts: int | None = None,
+    allowed_complexity_tiers: Sequence[str] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Lease distinct eligible batches without treating them as completed work."""
     if stage not in {"statements", "proofs"}:
@@ -472,6 +483,9 @@ def lease_campaign_batches(
         for batch in updated["batches"]
         for label in batch.get("labels", []) or []
     }
+    allowed_tiers = {
+        str(tier or "").strip() for tier in (allowed_complexity_tiers or []) if str(tier).strip()
+    }
     for worker_id in worker_ids:
         frontier = [
             batch
@@ -480,6 +494,12 @@ def lease_campaign_batches(
             and not _lease_is_active(batch, now=moment)
             and _batch_dependencies_ready(batch, stage=stage, label_statuses=label_statuses)
         ]
+        if allowed_tiers:
+            frontier = [
+                batch
+                for batch in frontier
+                if str(batch.get("source_complexity_tier", "routine") or "routine") in allowed_tiers
+            ]
         if max_stage_attempts is not None:
             frontier = [
                 batch

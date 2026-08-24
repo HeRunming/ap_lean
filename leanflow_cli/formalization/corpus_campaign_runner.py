@@ -171,6 +171,43 @@ def select_campaign_model(
     return stage_model or fallback_model
 
 
+_STATEMENT_RISK_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("measurability_integrability", r"measurab|integrab|bochner integral|genuine expectation"),
+    ("extended_value_semantics", r"ennreal|ereal|extended[- ](?:real|value)|\binfinity\b"),
+    (
+        "source_domain_mismatch",
+        r"not bidirectionally faithful|changes? the (?:data|domain|object)|source has",
+    ),
+    (
+        "totalized_edge_case",
+        r"division by zero|denominator zero|n\s*=\s*0|totalized|truncated natural",
+    ),
+    ("meta_proof_repair", r"repair|fixing the proof|auxiliary .* lemma|actual .* theorem"),
+    (
+        "statement_format",
+        r"statement lane|forbidden statement-lane token|body .* exactly `by sorry`",
+    ),
+)
+
+
+def classify_statement_semantic_risks(attempt: Mapping[str, Any]) -> set[str]:
+    """Extract stable remediation buckets from bounded statement diagnostics."""
+    if str(attempt.get("stage", "") or "") != "statements":
+        return set()
+    texts = [
+        str(item.get("diagnostic", "") or "")
+        for item in attempt.get("candidate_diagnostics", []) or []
+        if isinstance(item, Mapping)
+    ]
+    texts.extend(str(attempt.get(key, "") or "") for key in ("final_diagnostic", "reason"))
+    evidence = "\n".join(texts).lower()
+    return {
+        category
+        for category, pattern in _STATEMENT_RISK_PATTERNS
+        if re.search(pattern, evidence, flags=re.IGNORECASE)
+    }
+
+
 def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
     """Summarize coverage lanes and empirical proof difficulty for automation."""
     lanes = {
@@ -181,6 +218,7 @@ def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
         "hard_proof_retries": 0,
     }
     ranked_costs: list[dict[str, Any]] = []
+    statement_risk_counts: dict[str, int] = {}
     for raw_batch in campaign.get("batches", []) or []:
         if not isinstance(raw_batch, Mapping):
             continue
@@ -192,6 +230,11 @@ def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
             if isinstance(item, Mapping)
             and str(item.get("stage", "proofs") or "proofs") == "statements"
         ]
+        batch_risks = set().union(
+            *(classify_statement_semantic_risks(item) for item in statement_attempts)
+        )
+        for risk in batch_risks:
+            statement_risk_counts[risk] = statement_risk_counts.get(risk, 0) + 1
         proof_attempts = [
             item
             for item in batch.get("attempts", []) or []
@@ -232,6 +275,7 @@ def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
         "completed_batches": completed,
         "spent_usd": spent,
         "cost_per_completed_batch_usd": round(spent / completed, 6) if completed else None,
+        "statement_risk_counts": dict(sorted(statement_risk_counts.items())),
         "top_cost_batches": ranked_costs[:10],
     }
 
@@ -248,7 +292,15 @@ def plan_next_campaign_action(
     python_executable: str,
 ) -> CampaignAction | None:
     """Plan proof-first continuation so each approved batch closes before drafting more."""
-    statement_batch = next_campaign_batch(campaign, stage="statements")
+    statement_batch = next_campaign_batch(
+        campaign,
+        stage="statements",
+        allowed_complexity_tiers=("routine", "moderate"),
+    ) or next_campaign_batch(
+        campaign,
+        stage="statements",
+        allowed_complexity_tiers=("complex",),
+    )
     # A source foundation unlocks downstream book items and should be drafted as
     # soon as its own statement dependencies are ready.  Ordinary item drafts
     # retain proof-first behavior so the corpus does not accumulate sorries.
@@ -425,11 +477,22 @@ def lease_next_campaign_actions(
             )
         working: Mapping[str, Any] = current
         claimed: list[tuple[str, CampaignAction]] = []
-        for stage, max_stage_attempts in (
-            ("proofs", 0),
-            ("statements", None),
-            ("proofs", None),
-        ):
+        noncomplex_statement_ready = (
+            next_campaign_batch(
+                current,
+                stage="statements",
+                allowed_complexity_tiers=("routine", "moderate"),
+            )
+            is not None
+        )
+        lanes: list[tuple[str, int | None, tuple[str, ...] | None]] = [
+            ("proofs", 0, None),
+            ("statements", None, ("routine", "moderate")),
+        ]
+        if not noncomplex_statement_ready:
+            lanes.append(("statements", None, ("complex",)))
+        lanes.append(("proofs", None, None))
+        for stage, max_stage_attempts, allowed_complexity_tiers in lanes:
             open_slots = capacity - len(claimed)
             if open_slots <= 0:
                 break
@@ -440,6 +503,7 @@ def lease_next_campaign_actions(
                 worker_ids=worker_ids,
                 ttl_seconds=lease_ttl_seconds,
                 max_stage_attempts=max_stage_attempts,
+                allowed_complexity_tiers=allowed_complexity_tiers,
             )
             for worker_id, batch in zip(worker_ids, leased, strict=False):
                 claimed.append(

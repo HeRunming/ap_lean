@@ -80,6 +80,35 @@ def test_retrieval_queries_ignore_fence_language_marker():
     )
 
 
+def test_source_fidelity_preflight_flags_probability_semantics():
+    checklist = bounded.source_fidelity_preflight(
+        "Let X be a random variable. Prove that its MGF equals its expectation."
+    )
+
+    assert "measurability" in checklist
+    assert "integrable" in checklist
+    assert "Real/NNReal/ENNReal/EReal" in checklist
+    assert "pointwise versus almost-everywhere" in checklist
+
+
+def test_source_fidelity_preflight_flags_actual_meta_repair_obligation():
+    checklist = bounded.source_fidelity_preflight(
+        "The following proof is flawed. Fix the argument and prove the corrected conclusion."
+    )
+
+    assert "actual corrected theorem" in checklist
+    assert "helper lemma is not a faithful substitute" in checklist
+
+
+def test_source_fidelity_preflight_counts_explicit_subparts():
+    checklist = bounded.source_fidelity_preflight(
+        "Prove the following.\n(a) First claim.\n(b) Second claim.\n(c) Third claim."
+    )
+
+    assert "3 explicit subparts" in checklist
+    assert "Cover every subpart" in checklist
+
+
 def test_bounded_target_derivation_matches_document_layout(tmp_path):
     assert (
         bounded.derive_bounded_statement_target(

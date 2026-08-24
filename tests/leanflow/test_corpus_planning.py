@@ -26,6 +26,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     accept_locally_verified_statement,
     campaign_economics_report,
     campaign_execution_admitted,
+    classify_statement_semantic_risks,
     describe_next_campaign_action,
     execute_campaign_wave,
     execute_next_campaign_action,
@@ -473,6 +474,43 @@ def test_campaign_economics_report_separates_fresh_and_hard_work():
     assert report["top_cost_batches"][0]["batch_id"] == "hard"
 
 
+def test_statement_risk_report_groups_remediation_categories():
+    attempt = {
+        "stage": "statements",
+        "success": False,
+        "candidate_diagnostics": [
+            {
+                "diagnostic": (
+                    "BLOCK: X is not measurable, so the Bochner integral is not a genuine "
+                    "expectation. ENNReal also changes extended-value edge cases."
+                )
+            },
+            {
+                "diagnostic": "The candidate is only an auxiliary lemma, not the actual theorem repair."
+            },
+        ],
+    }
+
+    assert classify_statement_semantic_risks(attempt) == {
+        "measurability_integrability",
+        "extended_value_semantics",
+        "meta_proof_repair",
+    }
+    report = campaign_economics_report(
+        {
+            "batches": [
+                {"id": "one", "status": "statement_retry", "attempts": [attempt]},
+                {"id": "two", "status": "statement_retry", "attempts": [attempt]},
+            ]
+        }
+    )
+    assert report["statement_risk_counts"] == {
+        "extended_value_semantics": 2,
+        "measurability_integrability": 2,
+        "meta_proof_repair": 2,
+    }
+
+
 def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkeypatch):
     target = tmp_path / "Book" / "Main.lean"
     target.parent.mkdir(parents=True)
@@ -801,6 +839,59 @@ def test_fresh_proofs_prefer_fewer_obligations():
     )
 
     assert next_campaign_batch(campaign, stage="proofs")["id"] == "one"
+
+
+def test_campaign_wave_does_not_mix_complex_statements_into_routine_frontier(tmp_path):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "budget_usd": 10.0,
+                "spent_usd": 0.0,
+                "batches": [
+                    {
+                        "id": "routine",
+                        "labels": ["1.1"],
+                        "status": "pending",
+                        "agent_status": "pending",
+                        "source_complexity_tier": "routine",
+                    },
+                    {
+                        "id": "complex",
+                        "labels": ["1.2"],
+                        "status": "pending",
+                        "agent_status": "pending",
+                        "source_complexity_tier": "complex",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=2,
+        python_executable="python",
+        reserve_usd=1.0,
+    )
+
+    assert [action.batch_id for _worker, action in claims] == ["routine"]
+
+    leased = json.loads(campaign_path.read_text(encoding="utf-8"))
+    leased["batches"][0].pop("lease", None)
+    leased["batches"][0]["status"] = "skipped"
+    leased["batches"][0]["agent_status"] = "skipped"
+    campaign_path.write_text(json.dumps(leased), encoding="utf-8")
+
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=1,
+        python_executable="python",
+        reserve_usd=1.0,
+    )
+    assert [action.batch_id for _worker, action in claims] == ["complex"]
 
 
 def test_refresh_campaign_source_complexity_migrates_legacy_campaign(tmp_path):

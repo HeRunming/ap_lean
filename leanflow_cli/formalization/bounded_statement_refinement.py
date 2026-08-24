@@ -30,6 +30,39 @@ class BoundedStatementRefinementError(RuntimeError):
     """Reject an unsafe or malformed bounded statement action."""
 
 
+def source_fidelity_preflight(statement: str) -> str:
+    """Render deterministic semantic hazards visible before the first draft."""
+    source = str(statement or "")
+    lower = source.lower()
+    risks = [
+        "Preserve pointwise versus almost-everywhere hypotheses exactly; do not silently strengthen or weaken the source.",
+        "Audit Lean-totalized edge cases (zero denominators, Nat subtraction, empty finite types, log at zero) and add source-domain hypotheses only when the source entails them.",
+    ]
+    if re.search(r"random variable|probabil|expectation|\bmgf\b|moment generating", lower):
+        risks.append(
+            "Model genuine random variables: make measurability explicit and ensure every ordinary expectation/MGF is integrable or finite when the source requires a finite real value."
+        )
+        risks.append(
+            "Choose Real/NNReal/ENNReal/EReal deliberately. Do not use extended values, totalized subtraction, or Bochner-integral defaults unless their infinity/undefined cases match the source convention."
+        )
+    if re.search(
+        r"\b(?:fix|correct|repair)\b.{0,80}\b(?:proof|argument)\b", lower, re.DOTALL
+    ) or re.search(
+        r"\b(?:proof|argument)\b.{0,80}\b(?:flawed|incorrect|wrong|gap)\b",
+        lower,
+        re.DOTALL,
+    ):
+        risks.append(
+            "This is a meta proof-repair exercise: formalize the actual corrected theorem, construction, and conclusion. An isolated arithmetic/helper lemma is not a faithful substitute."
+        )
+    subparts = re.findall(r"(?m)^\s*\([a-z0-9]+\)\s+", source)
+    if len(subparts) >= 2:
+        risks.append(
+            f"The source has {len(subparts)} explicit subparts. Cover every subpart with declarations whose shared hypotheses and domains remain consistent."
+        )
+    return "\n".join(f"- {risk}" for risk in risks)
+
+
 @dataclass(frozen=True)
 class StatementDraft:
     lean_code: str
@@ -329,6 +362,7 @@ def refine_campaign_statement_bounded(
         source_file,
         labels=tuple(str(value) for value in batch.get("labels", []) or []),
     )
+    fidelity_preflight = source_fidelity_preflight(statement)
 
     previous_outcome = dict(batch.get("last_outcome", {}) or {})
     previous_failure_stage = str(previous_outcome.get("failure_stage", "") or "")
@@ -467,6 +501,7 @@ def refine_campaign_statement_bounded(
             "proof steps. Never use standalone `λ` as an identifier; use `coeff` instead because Lean "
             "reserves `λ` as lambda syntax. Use the retrieved interfaces only when relevant.\n\n"
             f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
+            f"DETERMINISTIC SOURCE-FIDELITY PREFLIGHT\n{fidelity_preflight}\n\n"
             f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
             f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
             f"COMPILER ERROR\n{compile_error or '[none]'}\n\n"
@@ -607,6 +642,7 @@ def refine_campaign_statement_bounded(
                     "that every prior known semantic risk below was remedied, rather than merely changed. Then give "
                     "concise correction feedback.\n\n"
                     f"SOURCE\n{statement}\n\nPRIOR KNOWN SEMANTIC RISKS\n"
+                    f"{fidelity_preflight}\n"
                     f"{semantic_feedback or '[none]'}\n\nLEAN\n{draft.lean_code}"
                 ),
             )
