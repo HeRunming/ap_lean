@@ -12658,6 +12658,41 @@ def _tool_result_loop_pre_tool_guard(
     )
 
 
+_PROOF_RETRIEVAL_COUNT_KEY = "_proof_retrieval_since_lean_check"
+_PROOF_RETRIEVAL_TOOLS = frozenset(
+    {"lean_search", "search_files", "lean_auto_search", "lean_lemma_suggest"}
+)
+_MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 3
+
+
+def _proof_retrieval_pre_tool_guard(
+    function_name: str,
+    autonomy_state: dict[str, Any],
+) -> str | None:
+    """Force bounded retrieval to produce a Lean-checkable candidate."""
+    if _workflow_kind() != "prove" or function_name not in _PROOF_RETRIEVAL_TOOLS:
+        return None
+    count = max(0, int(autonomy_state.get(_PROOF_RETRIEVAL_COUNT_KEY, 0) or 0))
+    if count >= _MAX_PROOF_RETRIEVALS_BEFORE_CHECK:
+        return json.dumps(
+            {
+                "success": False,
+                "status": "proof_candidate_check_required",
+                "blocked_tool": function_name,
+                "retrievals_used": count,
+                "retrievals_allowed": _MAX_PROOF_RETRIEVALS_BEFORE_CHECK,
+                "required_action": (
+                    "Turn the retrieved facts into one concrete `check_helper` or "
+                    "`check_target` candidate now. Further retrieval unlocks after Lean "
+                    "checks that candidate and returns diagnostics."
+                ),
+            },
+            ensure_ascii=False,
+        )
+    autonomy_state[_PROOF_RETRIEVAL_COUNT_KEY] = count + 1
+    return None
+
+
 def _managed_pre_tool_call(
     agent: Any, function_name: str, args: Mapping[str, Any] | None
 ) -> str | None:
@@ -12666,6 +12701,9 @@ def _managed_pre_tool_call(
         return formalization_guard
     autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
     if isinstance(autonomy_state, dict):
+        retrieval_guard = _proof_retrieval_pre_tool_guard(function_name, autonomy_state)
+        if retrieval_guard:
+            return retrieval_guard
         assignment = dict(autonomy_state.get("current_queue_assignment") or {})
         normalized_target_check = (
             source_placeholder_guard.normalize_assigned_target_check(
@@ -24111,6 +24149,8 @@ def _build_agent() -> AIAgent:
             edit_verdict = _finalize_managed_queue_edit_details(agent, function_name, _result)
         managed_autonomy = getattr(agent, "_managed_autonomy_state", None)
         if isinstance(managed_autonomy, dict):
+            if function_name == "lean_incremental_check":
+                managed_autonomy[_PROOF_RETRIEVAL_COUNT_KEY] = 0
             assignment = dict(managed_autonomy.get("current_queue_assignment") or {})
             if _concrete_sorry_free_target_attempt(function_name, _args, _result):
                 target_attempt = _json_tool_result_payload(_result)

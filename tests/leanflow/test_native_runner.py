@@ -14231,6 +14231,18 @@ def test_scope_entry_binds_state_before_recovering_helper_already_in_source(monk
     assert integrated["integration_path"] == "source_recovery"
 
 
+def test_proof_retrieval_budget_requires_a_lean_candidate(monkeypatch):
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    state: dict = {}
+
+    for _ in range(runner._MAX_PROOF_RETRIEVALS_BEFORE_CHECK):
+        assert runner._proof_retrieval_pre_tool_guard("lean_search", state) is None
+    blocked = json.loads(runner._proof_retrieval_pre_tool_guard("search_files", state))
+    assert blocked["status"] == "proof_candidate_check_required"
+    assert blocked["retrievals_used"] == 3
+    assert runner._proof_retrieval_pre_tool_guard("read_file", state) is None
+
+
 def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     monkeypatch, tmp_path
 ):
