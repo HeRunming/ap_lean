@@ -13691,28 +13691,33 @@ def test_parent_rechecks_checked_helper_before_orchestrator_and_fences_broad_sea
     assert awaiting_recheck_block["status"] == "checked_helper_parent_recheck_required"
     assert awaiting_recheck_block["helper_symbol"] == "checked_family"
     assert awaiting_recheck_block["preserved_declaration"] == declaration
-    unrelated_helper_block = runner._managed_pre_tool_call(
-        _PendingAgent(),
-        "lean_incremental_check",
-        {
-            "action": "check_helper",
-            "file_path": str(active),
-            "theorem_id": "demo",
-            "replacement": "private lemma unrelated : True := by\n  trivial",
-        },
+    unrelated_helper_block = json.loads(
+        runner._managed_pre_tool_call(
+            _PendingAgent(),
+            "lean_incremental_check",
+            {
+                "action": "check_helper",
+                "file_path": str(active),
+                "theorem_id": "demo",
+                "replacement": "private lemma unrelated : True := by\n  trivial",
+            },
+        )
     )
-    assert unrelated_helper_block is None
-    target_probe = runner._managed_pre_tool_call(
-        _PendingAgent(),
-        "lean_incremental_check",
-        {
-            "action": "check_target",
-            "file_path": str(active),
-            "theorem_id": "demo",
-            "replacement": "theorem demo : True := by\n  trivial",
-        },
+    assert unrelated_helper_block["status"] == "checked_helper_parent_recheck_required"
+    assert unrelated_helper_block["preserved_declaration"] == declaration
+    target_probe = json.loads(
+        runner._managed_pre_tool_call(
+            _PendingAgent(),
+            "lean_incremental_check",
+            {
+                "action": "check_target",
+                "file_path": str(active),
+                "theorem_id": "demo",
+                "replacement": "theorem demo : True := by\n  trivial",
+            },
+        )
     )
-    assert target_probe is None
+    assert target_probe["status"] == "checked_helper_parent_recheck_required"
     boundary_agent = _PendingAgent()
     reformatted_declaration = (
         "private lemma checked_family\n" "    (n : Nat) :\n" "    True := by\n" "  trivial"

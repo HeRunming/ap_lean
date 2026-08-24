@@ -11668,11 +11668,31 @@ def _research_helper_candidate_pre_tool_guard(
         checks_active_candidate = bool(
             action == "check_helper" and replacement == candidate.declaration
         )
-        # The candidate is already durable. Focused checks cannot displace it,
-        # so allow the foreground prover to falsify or refine target-local
-        # ideas while the manager owns the candidate's parent recheck. Keep
-        # search, mutation, and an unauthenticated replay of the active helper
-        # behind the integration fence.
+        # Parent recheck is an exact durable replay, not another synthesis
+        # window.  Letting a same-named but different body through discards a
+        # kernel-checked candidate and repeats paid proof search after restart.
+        if (
+            same_assignment_probe
+            and not checks_active_candidate
+            and candidate.state == research_helper_candidate_priority.AWAITING_RECHECK
+        ):
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "checked_helper_parent_recheck_required",
+                    "blocked_tool": function_name,
+                    "blocked_action": action,
+                    "candidate_id": candidate.candidate_id,
+                    "helper_symbol": candidate.helper_name,
+                    "declaration_sha256": candidate.declaration_sha256,
+                    "preserved_declaration": candidate.declaration,
+                    "required_action": (
+                        "Replay this exact preserved declaration with `check_helper`; "
+                        "do not synthesize a replacement until its parent recheck finishes."
+                    ),
+                },
+                ensure_ascii=False,
+            )
         if same_assignment_probe and not checks_active_candidate:
             return None
         if (
