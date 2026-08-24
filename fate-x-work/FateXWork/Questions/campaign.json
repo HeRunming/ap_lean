@@ -6,17 +6,17 @@
   "completed_batch_count": 5,
   "agent_e2e_completed_batch_count": 5,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 22,
+  "agent_e2e_statement_completed_batch_count": 23,
   "failure_class_counts": {
-    "budget_limit": 61,
+    "budget_limit": 63,
     "statement_generation_incomplete": 35,
     "infrastructure": 15,
     "proof_incomplete": 5
   },
-  "statement_completed_batch_count": 22,
+  "statement_completed_batch_count": 23,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 172.9143,
+  "spent_usd": 174.19025,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -3757,59 +3757,45 @@
             "total_tokens": 15986
           },
           "recorded_at": "2026-08-24T12:40:45+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T12:49:44+00:00",
+          "target_file": "FateXWork/Questions/Items16F86367FC/Main.lean",
+          "proof_obligations": 2,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 40904,
+            "completion_tokens": 1332,
+            "total_tokens": 42236
+          },
+          "cost_usd": 0.449,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
-        "stage": "statements",
-        "success": true,
-        "exit_code": 0,
-        "reason": "bounded retrieval/refinement statement passed",
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T12:49:44+00:00",
         "target_file": "FateXWork/Questions/Items16F86367FC/Main.lean",
         "proof_obligations": 2,
-        "cost_usd": 0.29106,
-        "cost_source": "auxiliary_token_usage",
-        "cost_scope": "bounded_statement_pipeline",
-        "provenance": "agent",
-        "iterations": 2,
-        "candidate_attempts": 4,
-        "candidates_per_iteration": 2,
-        "failure_stage": "",
-        "final_diagnostic": "",
-        "candidate_diagnostics": [
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:19:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'Real.instDivInvMonoid', which is 'noncomputable'\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:25:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:30:8: warning: declaration uses `sorry`\n"
-          },
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:6:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:19:23: error: failed to synthesize\n  HSMul ℝ ((j : Fin n) → ?m.53 j) ?m.62\n(deterministic) timeout at `typeclass`, maximum number of heartbeats (20000) has been reached\n\nNote: Use `set_option synthInstance.maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n"
-          }
-        ],
-        "retry_feedback_source": "",
-        "retrieval_queries": [
-          "Mathlib convex hull standard basis PiLp l1 norm unit ball",
-          "convex hull image neg standard basis Finset.univ EuclideanSpace",
-          "Finset sum abs coordinate norm PiLp one",
-          "noncomputable def Real division inverse dependsOnNoncomputable",
-          "Metric.closedBall convexHull abs convex balanced",
-          "Convex.mem_convexHull Finset weights sum_eq_one smul"
-        ],
-        "statement_providers": {
-          "planner": "openai-codex",
-          "generator": "openai-codex",
-          "generator_fallback": "",
-          "judge": "openai-codex"
-        },
-        "review_evidence": "FateXWork/Questions/Items16F86367FC/IndependentReview.md",
-        "review_decision": "PASS",
-        "model": "gpt-5.6-terra",
-        "provider": "openai-codex",
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 9426,
-          "completion_tokens": 6560,
-          "total_tokens": 15986
+          "prompt_tokens": 40904,
+          "completion_tokens": 1332,
+          "total_tokens": 42236
         },
-        "recorded_at": "2026-08-24T12:40:45+00:00"
+        "cost_usd": 0.449,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
       }
     },
     {
@@ -4550,59 +4536,45 @@
             "total_tokens": 31017
           },
           "recorded_at": "2026-08-24T12:42:30+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T12:46:20+00:00",
+          "target_file": "FateXWork/Questions/Items1135D2C7E94/Main.lean",
+          "proof_obligations": 3,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 39965,
+            "completion_tokens": 1599,
+            "total_tokens": 41564
+          },
+          "cost_usd": 0.44762,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
-        "stage": "statements",
-        "success": true,
-        "exit_code": 0,
-        "reason": "bounded retrieval/refinement statement passed",
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T12:46:20+00:00",
         "target_file": "FateXWork/Questions/Items1135D2C7E94/Main.lean",
         "proof_obligations": 3,
-        "cost_usd": 0.61549,
-        "cost_source": "auxiliary_token_usage",
-        "cost_scope": "bounded_statement_pipeline",
-        "provenance": "agent",
-        "iterations": 2,
-        "candidate_attempts": 4,
-        "candidates_per_iteration": 2,
-        "failure_stage": "",
-        "final_diagnostic": "",
-        "candidate_diagnostics": [
-          {
-            "stage": "semantic_review",
-            "diagnostic": "BLOCK\n\nNo prior semantic risks were listed, so none require remediation verification. However, the Lean statements are not bidirectionally faithful:\n\n- They use `ENNReal`-valued variables and `lintegral`, allowing values and expectations equal to `∞`. The source concerns ordinary nonnegative random variables and ordinary expectations; this changes edge cases and arithmetic semantics.\n- Part (a) quantifies over an arbitrary measure `μ`, rather than a probability space as required by the random-variable/expectation setting of the source.\n- In part (c), `c : ENNReal` is only constrained by `0 < c`; it is not required to be finite. An “absolute constant” in the source is a finite positive real constant.\n- The use of extended-real multiplication and strict comparison in part (c) has different behavior around `∞` from the source’s real-valued inequality.\n\nTo match the source, formulate variables as measurable maps into `ℝ` (or nonnegative finite reals with a corresponding finite-expectation "
-          },
-          {
-            "stage": "semantic_review",
-            "diagnostic": "BLOCK\n\n- Part (a) quantifies over an arbitrary measure `μ`, not a probability measure as required for random variables/expectations in the source setting. This is a stronger but not bidirectionally identical statement.\n- All variables are `Ω → ENNReal` and expectations are `lintegral`. This permits `∞`-valued variables and extended-real expectations, unlike the usual nonnegative real-valued random-variable formulation; edge cases involving infinity are changed.\n- `AEMeasurable` is weaker than measurable random variables. The source asks for random variables, normally measurable functions.\n- In part (c), `coeff : ENNReal` permits extended coefficients rather than a finite positive absolute real constant. State `∃ c : ℝ, 0 < c ∧ ...` (or `ℝ≥0`) and use an appropriate finite-valued expectation formulation.\n- No prior known semantic risks were listed, so none required remediation."
-          }
-        ],
-        "retry_feedback_source": "",
-        "retrieval_queries": [
-          "lintegral_finset_sup le_sum_of_nonneg max_le_sum",
-          "MeasureTheory.lintegral_finset_sup MeasureTheory.lintegral_mono",
-          "independent_fun indicator randomVariables bernoulli",
-          "MeasureTheory.ProbabilityMeasure integral_finset_sup measurable",
-          "MeasureTheory.integral_mono_ae integral_finset_sum Finset.max",
-          "MeasureTheory.independent_iIndepFun indicator measurableSet integral_indicator"
-        ],
-        "statement_providers": {
-          "planner": "openai-codex",
-          "generator": "openai-codex",
-          "generator_fallback": "",
-          "judge": "openai-codex"
-        },
-        "review_evidence": "FateXWork/Questions/Items1135D2C7E94/IndependentReview.md",
-        "review_decision": "PASS",
-        "model": "gpt-5.6-terra",
-        "provider": "openai-codex",
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 15751,
-          "completion_tokens": 15266,
-          "total_tokens": 31017
+          "prompt_tokens": 39965,
+          "completion_tokens": 1599,
+          "total_tokens": 41564
         },
-        "recorded_at": "2026-08-24T12:42:30+00:00"
+        "cost_usd": 0.44762,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
       }
     },
     {
@@ -4620,11 +4592,115 @@
         "1.6"
       ],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items1143C9DEB84/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.37933,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK. The Lean theorem imposes `Integrable (X i)^p` for every `i`, whereas the source states the inequalities for arbitrary nonnegative random variables, including cases with infinite expectations. Lean’s real-valued Bochner integrals cannot represent those extended-value cases. It also permits `n = 0`, while the source’s \\(X_1,\\ldots,X_n\\) convention normally assumes a nonempty finite family."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib probability expectation Jensen convex rpow integral",
+            "Mathlib MeasureTheory integral_finset_sum norm Minkowski Lp",
+            "Mathlib Finset sum_rpow_le rpow_sum_le concave convex",
+            "MeasureTheory.lintegral ENNReal rpow sum nonnegative expectation",
+            "MeasureTheory.AEStronglyMeasurable integrable rpow nonnegative",
+            "Fin n nonempty Fintype sum inequalities rpow"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items1143C9DEB84/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 10525,
+            "completion_tokens": 9136,
+            "total_tokens": 19661
+          },
+          "recorded_at": "2026-08-24T12:46:41+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": true,
+        "exit_code": 0,
+        "reason": "bounded retrieval/refinement statement passed",
+        "target_file": "FateXWork/Questions/Items1143C9DEB84/Main.lean",
+        "proof_obligations": 1,
+        "cost_usd": 0.37933,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 2,
+        "candidate_attempts": 4,
+        "candidates_per_iteration": 2,
+        "failure_stage": "",
+        "final_diagnostic": "",
+        "candidate_diagnostics": [
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK. The Lean theorem imposes `Integrable (X i)^p` for every `i`, whereas the source states the inequalities for arbitrary nonnegative random variables, including cases with infinite expectations. Lean’s real-valued Bochner integrals cannot represent those extended-value cases. It also permits `n = 0`, while the source’s \\(X_1,\\ldots,X_n\\) convention normally assumes a nonempty finite family."
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "Mathlib probability expectation Jensen convex rpow integral",
+          "Mathlib MeasureTheory integral_finset_sum norm Minkowski Lp",
+          "Mathlib Finset sum_rpow_le rpow_sum_le concave convex",
+          "MeasureTheory.lintegral ENNReal rpow sum nonnegative expectation",
+          "MeasureTheory.AEStronglyMeasurable integrable rpow nonnegative",
+          "Fin n nonempty Fintype sum inequalities rpow"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "FateXWork/Questions/Items1143C9DEB84/IndependentReview.md",
+        "review_decision": "PASS",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 10525,
+          "completion_tokens": 9136,
+          "total_tokens": 19661
+        },
+        "recorded_at": "2026-08-24T12:46:41+00:00"
+      }
     },
     {
       "id": "items-1.15",
