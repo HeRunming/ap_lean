@@ -28420,6 +28420,16 @@ def test_startup_user_message_snapshot_with_runner_lean_prompt(monkeypatch):
     )
 
 
+def test_campaign_proof_startup_guidance_skips_redundant_bootstrap(monkeypatch):
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "campaign.json")
+
+    text = runner._workflow_startup_guidance("prove", "/prove Main.lean")
+
+    assert "campaign handoff below already includes" in text
+    assert "Do not reload skills" in text
+    assert "begin with `lean_capabilities`" not in text
+
+
 def test_startup_user_message_surfaces_effective_prompt(monkeypatch):
     monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "prove")
     monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_COMMAND", "/prove Main.lean")

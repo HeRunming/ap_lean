@@ -17991,6 +17991,9 @@ def _held_lock_count(owner_id: str) -> int:
 
 def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str:
     workflow_kind = workflow_kind.strip().lower()
+    campaign_proof = bool(
+        workflow_kind == "prove" and _read_text_env("LEANFLOW_FORMALIZATION_CAMPAIGN", "").strip()
+    )
     formalization_waiting_for_review = (
         workflow_kind == "formalize"
         and _document_formalization_requested()
@@ -18002,7 +18005,11 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
     guidance_map = {
         "prove": (
             "autonomous proving session",
-            "Load the native proving contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, use `lean_search` before guessing; the live queue, route decision, and verification gate below are the state for this turn.",
+            (
+                "The campaign handoff below already includes the active proving contract, exact declaration, source-fidelity digest, capabilities, and current inspection state. Do not reload skills, Blueprint.md, capabilities, or unchanged inspection state. Start with at most one focused `lean_search` when needed, then submit a concrete candidate to Lean verification."
+                if campaign_proof
+                else "Load the native proving contract from the active skill/spec, begin with `lean_capabilities` and `lean_inspect`, use `lean_search` before guessing; the live queue, route decision, and verification gate below are the state for this turn."
+            ),
         ),
         "review": (
             "proof review session",
