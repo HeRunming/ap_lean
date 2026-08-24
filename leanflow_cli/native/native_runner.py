@@ -11423,13 +11423,19 @@ def _research_helper_candidate_pre_tool_guard(
         if function_name == "lean_incremental_check"
         else ""
     )
-    if attempt_matches and normalized_action == "check_target" and attempt_count >= 2:
+    helper_isolation_blocked = normalized_action == "check_target" or function_name in {
+        "lean_search",
+        "search_files",
+        "lean_auto_search",
+        "lean_lemma_suggest",
+    }
+    if attempt_matches and attempt_count >= 2 and helper_isolation_blocked:
         return json.dumps(
             {
                 "success": False,
                 "status": "helper_isolation_required",
                 "blocked_tool": function_name,
-                "blocked_action": normalized_action,
+                "blocked_action": normalized_action or function_name,
                 "target_symbol": target_symbol,
                 "target_attempts_used": attempt_count,
                 "required_action": (

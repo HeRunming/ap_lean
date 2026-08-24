@@ -14374,6 +14374,15 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     )
     assert blocked_repeated_target["status"] == "helper_isolation_required"
     assert blocked_repeated_target["target_attempts_used"] == 2
+    blocked_isolation_search = json.loads(
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_search",
+            {"query": "avoid restarting global search", "file_path": str(active)},
+        )
+    )
+    assert blocked_isolation_search["status"] == "helper_isolation_required"
+    assert blocked_isolation_search["blocked_tool"] == "lean_search"
     del state["_research_helper_target_candidate_attempted"]
 
     assert (
