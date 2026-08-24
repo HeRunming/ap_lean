@@ -14254,6 +14254,17 @@ def test_proof_context_counts_toward_candidate_fence(monkeypatch):
     assert blocked["status"] == "proof_candidate_check_required"
 
 
+def test_campaign_system_prompt_requires_search_to_check_conversion(monkeypatch):
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "plan_state_enabled", lambda: False)
+
+    prompt = runner._managed_system_prompt()
+
+    assert "at most two retrieval calls total" in prompt
+    assert "very next tool call MUST be one concrete lean_incremental_check" in prompt
+    assert "do not read Blueprint.md" in prompt
+
+
 def test_proof_retrieval_result_count_is_bounded(monkeypatch):
     monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
     args = {"pattern": "factorial", "limit": 100}

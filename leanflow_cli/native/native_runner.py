@@ -25848,6 +25848,15 @@ def _managed_system_prompt() -> str:
             f"summary={paths.summary_json}. Do not read raw graph/summary machine snapshots; "
             "use the injected graph digest and completed-finding handoff."
         )
+    if str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip():
+        sections.append(
+            "Corpus proof budget: inspect the assigned Lean declaration and use at most two "
+            "retrieval calls total (including concurrent calls and proof-context lookup). After "
+            "the second retrieval, the very next tool call MUST be one concrete "
+            "lean_incremental_check (`check_helper` or `check_target`); do not request another "
+            "search, source read, outline, capability probe, or planner call first. The injected "
+            "plan-state digest already summarizes the blueprint, so do not read Blueprint.md."
+        )
     if _swarm_enabled():
         sections.extend(
             [
