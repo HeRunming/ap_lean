@@ -961,6 +961,7 @@ def test_corpus_plan_defers_meta_proof_repair_exercises():
             "Demonstrate by example that the bound is asymptotically tight. For every n "
             "find a set in Euclidean space with the required high-dimensional lower bound."
         ),
+        "Find normal random variables that are uncorrelated but not independent.",
     ],
 )
 def test_corpus_plan_marks_short_but_semantically_deep_exercises_complex(statement):

@@ -42,7 +42,7 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
     display_count = len(re.findall(r"\$\$", source)) // 2
     meta_proof_repair = bool(
         re.search(
-            r"\b(?:fix|correct|repair)\b.{0,80}\b(?:proof|argument)\b|"
+            r"\b(?:fix|correct|repair|tighten|improve)\b.{0,80}\b(?:proof|argument)\b|"
             r"\b(?:proof|argument)\b.{0,80}\b(?:flawed|incorrect|wrong|gap)\b|"
             r"\bwhat (?:is|goes) wrong\b",
             source,
@@ -53,6 +53,18 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
         weight
         for pattern, weight in (
             (
+                r"\b(?:random variables?|random vectors?|random matrix|probability|"
+                r"expectation|expected value|variance|independen(?:t|ce)|distributions?|"
+                r"probabilistic)\b",
+                8,
+            ),
+            (
+                r"\b(?:parseval frame|orthonormal rows?|orthonormal columns?|random matrix|"
+                r"singular values?|eigenvalues?|positive semidefinite|spectral norm|"
+                r"orthogonal projections?|operator norm|hilbert space)\b",
+                8,
+            ),
+            (
                 r"\b(?:hoeffding|subgaussian|moment[- ]generating|\bmgf\b|"
                 r"concentration inequality|tail bound)\b",
                 8,
@@ -60,6 +72,18 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
             (
                 r"\b(?:asymptotically tight|demonstrate by example|construct an? |"
                 r"find (?:a|the) (?:set|family|example)|high dimensions?)\b",
+                8,
+            ),
+            (
+                r"\b(?:properties?|parts?)\s*\([ivxa-z0-9]+\).{0,60}"
+                r"\b(?:Proposition|Theorem|Lemma)\s+\d|"
+                r"\bequivalence of properties\b",
+                8,
+            ),
+            (
+                r"\b(?:find|construct|give an? example of)\b.{0,100}"
+                r"\b(?:random variables?|random vectors?|distributions?)\b|"
+                r"\b(?:uncorrelated|dependent)\b.{0,80}\b(?:normal|random variables?)\b",
                 8,
             ),
             (

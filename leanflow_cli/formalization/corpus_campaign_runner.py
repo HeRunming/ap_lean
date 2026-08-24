@@ -176,6 +176,7 @@ def select_campaign_model(
 
 
 _STATEMENT_RISK_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("source_context_missing", r"source packet is incomplete|source_context"),
     ("measurability_integrability", r"measurab|integrab|bochner integral|genuine expectation"),
     ("extended_value_semantics", r"ennreal|ereal|extended[- ](?:real|value)|\binfinity\b"),
     (

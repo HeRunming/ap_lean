@@ -109,6 +109,91 @@ def test_source_fidelity_preflight_counts_explicit_subparts():
     assert "Cover every subpart" in checklist
 
 
+def test_reference_context_extraction_recovers_exact_book_declarations():
+    book = (
+        "Proposition 2.8.1 (Properties). Let X be random.\n"
+        "(i) Tail.\n(ii) Moment.\n(iii) MGF.\n"
+        "Remark 2.8.2 (Next). This must not be included.\n"
+        "Proposition 2.6.1 (Earlier). Let Y be random.\n(i) Other.\n"
+    )
+    statement = (
+        "Prove the equivalence of properties (i)-(iii) in Proposition 2.8.1 "
+        "by modifying the proof of Proposition 2.6.1."
+    )
+
+    references = bounded.source_references(statement)
+    contexts = bounded.extract_reference_contexts_from_text(book, references)
+
+    assert references == ("Proposition 2.8.1", "Proposition 2.6.1")
+    assert "(iii) MGF" in contexts["Proposition 2.8.1"]
+    assert "Remark 2.8.2" not in contexts["Proposition 2.8.1"]
+    assert "Earlier" in contexts["Proposition 2.6.1"]
+    assert bounded.source_reference_context_required(statement)
+
+
+def test_bounded_statement_lane_blocks_missing_referenced_source_before_model_call(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "questions.json"
+    source.write_text(
+        json.dumps(
+            [
+                {
+                    "label": "2.41",
+                    "question": "Prove properties (i)-(iii) in Proposition 2.8.1.",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "questions.json",
+                "spent_usd": 0.0,
+                "budget_usd": 1.0,
+                "batches": [
+                    {
+                        "id": "item",
+                        "labels": ["2.41"],
+                        "source_file": "questions.json",
+                        "status": "pending",
+                        "attempts": [],
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = 0
+
+    def forbidden_model_call(**kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("source-context preflight must run before the model")
+
+    monkeypatch.setattr(
+        bounded,
+        "resolve_source_reference_context",
+        lambda *args, **kwargs: ({}, ("Proposition 2.8.1",)),
+    )
+    outcome = bounded.refine_campaign_statement_bounded(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="item",
+        reserve_usd=0.5,
+        provider="main",
+        model_call=forbidden_model_call,
+    )
+
+    assert calls == 0
+    assert outcome["failure_stage"] == "source_context"
+    assert outcome["cost_usd"] == 0
+    assert outcome["missing_source_references"] == ["Proposition 2.8.1"]
+
+
 def test_bounded_target_derivation_matches_document_layout(tmp_path):
     assert (
         bounded.derive_bounded_statement_target(

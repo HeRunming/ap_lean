@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -46,7 +47,9 @@ def source_fidelity_preflight(statement: str) -> str:
             "Choose Real/NNReal/ENNReal/EReal deliberately. Do not use extended values, totalized subtraction, or Bochner-integral defaults unless their infinity/undefined cases match the source convention."
         )
     if re.search(
-        r"\b(?:fix|correct|repair)\b.{0,80}\b(?:proof|argument)\b", lower, re.DOTALL
+        r"\b(?:fix|correct|repair|tighten|improve)\b.{0,80}\b(?:proof|argument)\b",
+        lower,
+        re.DOTALL,
     ) or re.search(
         r"\b(?:proof|argument)\b.{0,80}\b(?:flawed|incorrect|wrong|gap)\b",
         lower,
@@ -61,6 +64,104 @@ def source_fidelity_preflight(statement: str) -> str:
             f"The source has {len(subparts)} explicit subparts. Cover every subpart with declarations whose shared hypotheses and domains remain consistent."
         )
     return "\n".join(f"- {risk}" for risk in risks)
+
+
+_SOURCE_REFERENCE_RE = re.compile(
+    r"\b(Proposition|Theorem|Lemma|Definition|Corollary|Exercise)\s+(\d+(?:\.\d+)+)",
+    flags=re.IGNORECASE,
+)
+
+
+def source_references(statement: str) -> tuple[str, ...]:
+    """Return stable printed-book references required by a source exercise."""
+    return tuple(
+        dict.fromkeys(
+            f"{kind.title()} {number}"
+            for kind, number in _SOURCE_REFERENCE_RE.findall(str(statement or ""))
+        )
+    )
+
+
+def source_reference_context_required(statement: str) -> bool:
+    """Reject paid guessing when an exercise delegates its actual statement to a reference."""
+    source = str(statement or "")
+    return bool(source_references(source)) and bool(
+        re.search(
+            r"\b(?:properties?|parts?)\s*\([ivxa-z0-9]+\).{0,40}\b(?:in|of)\b|"
+            r"\b(?:deduce|derive|prove|show|state)\b.{0,100}\b(?:from|version of|in)\b.{0,60}"
+            r"\b(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise)\b|"
+            r"\b(?:modif(?:y|ying)|tighten(?:ing)?|improv(?:e|ing)) the proof of\b",
+            source,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    )
+
+
+def extract_reference_contexts_from_text(
+    book_text: str, references: Sequence[str], *, max_chars: int = 7000
+) -> dict[str, str]:
+    """Extract bounded declaration-shaped slices from a page-aligned book text."""
+    text = str(book_text or "")
+    contexts: dict[str, str] = {}
+    heading = re.compile(
+        r"(?im)^\s*(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Remark)\s+"
+        r"\d+(?:\.\d+)+\b"
+    )
+    starts = [match.start() for match in heading.finditer(text)]
+    for reference in references:
+        match = re.search(rf"(?im)^\s*{re.escape(reference)}\b", text)
+        if match is None:
+            continue
+        end = next((start for start in starts if start > match.start()), len(text))
+        contexts[reference] = text[match.start() : min(end, match.start() + max_chars)].strip()
+    return contexts
+
+
+def resolve_source_reference_context(
+    statement: str, *, source_file: Path, timeout_s: int = 60
+) -> tuple[dict[str, str], tuple[str, ...]]:
+    """Resolve cited book declarations from the nearest source PDF without a model call."""
+    references = source_references(statement)
+    if not references:
+        return {}, ()
+    pdfs: list[Path] = []
+    for parent in (source_file.parent, *list(source_file.parents)[:4]):
+        pdfs.extend(sorted(parent.glob("*.pdf")))
+        if pdfs:
+            break
+    if not pdfs:
+        return {}, references
+    command: list[str]
+    if shutil.which("pdftotext"):
+        command = ["pdftotext", "-layout", "-enc", "UTF-8", str(pdfs[0]), "-"]
+    else:
+        system_python = Path("/usr/bin/python3")
+        if not system_python.is_file():
+            return {}, references
+        command = [
+            str(system_python),
+            "-c",
+            (
+                "import fitz,sys; d=fitz.open(sys.argv[1]); "
+                "sys.stdout.write('\\f'.join(p.get_text('text') for p in d))"
+            ),
+            str(pdfs[0]),
+        ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=max(1, int(timeout_s)),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}, references
+    if completed.returncode != 0:
+        return {}, references
+    contexts = extract_reference_contexts_from_text(completed.stdout, references)
+    missing = tuple(reference for reference in references if reference not in contexts)
+    return contexts, missing
 
 
 @dataclass(frozen=True)
@@ -363,6 +464,46 @@ def refine_campaign_statement_bounded(
         labels=tuple(str(value) for value in batch.get("labels", []) or []),
     )
     fidelity_preflight = source_fidelity_preflight(statement)
+    reference_contexts, missing_references = resolve_source_reference_context(
+        statement,
+        source_file=source_file,
+        timeout_s=timeout_s,
+    )
+    if source_reference_context_required(statement) and missing_references:
+        diagnostic = (
+            "source packet is incomplete: resolve these cited declarations before paid "
+            f"statement generation: {', '.join(missing_references)}"
+        )
+        outcome = {
+            "stage": "statements",
+            "success": False,
+            "exit_code": 2,
+            "reason": diagnostic,
+            "target_file": target_relative,
+            "proof_obligations": 0,
+            "cost_usd": 0.0,
+            "cost_source": "none",
+            "cost_scope": "deterministic_source_context_preflight",
+            "provenance": "agent",
+            "iterations": 0,
+            "candidate_attempts": 0,
+            "failure_stage": "source_context",
+            "final_diagnostic": diagnostic,
+            "candidate_diagnostics": [{"stage": "source_context", "diagnostic": diagnostic}],
+            "source_references": list(source_references(statement)),
+            "missing_source_references": list(missing_references),
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "recorded_at": datetime.now(UTC).isoformat(),
+        }
+
+        def record_incomplete_source(current: Mapping[str, Any]):
+            return record_campaign_outcome(current, batch_id=batch_id, outcome=outcome), None
+
+        update_campaign_file(campaign_path, record_incomplete_source)
+        return outcome
+    reference_context = "\n\n".join(
+        f"### {reference}\n{context}" for reference, context in reference_contexts.items()
+    )
 
     previous_outcome = dict(batch.get("last_outcome", {}) or {})
     previous_failure_stage = str(previous_outcome.get("failure_stage", "") or "")
@@ -501,6 +642,7 @@ def refine_campaign_statement_bounded(
             "proof steps. Never use standalone `λ` as an identifier; use `coeff` instead because Lean "
             "reserves `λ` as lambda syntax. Use the retrieved interfaces only when relevant.\n\n"
             f"SOURCE\n{statement}\n\nREFERENCE PROOF (HINT ONLY)\n{proof}\n\n"
+            f"RESOLVED BOOK REFERENCES\n{reference_context or '[none]'}\n\n"
             f"DETERMINISTIC SOURCE-FIDELITY PREFLIGHT\n{fidelity_preflight}\n\n"
             f"RETRIEVED INTERFACES\n{retrieval_context or '[none]'}\n\n"
             f"PREVIOUS BAD CODE\n{last_bad_code or '[none]'}\n\n"
@@ -641,7 +783,8 @@ def refine_campaign_statement_bounded(
                     "square roots; type-correct notation can still denote the wrong mathematics. Explicitly verify "
                     "that every prior known semantic risk below was remedied, rather than merely changed. Then give "
                     "concise correction feedback.\n\n"
-                    f"SOURCE\n{statement}\n\nPRIOR KNOWN SEMANTIC RISKS\n"
+                    f"SOURCE\n{statement}\n\nRESOLVED BOOK REFERENCES\n"
+                    f"{reference_context or '[none]'}\n\nPRIOR KNOWN SEMANTIC RISKS\n"
                     f"{fidelity_preflight}\n"
                     f"{semantic_feedback or '[none]'}\n\nLEAN\n{draft.lean_code}"
                 ),
