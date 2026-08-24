@@ -14287,6 +14287,42 @@ def test_campaign_proof_bootstrap_guard_blocks_redundant_context(monkeypatch):
     )
 
 
+def test_campaign_patch_requires_successful_cheap_target_check(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    state = {
+        "current_queue_assignment": {
+            "target_symbol": "demo",
+            "active_file": str(active),
+        }
+    }
+
+    blocked = json.loads(
+        runner._campaign_expensive_patch_pre_tool_guard("apply_verified_patch", state)
+    )
+    assert blocked["status"] == "campaign_cheap_proof_check_required"
+    assert blocked["lean_started"] is False
+
+    runner._record_campaign_cheap_proof_check(
+        "lean_incremental_check", {}, json.dumps({"success": True, "ok": False}), state
+    )
+    assert (
+        runner._campaign_expensive_patch_pre_tool_guard("apply_verified_patch", state) is not None
+    )
+
+    runner._record_campaign_cheap_proof_check(
+        "lean_incremental_check", {}, json.dumps({"success": True, "ok": True}), state
+    )
+    assert runner._campaign_expensive_patch_pre_tool_guard("apply_verified_patch", state) is None
+
+    active.write_text("theorem demo : True := by\n  trivial\n", encoding="utf-8")
+    assert (
+        runner._campaign_expensive_patch_pre_tool_guard("apply_verified_patch", state) is not None
+    )
+
+
 def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_path):
     active = tmp_path / "Main.lean"
     source = "theorem demo : True := by sorry\n"

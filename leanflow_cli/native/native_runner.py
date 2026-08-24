@@ -12733,6 +12733,7 @@ _PROOF_RETRIEVAL_TOOLS = frozenset(
 )
 _MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 2
 _MAX_PROOF_SEARCH_RESULTS = 20
+_CAMPAIGN_CHEAP_PROOF_CHECK_KEY = "_campaign_cheap_proof_check"
 
 
 def _campaign_proof_bootstrap_pre_tool_guard(
@@ -12767,6 +12768,82 @@ def _campaign_proof_bootstrap_pre_tool_guard(
         },
         ensure_ascii=False,
     )
+
+
+def _campaign_expensive_patch_pre_tool_guard(
+    function_name: str,
+    autonomy_state: Mapping[str, Any],
+) -> str | None:
+    """Require a successful target-local check before broad patch verification."""
+    if (
+        _workflow_kind() != "prove"
+        or function_name != "apply_verified_patch"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return None
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    evidence = dict(autonomy_state.get(_CAMPAIGN_CHEAP_PROOF_CHECK_KEY) or {})
+    evidence_matches = bool(
+        target_symbol
+        and active_file
+        and evidence.get("target_symbol") == target_symbol
+        and _same_active_file(str(evidence.get("active_file", "") or ""), active_file)
+        and evidence.get("source_sha256") == _source_revision_sha256(active_file)
+    )
+    if evidence_matches:
+        return None
+    return json.dumps(
+        {
+            "success": False,
+            "status": "campaign_cheap_proof_check_required",
+            "blocked_tool": function_name,
+            "lean_started": False,
+            "provider_called": False,
+            "target_symbol": target_symbol,
+            "active_file": active_file,
+            "required_action": (
+                "Screen the complete assigned declaration with "
+                "`lean_incremental_check(action=check_target)` or test tactics with "
+                "`lean_multi_attempt` first. Broad patch verification unlocks only after "
+                "that cheaper target-local check succeeds on the unchanged source revision."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
+def _record_campaign_cheap_proof_check(
+    function_name: str,
+    args: Mapping[str, Any] | None,
+    result: str,
+    autonomy_state: dict[str, Any],
+) -> None:
+    """Remember one successful cheap proof check for the current assignment."""
+    if (
+        _workflow_kind() != "prove"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return
+    payload = _json_tool_result_payload(result)
+    passed = bool(
+        (function_name == "lean_incremental_check" and payload.get("ok") is True)
+        or (function_name == "lean_multi_attempt" and payload.get("target_verified") is True)
+    )
+    if not passed:
+        return
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    if not target_symbol or not active_file:
+        return
+    autonomy_state[_CAMPAIGN_CHEAP_PROOF_CHECK_KEY] = {
+        "target_symbol": target_symbol,
+        "active_file": active_file,
+        "source_sha256": _source_revision_sha256(active_file),
+        "tool": function_name,
+    }
 
 
 def _bound_proof_retrieval_args(
@@ -12827,6 +12904,12 @@ def _managed_pre_tool_call(
         return campaign_bootstrap_guard
     autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
     if isinstance(autonomy_state, dict):
+        expensive_patch_guard = _campaign_expensive_patch_pre_tool_guard(
+            function_name,
+            autonomy_state,
+        )
+        if expensive_patch_guard:
+            return expensive_patch_guard
         _bound_proof_retrieval_args(function_name, args)
         retrieval_guard = _proof_retrieval_pre_tool_guard(function_name, autonomy_state)
         if retrieval_guard:
@@ -24293,6 +24376,12 @@ def _build_agent() -> AIAgent:
             edit_verdict = _finalize_managed_queue_edit_details(agent, function_name, _result)
         managed_autonomy = getattr(agent, "_managed_autonomy_state", None)
         if isinstance(managed_autonomy, dict):
+            _record_campaign_cheap_proof_check(
+                function_name,
+                _args,
+                _result,
+                managed_autonomy,
+            )
             if function_name == "lean_incremental_check":
                 managed_autonomy[_PROOF_RETRIEVAL_COUNT_KEY] = 0
             assignment = dict(managed_autonomy.get("current_queue_assignment") or {})
