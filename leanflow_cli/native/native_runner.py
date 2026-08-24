@@ -12662,7 +12662,27 @@ _PROOF_RETRIEVAL_COUNT_KEY = "_proof_retrieval_since_lean_check"
 _PROOF_RETRIEVAL_TOOLS = frozenset(
     {"lean_search", "search_files", "lean_auto_search", "lean_lemma_suggest"}
 )
-_MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 3
+_MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 2
+_MAX_PROOF_SEARCH_RESULTS = 20
+
+
+def _bound_proof_retrieval_args(
+    function_name: str,
+    args: Mapping[str, Any] | None,
+) -> None:
+    """Keep proof retrieval small enough to turn into a candidate next turn."""
+    if _workflow_kind() != "prove" or function_name not in _PROOF_RETRIEVAL_TOOLS:
+        return
+    if not isinstance(args, dict):
+        return
+    for key in ("limit", "max_candidates"):
+        if key not in args:
+            continue
+        try:
+            requested = int(args[key])
+        except (TypeError, ValueError):
+            requested = _MAX_PROOF_SEARCH_RESULTS
+        args[key] = max(1, min(requested, _MAX_PROOF_SEARCH_RESULTS))
 
 
 def _proof_retrieval_pre_tool_guard(
@@ -12701,6 +12721,7 @@ def _managed_pre_tool_call(
         return formalization_guard
     autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
     if isinstance(autonomy_state, dict):
+        _bound_proof_retrieval_args(function_name, args)
         retrieval_guard = _proof_retrieval_pre_tool_guard(function_name, autonomy_state)
         if retrieval_guard:
             return retrieval_guard

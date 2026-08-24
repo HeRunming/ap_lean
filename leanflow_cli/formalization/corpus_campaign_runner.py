@@ -645,6 +645,7 @@ def execute_campaign_wave(
     python_executable: str,
     worker_count: int,
     reserve_usd: float,
+    wave_budget_usd: float | None = None,
     provider: str = "",
     model: str = "",
     statement_provider: str = "",
@@ -664,11 +665,20 @@ def execute_campaign_wave(
 ) -> list[dict[str, Any]]:
     """Run a budget-safe wave of distinct leased batches concurrently."""
     path = Path(campaign_path).expanduser().resolve()
+    if wave_budget_usd is not None:
+        if wave_budget_usd <= 0:
+            raise CampaignExecutionBlocked("wave budget must be positive")
+        # ``reserve_usd`` is historically a per-action ceiling.  A separate
+        # wave ceiling makes concurrency safe without silently multiplying the
+        # operator's intended total spend by the worker count.
+        action_reserve_usd = min(float(reserve_usd), float(wave_budget_usd) / worker_count)
+    else:
+        action_reserve_usd = float(reserve_usd)
     claims = lease_next_campaign_actions(
         path,
         worker_count=worker_count,
         python_executable=python_executable,
-        reserve_usd=reserve_usd,
+        reserve_usd=action_reserve_usd,
         lease_ttl_seconds=lease_ttl_seconds,
     )
     if not claims:
@@ -685,7 +695,7 @@ def execute_campaign_wave(
                 campaign_path=path,
                 campaign=snapshot,
                 project_root=project_root,
-                reserve_usd=reserve_usd,
+                reserve_usd=action_reserve_usd,
                 provider=provider,
                 model=selected_model,
                 statement_provider=statement_provider,
@@ -1122,6 +1132,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--bounded-statements", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument(
+        "--wave-budget-usd",
+        type=float,
+        default=None,
+        help="total cost ceiling shared by concurrent workers (reserve-usd remains per action)",
+    )
     parser.add_argument("--lean-slots", type=int, default=1)
     parser.add_argument("--lease-ttl-seconds", type=int, default=7200)
     parser.add_argument("--accept-local-statement", default="")
@@ -1246,6 +1262,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--execute requires --reserve-usd")
         if args.workers <= 0:
             parser.error("--workers must be positive")
+        if args.wave_budget_usd is not None and args.wave_budget_usd <= 0:
+            parser.error("--wave-budget-usd must be positive")
         if not 1 <= args.lean_slots <= 8:
             parser.error("--lean-slots must be between 1 and 8")
         if not 1 <= args.statement_candidates <= 8:
@@ -1295,6 +1313,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 python_executable=sys.executable,
                 worker_count=args.workers,
                 reserve_usd=args.reserve_usd,
+                wave_budget_usd=args.wave_budget_usd,
                 provider=args.provider,
                 model=args.model,
                 statement_provider=args.statement_provider,

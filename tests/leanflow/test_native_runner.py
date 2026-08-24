@@ -14239,8 +14239,17 @@ def test_proof_retrieval_budget_requires_a_lean_candidate(monkeypatch):
         assert runner._proof_retrieval_pre_tool_guard("lean_search", state) is None
     blocked = json.loads(runner._proof_retrieval_pre_tool_guard("search_files", state))
     assert blocked["status"] == "proof_candidate_check_required"
-    assert blocked["retrievals_used"] == 3
+    assert blocked["retrievals_used"] == 2
     assert runner._proof_retrieval_pre_tool_guard("read_file", state) is None
+
+
+def test_proof_retrieval_result_count_is_bounded(monkeypatch):
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    args = {"pattern": "factorial", "limit": 100}
+
+    runner._bound_proof_retrieval_args("search_files", args)
+
+    assert args["limit"] == 20
 
 
 def test_integrated_helper_consumption_allows_target_work_before_next_priority(

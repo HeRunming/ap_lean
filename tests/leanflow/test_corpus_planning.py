@@ -467,6 +467,44 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
     assert all("lease" not in batch for batch in persisted["batches"])
 
 
+def test_campaign_wave_splits_explicit_total_budget_across_workers(tmp_path, monkeypatch):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0,
+                "budget_usd": 10,
+                "batches": [
+                    {"id": "a", "labels": ["1.1"], "status": "pending"},
+                    {"id": "b", "labels": ["1.2"], "status": "pending"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    observed_limits = []
+
+    def fake_execute(action, **kwargs):
+        observed_limits.append(kwargs["reserve_usd"])
+        return {"executed": True, "batch_id": action.batch_id, "success": True}
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fake_execute)
+
+    results = execute_campaign_wave(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        worker_count=2,
+        reserve_usd=1.5,
+        wave_budget_usd=1.5,
+    )
+
+    assert len(results) == 2
+    assert observed_limits == [0.75, 0.75]
+
+
 from leanflow_cli.formalization.corpus_planning import build_corpus_plan
 from leanflow_cli.formalization.corpus_reuse import (
     build_placement_report,
