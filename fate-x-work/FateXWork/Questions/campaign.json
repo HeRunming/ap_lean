@@ -3,20 +3,20 @@
   "source": "HDP/source/full/qa/questions.json",
   "status": "active",
   "batch_count": 367,
-  "completed_batch_count": 4,
-  "agent_e2e_completed_batch_count": 4,
+  "completed_batch_count": 5,
+  "agent_e2e_completed_batch_count": 5,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 20,
+  "agent_e2e_statement_completed_batch_count": 22,
   "failure_class_counts": {
     "budget_limit": 61,
-    "statement_generation_incomplete": 34,
+    "statement_generation_incomplete": 35,
     "infrastructure": 15,
     "proof_incomplete": 5
   },
-  "statement_completed_batch_count": 20,
+  "statement_completed_batch_count": 22,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 170.93465,
+  "spent_usd": 172.9143,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -3593,9 +3593,9 @@
         "1.4"
       ],
       "count": 1,
-      "status": "statements_completed",
-      "agent_status": "statements_completed",
-      "completion_provenance": "mixed_or_partial",
+      "status": "proofs_completed",
+      "agent_status": "proofs_completed",
+      "completion_provenance": "agent_e2e",
       "attempts": [
         {
           "stage": "statements",
@@ -3648,59 +3648,43 @@
             "total_tokens": 15455
           },
           "recorded_at": "2026-08-24T10:06:42+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": true,
+          "exit_code": 0,
+          "recorded_at": "2026-08-24T12:39:30+00:00",
+          "target_file": "FateXWork/Questions/Items15077AFA8F/Main.lean",
+          "proof_obligations": 0,
+          "reason": "verified completion",
+          "usage": {
+            "prompt_tokens": 24490,
+            "completion_tokens": 371,
+            "total_tokens": 24861
+          },
+          "cost_usd": 0.25603,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent"
         }
       ],
       "last_outcome": {
-        "stage": "statements",
+        "stage": "proofs",
         "success": true,
         "exit_code": 0,
-        "reason": "bounded retrieval/refinement statement passed",
+        "recorded_at": "2026-08-24T12:39:30+00:00",
         "target_file": "FateXWork/Questions/Items15077AFA8F/Main.lean",
-        "proof_obligations": 1,
-        "cost_usd": 0.21631,
-        "cost_source": "auxiliary_token_usage",
-        "cost_scope": "bounded_statement_pipeline",
-        "provenance": "agent",
-        "iterations": 2,
-        "candidate_attempts": 4,
-        "candidates_per_iteration": 2,
-        "failure_stage": "",
-        "final_diagnostic": "",
-        "candidate_diagnostics": [
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "cted with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items15077AFA8F/StatementCandidate_0589b8813cc94f2f8dec1d4467234756.lean:7:54: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat ℝ 1\nnumerals are polymorphic in Lean, but the numeral `1` cannot be used in a context where the expected type is\n  ℝ\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items15077AFA8F/StatementCandidate_0589b8813cc94f2f8dec1d4467234756.lean:7:62: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat ℝ 1\nnumerals are polymorphic in Lean, but the numeral `1` cannot be used in a context where the expected type is\n  ℝ\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\n"
-          },
-          {
-            "stage": "lean_compilation",
-            "diagnostic": "t be used in a context where the expected type is\n  ℝ\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items15077AFA8F/StatementCandidate_dde281e19ec047ca98224746c8c3b0c9.lean:7:6: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  Semiring ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items15077AFA8F/StatementCandidate_dde281e19ec047ca98224746c8c3b0c9.lean:7:53: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat ℝ 1\nnumerals are polymorphic in Lean, but the numeral `1` cannot be used in a context where the expected type is\n  ℝ\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\n"
-          }
-        ],
-        "retry_feedback_source": "",
-        "retrieval_queries": [
-          "Mathlib convexHull pi Set.Icc vertices cube",
-          "Mathlib Convex convexHull sSup affineCombination Finset.sum weights",
-          "Mathlib Set.pi Icc mem_convexHull finite",
-          "import Mathlib.Data.Real.Basic",
-          "import Mathlib.Analysis.Convex.Basic",
-          "import Mathlib.Topology.Algebra.Module.FiniteDimension"
-        ],
-        "statement_providers": {
-          "planner": "openai-codex",
-          "generator": "openai-codex",
-          "generator_fallback": "",
-          "judge": "openai-codex"
-        },
-        "review_evidence": "FateXWork/Questions/Items15077AFA8F/IndependentReview.md",
-        "review_decision": "PASS",
-        "model": "gpt-5.6-terra",
-        "provider": "openai-codex",
+        "proof_obligations": 0,
+        "reason": "verified completion",
         "usage": {
-          "prompt_tokens": 12367,
-          "completion_tokens": 3088,
-          "total_tokens": 15455
+          "prompt_tokens": 24490,
+          "completion_tokens": 371,
+          "total_tokens": 24861
         },
-        "recorded_at": "2026-08-24T10:06:42+00:00"
+        "cost_usd": 0.25603,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent"
       }
     },
     {
@@ -3718,11 +3702,115 @@
         "1.5"
       ],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items16F86367FC/Main.lean",
+          "proof_obligations": 2,
+          "cost_usd": 0.29106,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:19:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'Real.instDivInvMonoid', which is 'noncomputable'\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:25:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:30:8: warning: declaration uses `sorry`\n"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:6:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:19:23: error: failed to synthesize\n  HSMul ℝ ((j : Fin n) → ?m.53 j) ?m.62\n(deterministic) timeout at `typeclass`, maximum number of heartbeats (20000) has been reached\n\nNote: Use `set_option synthInstance.maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n"
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib convex hull standard basis PiLp l1 norm unit ball",
+            "convex hull image neg standard basis Finset.univ EuclideanSpace",
+            "Finset sum abs coordinate norm PiLp one",
+            "noncomputable def Real division inverse dependsOnNoncomputable",
+            "Metric.closedBall convexHull abs convex balanced",
+            "Convex.mem_convexHull Finset weights sum_eq_one smul"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items16F86367FC/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 9426,
+            "completion_tokens": 6560,
+            "total_tokens": 15986
+          },
+          "recorded_at": "2026-08-24T12:40:45+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": true,
+        "exit_code": 0,
+        "reason": "bounded retrieval/refinement statement passed",
+        "target_file": "FateXWork/Questions/Items16F86367FC/Main.lean",
+        "proof_obligations": 2,
+        "cost_usd": 0.29106,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 2,
+        "candidate_attempts": 4,
+        "candidates_per_iteration": 2,
+        "failure_stage": "",
+        "final_diagnostic": "",
+        "candidate_diagnostics": [
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:19:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'Real.instDivInvMonoid', which is 'noncomputable'\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:25:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_fbad77acc3f245058024210494056de7.lean:30:8: warning: declaration uses `sorry`\n"
+          },
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "FateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:6:8: warning: declaration uses `sorry`\nFateXWork/Questions/Items16F86367FC/StatementCandidate_37db311c7d484dfe8e71ff1784f8ea15.lean:19:23: error: failed to synthesize\n  HSMul ℝ ((j : Fin n) → ?m.53 j) ?m.62\n(deterministic) timeout at `typeclass`, maximum number of heartbeats (20000) has been reached\n\nNote: Use `set_option synthInstance.maxHeartbeats <num>` to set the limit.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.\n"
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "Mathlib convex hull standard basis PiLp l1 norm unit ball",
+          "convex hull image neg standard basis Finset.univ EuclideanSpace",
+          "Finset sum abs coordinate norm PiLp one",
+          "noncomputable def Real division inverse dependsOnNoncomputable",
+          "Metric.closedBall convexHull abs convex balanced",
+          "Convex.mem_convexHull Finset weights sum_eq_one smul"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "FateXWork/Questions/Items16F86367FC/IndependentReview.md",
+        "review_decision": "PASS",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 9426,
+          "completion_tokens": 6560,
+          "total_tokens": 15986
+        },
+        "recorded_at": "2026-08-24T12:40:45+00:00"
+      }
     },
     {
       "id": "items-1.7",
@@ -4407,11 +4495,115 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items1135D2C7E94/Main.lean",
+          "proof_obligations": 3,
+          "cost_usd": 0.61549,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nNo prior semantic risks were listed, so none require remediation verification. However, the Lean statements are not bidirectionally faithful:\n\n- They use `ENNReal`-valued variables and `lintegral`, allowing values and expectations equal to `∞`. The source concerns ordinary nonnegative random variables and ordinary expectations; this changes edge cases and arithmetic semantics.\n- Part (a) quantifies over an arbitrary measure `μ`, rather than a probability space as required by the random-variable/expectation setting of the source.\n- In part (c), `c : ENNReal` is only constrained by `0 < c`; it is not required to be finite. An “absolute constant” in the source is a finite positive real constant.\n- The use of extended-real multiplication and strict comparison in part (c) has different behavior around `∞` from the source’s real-valued inequality.\n\nTo match the source, formulate variables as measurable maps into `ℝ` (or nonnegative finite reals with a corresponding finite-expectation "
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n- Part (a) quantifies over an arbitrary measure `μ`, not a probability measure as required for random variables/expectations in the source setting. This is a stronger but not bidirectionally identical statement.\n- All variables are `Ω → ENNReal` and expectations are `lintegral`. This permits `∞`-valued variables and extended-real expectations, unlike the usual nonnegative real-valued random-variable formulation; edge cases involving infinity are changed.\n- `AEMeasurable` is weaker than measurable random variables. The source asks for random variables, normally measurable functions.\n- In part (c), `coeff : ENNReal` permits extended coefficients rather than a finite positive absolute real constant. State `∃ c : ℝ, 0 < c ∧ ...` (or `ℝ≥0`) and use an appropriate finite-valued expectation formulation.\n- No prior known semantic risks were listed, so none required remediation."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "lintegral_finset_sup le_sum_of_nonneg max_le_sum",
+            "MeasureTheory.lintegral_finset_sup MeasureTheory.lintegral_mono",
+            "independent_fun indicator randomVariables bernoulli",
+            "MeasureTheory.ProbabilityMeasure integral_finset_sup measurable",
+            "MeasureTheory.integral_mono_ae integral_finset_sum Finset.max",
+            "MeasureTheory.independent_iIndepFun indicator measurableSet integral_indicator"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items1135D2C7E94/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 15751,
+            "completion_tokens": 15266,
+            "total_tokens": 31017
+          },
+          "recorded_at": "2026-08-24T12:42:30+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": true,
+        "exit_code": 0,
+        "reason": "bounded retrieval/refinement statement passed",
+        "target_file": "FateXWork/Questions/Items1135D2C7E94/Main.lean",
+        "proof_obligations": 3,
+        "cost_usd": 0.61549,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 2,
+        "candidate_attempts": 4,
+        "candidates_per_iteration": 2,
+        "failure_stage": "",
+        "final_diagnostic": "",
+        "candidate_diagnostics": [
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\nNo prior semantic risks were listed, so none require remediation verification. However, the Lean statements are not bidirectionally faithful:\n\n- They use `ENNReal`-valued variables and `lintegral`, allowing values and expectations equal to `∞`. The source concerns ordinary nonnegative random variables and ordinary expectations; this changes edge cases and arithmetic semantics.\n- Part (a) quantifies over an arbitrary measure `μ`, rather than a probability space as required by the random-variable/expectation setting of the source.\n- In part (c), `c : ENNReal` is only constrained by `0 < c`; it is not required to be finite. An “absolute constant” in the source is a finite positive real constant.\n- The use of extended-real multiplication and strict comparison in part (c) has different behavior around `∞` from the source’s real-valued inequality.\n\nTo match the source, formulate variables as measurable maps into `ℝ` (or nonnegative finite reals with a corresponding finite-expectation "
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\n- Part (a) quantifies over an arbitrary measure `μ`, not a probability measure as required for random variables/expectations in the source setting. This is a stronger but not bidirectionally identical statement.\n- All variables are `Ω → ENNReal` and expectations are `lintegral`. This permits `∞`-valued variables and extended-real expectations, unlike the usual nonnegative real-valued random-variable formulation; edge cases involving infinity are changed.\n- `AEMeasurable` is weaker than measurable random variables. The source asks for random variables, normally measurable functions.\n- In part (c), `coeff : ENNReal` permits extended coefficients rather than a finite positive absolute real constant. State `∃ c : ℝ, 0 < c ∧ ...` (or `ℝ≥0`) and use an appropriate finite-valued expectation formulation.\n- No prior known semantic risks were listed, so none required remediation."
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "lintegral_finset_sup le_sum_of_nonneg max_le_sum",
+          "MeasureTheory.lintegral_finset_sup MeasureTheory.lintegral_mono",
+          "independent_fun indicator randomVariables bernoulli",
+          "MeasureTheory.ProbabilityMeasure integral_finset_sup measurable",
+          "MeasureTheory.integral_mono_ae integral_finset_sum Finset.max",
+          "MeasureTheory.independent_iIndepFun indicator measurableSet integral_indicator"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "FateXWork/Questions/Items1135D2C7E94/IndependentReview.md",
+        "review_decision": "PASS",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 15751,
+          "completion_tokens": 15266,
+          "total_tokens": 31017
+        },
+        "recorded_at": "2026-08-24T12:42:30+00:00"
+      }
     },
     {
       "id": "items-1.14",
@@ -4445,11 +4637,147 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
+      "status": "statement_retry",
       "agent_status": "pending",
       "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": false,
+          "exit_code": 2,
+          "reason": "bounded statement refinement exhausted",
+          "target_file": "FateXWork/Questions/Items115CC7DE36B/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.81707,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "candidate_attempts": 6,
+          "candidates_per_iteration": 2,
+          "failure_stage": "semantic_review",
+          "final_diagnostic": "BLOCK\n\n- The prior **integrability/finiteness** risks are remedied: none of the three theorems assumes `Integrable X`, `Integrable (f ∘ X)`, or a finite `p`-moment. Parts (a) and (c) now use extended nonnegative integrals.\n- However, **(b) still does not use the source’s objects/domain**. The source has `X : Ω → ℝ⁺` and `f : ℝ⁺ → ℝ⁺`; Lean instead uses globally real-valued `X : Ω → ℝ` and `f : ℝ → ℝ`, with pointwise/nonnegative-on-`Ici` side hypotheses. This is not bidirectionally the same hypothesis package, and `DifferentiableOn ℝ f (Ici 0)` plus unrestricted `deriv f` is an encoding through a real extension rather than differentiability of the stated `ℝ⁺ → ℝ⁺` function.\n- **(a) introduces a new totalized notion** `signedExtendedExpectation`. Its use of `EReal` subtraction imposes Lean’s semantics for indeterminate cases such as `∞ - ∞`; the source’s ordinary signed expectation formula does not specify that custom edge-case convention. Thus the arbitrary-random-variable edge cases are not demonstrably the same.\n- The `∫⁻` notation and `μ {…}` factors in (b) and (c) do have the intended `ENNReal`/Lebesgue-measure semantics, and `Real.rpow |X ω| p` with `0 < p` matches the positive real-power integrand in (c).\n\nCorrection: state (b) directly for `NNReal`-valued `X` and `f : NNReal → NNReal` (with an appropriate derivative formulation), and either impose the source’s precise existence convention for signed expectations in (a), or explicitly formulate the source as an identity under Lean’s chosen `EReal` subtraction convention.",
+          "candidate_diagnostics": [
+            {
+              "stage": "format",
+              "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "87ef.lean:21:11: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat Type 0\nnumerals are polymorphic in Lean, but the numeral `0` cannot be used in a context where the expected type is\n  Type\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items115CC7DE36B/StatementCandidate_533e45b65e65444096629fece39c87ef.lean:21:17: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat Type 0\nnumerals are polymorphic in Lean, but the numeral `0` cannot be used in a context where the expected type is\n  Type\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items115CC7DE36B/StatementCandidate_533e45b65e65444096629fece39c87ef.lean:34:8: warning: declaration uses `sorry`\n"
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n- No prior semantic risks were listed, so there are none to verify as remedied.\n- All three Lean statements add an `Integrable` hypothesis absent from the source. Thus they exclude non-integrable random variables and do not retain the source’s full edge-case/general expectation formulation.\n- (a) is therefore only an integrable-real-valued specialization, not the stated formula for arbitrary random variables.\n- (b) changes the data from a nonnegative real-valued random variable and an increasing differentiable `f : ℝ⁺ → ℝ⁺` to `X : Ω → NNReal` plus an auxiliary real extension `coeff` satisfying stronger `DifferentiableOn ℝ coeff (Ici 0)` assumptions. This is not the same hypothesis package or object formulation.\n- (c) likewise requires integrability of `|X|^p`, so it is only a finite-moment specialization rather than the source statement for every random variable and positive `p`.\n\nCorrection: formulate the identities using the appropriate extended nonnegative/infinite integral "
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n- **(a)** Source permits any random variable; Lean requires `Integrable X μ`, restricting to finite expectations and excluding extended-value edge cases. Thus not the same domain.\n- **(b)** Source states the formula for every nonnegative random variable and increasing differentiable `f`; Lean additionally requires `Integrable (f ∘ X) μ`, again restricting the statement to finite expectations. It also encodes `f'` through an auxiliary real extension `coeff`, rather than directly expressing differentiability/derivative of `f : ℝ⁺ → ℝ⁺`.\n- **(c)** Source applies to every random variable and `p > 0`; Lean requires integrability of `|X|^p`, excluding the valid extended-integral/infinite-moment cases in the source.\n\nThe strict-tail sets and real-power expression are mathematically aligned for real-valued `X` and `p > 0`; `μ.real` is harmless under a probability measure. There were no prior listed semantic risks, so none required remediation."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n- The prior **integrability/finiteness** risks are remedied: none of the three theorems assumes `Integrable X`, `Integrable (f ∘ X)`, or a finite `p`-moment. Parts (a) and (c) now use extended nonnegative integrals.\n- However, **(b) still does not use the source’s objects/domain**. The source has `X : Ω → ℝ⁺` and `f : ℝ⁺ → ℝ⁺`; Lean instead uses globally real-valued `X : Ω → ℝ` and `f : ℝ → ℝ`, with pointwise/nonnegative-on-`Ici` side hypotheses. This is not bidirectionally the same hypothesis package, and `DifferentiableOn ℝ f (Ici 0)` plus unrestricted `deriv f` is an encoding through a real extension rather than differentiability of the stated `ℝ⁺ → ℝ⁺` function.\n- **(a) introduces a new totalized notion** `signedExtendedExpectation`. Its use of `EReal` subtraction imposes Lean’s semantics for indeterminate cases such as `∞ - ∞`; the source’s ordinary signed expectation formula does not specify that custom edge-case convention. Thus the arbitrary-random-variable edge cases ar"
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib probability expectation tail integral layer cake lintegral",
+            "Mathlib MeasureTheory lintegral distribution function setOf_lt setOf_gt",
+            "Mathlib integral_comp_mul_deriv monotone differentiable intervalIntegral",
+            "Lean Type expected LE Type OfNat Type error using ℝ≥0 function annotation",
+            "Mathlib ENNReal NNReal coercion differentiable increasing f : ℝ≥0 → ℝ≥0",
+            "MeasureTheory tail probability expectation ℝ≥0∞ toReal lintegral layercake",
+            "Mathlib MeasureTheory lintegral_eq_lintegral_meas_gt ae_measurable layer cake",
+            "MeasureTheory lintegral_rpow distribution tail probability abs moment",
+            "MeasureTheory lintegral_tslice setOf fun x => f x < t"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "",
+          "review_decision": "BLOCK",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 22181,
+            "completion_tokens": 19842,
+            "total_tokens": 42023
+          },
+          "recorded_at": "2026-08-24T12:43:23+00:00",
+          "failure_class": "statement_generation_incomplete"
+        }
+      ],
+      "last_outcome": {
+        "stage": "statements",
+        "success": false,
+        "exit_code": 2,
+        "reason": "bounded statement refinement exhausted",
+        "target_file": "FateXWork/Questions/Items115CC7DE36B/Main.lean",
+        "proof_obligations": 0,
+        "cost_usd": 0.81707,
+        "cost_source": "auxiliary_token_usage",
+        "cost_scope": "bounded_statement_pipeline",
+        "provenance": "agent",
+        "iterations": 3,
+        "candidate_attempts": 6,
+        "candidates_per_iteration": 2,
+        "failure_stage": "semantic_review",
+        "final_diagnostic": "BLOCK\n\n- The prior **integrability/finiteness** risks are remedied: none of the three theorems assumes `Integrable X`, `Integrable (f ∘ X)`, or a finite `p`-moment. Parts (a) and (c) now use extended nonnegative integrals.\n- However, **(b) still does not use the source’s objects/domain**. The source has `X : Ω → ℝ⁺` and `f : ℝ⁺ → ℝ⁺`; Lean instead uses globally real-valued `X : Ω → ℝ` and `f : ℝ → ℝ`, with pointwise/nonnegative-on-`Ici` side hypotheses. This is not bidirectionally the same hypothesis package, and `DifferentiableOn ℝ f (Ici 0)` plus unrestricted `deriv f` is an encoding through a real extension rather than differentiability of the stated `ℝ⁺ → ℝ⁺` function.\n- **(a) introduces a new totalized notion** `signedExtendedExpectation`. Its use of `EReal` subtraction imposes Lean’s semantics for indeterminate cases such as `∞ - ∞`; the source’s ordinary signed expectation formula does not specify that custom edge-case convention. Thus the arbitrary-random-variable edge cases are not demonstrably the same.\n- The `∫⁻` notation and `μ {…}` factors in (b) and (c) do have the intended `ENNReal`/Lebesgue-measure semantics, and `Real.rpow |X ω| p` with `0 < p` matches the positive real-power integrand in (c).\n\nCorrection: state (b) directly for `NNReal`-valued `X` and `f : NNReal → NNReal` (with an appropriate derivative formulation), and either impose the source’s precise existence convention for signed expectations in (a), or explicitly formulate the source as an identity under Lean’s chosen `EReal` subtraction convention.",
+        "candidate_diagnostics": [
+          {
+            "stage": "format",
+            "diagnostic": "every theorem or lemma body in the statement lane must be exactly `by sorry`"
+          },
+          {
+            "stage": "lean_compilation",
+            "diagnostic": "87ef.lean:21:11: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat Type 0\nnumerals are polymorphic in Lean, but the numeral `0` cannot be used in a context where the expected type is\n  Type\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items115CC7DE36B/StatementCandidate_533e45b65e65444096629fece39c87ef.lean:21:17: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  OfNat Type 0\nnumerals are polymorphic in Lean, but the numeral `0` cannot be used in a context where the expected type is\n  Type\ndue to the absence of the instance above\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items115CC7DE36B/StatementCandidate_533e45b65e65444096629fece39c87ef.lean:34:8: warning: declaration uses `sorry`\n"
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\n- No prior semantic risks were listed, so there are none to verify as remedied.\n- All three Lean statements add an `Integrable` hypothesis absent from the source. Thus they exclude non-integrable random variables and do not retain the source’s full edge-case/general expectation formulation.\n- (a) is therefore only an integrable-real-valued specialization, not the stated formula for arbitrary random variables.\n- (b) changes the data from a nonnegative real-valued random variable and an increasing differentiable `f : ℝ⁺ → ℝ⁺` to `X : Ω → NNReal` plus an auxiliary real extension `coeff` satisfying stronger `DifferentiableOn ℝ coeff (Ici 0)` assumptions. This is not the same hypothesis package or object formulation.\n- (c) likewise requires integrability of `|X|^p`, so it is only a finite-moment specialization rather than the source statement for every random variable and positive `p`.\n\nCorrection: formulate the identities using the appropriate extended nonnegative/infinite integral "
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\n- **(a)** Source permits any random variable; Lean requires `Integrable X μ`, restricting to finite expectations and excluding extended-value edge cases. Thus not the same domain.\n- **(b)** Source states the formula for every nonnegative random variable and increasing differentiable `f`; Lean additionally requires `Integrable (f ∘ X) μ`, again restricting the statement to finite expectations. It also encodes `f'` through an auxiliary real extension `coeff`, rather than directly expressing differentiability/derivative of `f : ℝ⁺ → ℝ⁺`.\n- **(c)** Source applies to every random variable and `p > 0`; Lean requires integrability of `|X|^p`, excluding the valid extended-integral/infinite-moment cases in the source.\n\nThe strict-tail sets and real-power expression are mathematically aligned for real-valued `X` and `p > 0`; `μ.real` is harmless under a probability measure. There were no prior listed semantic risks, so none required remediation."
+          },
+          {
+            "stage": "semantic_review",
+            "diagnostic": "BLOCK\n\n- The prior **integrability/finiteness** risks are remedied: none of the three theorems assumes `Integrable X`, `Integrable (f ∘ X)`, or a finite `p`-moment. Parts (a) and (c) now use extended nonnegative integrals.\n- However, **(b) still does not use the source’s objects/domain**. The source has `X : Ω → ℝ⁺` and `f : ℝ⁺ → ℝ⁺`; Lean instead uses globally real-valued `X : Ω → ℝ` and `f : ℝ → ℝ`, with pointwise/nonnegative-on-`Ici` side hypotheses. This is not bidirectionally the same hypothesis package, and `DifferentiableOn ℝ f (Ici 0)` plus unrestricted `deriv f` is an encoding through a real extension rather than differentiability of the stated `ℝ⁺ → ℝ⁺` function.\n- **(a) introduces a new totalized notion** `signedExtendedExpectation`. Its use of `EReal` subtraction imposes Lean’s semantics for indeterminate cases such as `∞ - ∞`; the source’s ordinary signed expectation formula does not specify that custom edge-case convention. Thus the arbitrary-random-variable edge cases ar"
+          }
+        ],
+        "retry_feedback_source": "",
+        "retrieval_queries": [
+          "Mathlib probability expectation tail integral layer cake lintegral",
+          "Mathlib MeasureTheory lintegral distribution function setOf_lt setOf_gt",
+          "Mathlib integral_comp_mul_deriv monotone differentiable intervalIntegral",
+          "Lean Type expected LE Type OfNat Type error using ℝ≥0 function annotation",
+          "Mathlib ENNReal NNReal coercion differentiable increasing f : ℝ≥0 → ℝ≥0",
+          "MeasureTheory tail probability expectation ℝ≥0∞ toReal lintegral layercake",
+          "Mathlib MeasureTheory lintegral_eq_lintegral_meas_gt ae_measurable layer cake",
+          "MeasureTheory lintegral_rpow distribution tail probability abs moment",
+          "MeasureTheory lintegral_tslice setOf fun x => f x < t"
+        ],
+        "statement_providers": {
+          "planner": "openai-codex",
+          "generator": "openai-codex",
+          "generator_fallback": "",
+          "judge": "openai-codex"
+        },
+        "review_evidence": "",
+        "review_decision": "BLOCK",
+        "model": "gpt-5.6-terra",
+        "provider": "openai-codex",
+        "usage": {
+          "prompt_tokens": 22181,
+          "completion_tokens": 19842,
+          "total_tokens": 42023
+        },
+        "recorded_at": "2026-08-24T12:43:23+00:00",
+        "failure_class": "statement_generation_incomplete"
+      }
     },
     {
       "id": "items-1.16",
