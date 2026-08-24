@@ -3,20 +3,20 @@
   "source": "HDP/source/full/qa/questions.json",
   "status": "active",
   "batch_count": 367,
-  "completed_batch_count": 3,
-  "agent_e2e_completed_batch_count": 3,
+  "completed_batch_count": 4,
+  "agent_e2e_completed_batch_count": 4,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 7,
+  "agent_e2e_statement_completed_batch_count": 11,
   "failure_class_counts": {
-    "budget_limit": 49,
+    "budget_limit": 53,
     "statement_generation_incomplete": 33,
-    "infrastructure": 14,
+    "infrastructure": 15,
     "proof_incomplete": 5
   },
-  "statement_completed_batch_count": 7,
+  "statement_completed_batch_count": 11,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 159.43448,
+  "spent_usd": 162.7251,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -2805,11 +2805,101 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items0745709254/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.25121,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items0745709254/StatementCandidate_37a4ccd9b9cc40f3880d50fc492d665c.lean:7:14: error: expected token\n"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items0745709254/StatementCandidate_7a5c986d635640f6ac14fdfcbd119e22.lean:9:23: error: expected token\n"
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "volume Euclidean ball volume_ball",
+            "measure_theory volume ball real_inner",
+            "one_sub_inv_pow_le_exp",
+            "volume_smul measurableSet_ball measure_smul",
+            "measure_ball_pos volume_ball_pos",
+            "Real.exp_lt_one_div_nat_pow"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items0745709254/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 7127,
+            "completion_tokens": 5998,
+            "total_tokens": 13125
+          },
+          "recorded_at": "2026-08-24T08:59:38+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:04:37+00:00",
+          "target_file": "FateXWork/Questions/Items0745709254/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 61636,
+            "completion_tokens": 729,
+            "total_tokens": 62365
+          },
+          "cost_usd": 0.63823,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:04:37+00:00",
+        "target_file": "FateXWork/Questions/Items0745709254/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 61636,
+          "completion_tokens": 729,
+          "total_tokens": 62365
+        },
+        "cost_usd": 0.63823,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-0.8",
@@ -2822,11 +2912,89 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items08D2DB1FAD/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.17395,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 1,
+          "candidate_attempts": 2,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "Mathlib Probability uniform distribution ball volume integral norm Euclidean",
+            "Mathlib MeasureTheory volume ball integral radial coordinates",
+            "Mathlib EuclideanSpace closedBall volume integral norm"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items08D2DB1FAD/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 3454,
+            "completion_tokens": 4647,
+            "total_tokens": 8101
+          },
+          "recorded_at": "2026-08-24T08:59:00+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:04:37+00:00",
+          "target_file": "FateXWork/Questions/Items08D2DB1FAD/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 47139,
+            "completion_tokens": 748,
+            "total_tokens": 47887
+          },
+          "cost_usd": 0.49383,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:04:37+00:00",
+        "target_file": "FateXWork/Questions/Items08D2DB1FAD/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 47139,
+          "completion_tokens": 748,
+          "total_tokens": 47887
+        },
+        "cost_usd": 0.49383,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-0.9",
@@ -2839,11 +3007,101 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "statements_completed",
+      "agent_status": "statements_completed",
+      "completion_provenance": "mixed_or_partial",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items09D98428BA/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.32508,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n- `Function.Injective v` and `P = convexHull ℝ (Set.range v)` do **not** state that `P` has exactly `N` vertices: some listed points may be non-extreme/redundant. Thus the Lean hypotheses allow polytopes with fewer than `N` actual vertices.\n- The source’s intended positive-dimensional setting is not enforced. Lean permits `n = 0`; then casts/division, `Real.log 0`, and the `^ 0` case use Lean-specific conventions rather than the intended expression \\(\\log(eN/n)/n\\). Add `0 < n`.\n- The Euclidean-ball and measure semantics are otherwise appropriate: `EuclideanSpace ℝ (Fin n)` has the Euclidean norm, `closedBall 0 1` is the unit Euclidean ball, and `volume` is Lebesgue volume represented in `ℝ≥0∞`. The RHS’s `ENNReal.ofReal` is compatible once positivity/finite-volume facts are established.\n\nTo match “with `N` vertices,” require that the points in `Set.range v` are precisely the extreme points/vertices of `P` (or restate the source as “convex hull of at most `N` points”)."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\n`P = convexHull ℝ s` with `s.card = N` only says that `P` has a generating set of `N` distinct points. It does **not** say that `P` has exactly `N` vertices: points of `s` may be redundant or non-extreme. The source specifically assumes a polytope with `N` vertices.\n\nThe volume expression is otherwise semantically appropriate: Lean’s `volume` is `ℝ≥0∞`, and for a bounded set in positive finite dimension the quotient corresponds to the usual real volume ratio; `ENNReal.ofReal` correctly embeds the nonnegative RHS. `exp 1` correctly represents `e`, and the imposed `0 < n` avoids division by zero. There were no prior listed semantic risks to remedy.\n\nTo match the source, require that `s` is precisely the set of extreme points/vertices of `P` (or use an established Lean definition of an `N`-vertex polytope), not merely an `N`-point convex generating set."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "EuclideanSpace volume closedBall",
+            "convexHull finite volume",
+            "Real.log exp sqrt",
+            "ExtremePoints convexHull",
+            "Set.extremePoints convexHull",
+            "Convex.IsExtreme"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items09D98428BA/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 10572,
+            "completion_tokens": 7312,
+            "total_tokens": 17884
+          },
+          "recorded_at": "2026-08-24T09:00:23+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:04:37+00:00",
+          "target_file": "FateXWork/Questions/Items09D98428BA/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 63106,
+            "completion_tokens": 1335,
+            "total_tokens": 64441
+          },
+          "cost_usd": 0.67111,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T09:04:37+00:00",
+        "target_file": "FateXWork/Questions/Items09D98428BA/Main.lean",
+        "proof_obligations": 1,
+        "reason": "Per-action USD cost limit reached before the next provider request",
+        "usage": {
+          "prompt_tokens": 63106,
+          "completion_tokens": 1335,
+          "total_tokens": 64441
+        },
+        "cost_usd": 0.67111,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
+      }
     },
     {
       "id": "items-1.1",
@@ -2856,11 +3114,140 @@
       "dependency_labels": [],
       "soft_dependency_labels": [],
       "count": 1,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "proofs_completed",
+      "agent_status": "proofs_completed",
+      "completion_provenance": "agent_e2e",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items1152CE4D1A/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.10733,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 2,
+          "candidate_attempts": 4,
+          "candidates_per_iteration": 2,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "ControlSocket /tmp/leanflow-lake-hrm@140.143.244.199:49322 already exists, disabling multiplexing\n"
+            },
+            {
+              "stage": "lean_compilation",
+              "diagnostic": "FateXWork/Questions/Items1152CE4D1A/StatementCandidate_3abc955e70744bc0bfa3d1245fdaee55.lean:5:14: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  Semiring ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\nFateXWork/Questions/Items1152CE4D1A/StatementCandidate_3abc955e70744bc0bfa3d1245fdaee55.lean:5:4: error(lean.synthInstanceFailed): failed to synthesize instance of type class\n  Semiring ℝ\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.\n"
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "#check convex_convexHull",
+            "#check Convex",
+            "#check convexHull",
+            "#import Mathlib.Data.Real.Basic",
+            "#check convexHull_min"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items1152CE4D1A/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 5612,
+            "completion_tokens": 1707,
+            "total_tokens": 7319
+          },
+          "recorded_at": "2026-08-24T08:58:52+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:05:46+00:00",
+          "target_file": "FateXWork/Questions/Items1152CE4D1A/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 59832,
+            "completion_tokens": 1052,
+            "total_tokens": 60884
+          },
+          "cost_usd": 0.62988,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T09:19:43+00:00",
+          "target_file": "FateXWork/Questions/Items1152CE4D1A/Main.lean",
+          "proof_obligations": 1,
+          "reason": "TransientProviderRetriesExhausted: Connection error.",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "cost_usd": 0.0,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "infrastructure"
+        },
+        {
+          "stage": "proofs",
+          "success": true,
+          "exit_code": 0,
+          "reason": "recovered durable agent LeanProbe proof candidate",
+          "target_file": "FateXWork/Questions/Items1152CE4D1A/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.0,
+          "cost_source": "durable_agent_evidence",
+          "cost_scope": "no_additional_provider_call",
+          "provenance": "agent",
+          "recovery_evidence": ".leanflow/workflow-state/workers/campaign-9640ffc81e2741c397a39ba815a61929/outcomes.jsonl",
+          "recovered_tactic": "exact convex_convexHull ℝ T",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "recorded_at": "2026-08-24T09:23:09+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": true,
+        "exit_code": 0,
+        "reason": "recovered durable agent LeanProbe proof candidate",
+        "target_file": "FateXWork/Questions/Items1152CE4D1A/Main.lean",
+        "proof_obligations": 0,
+        "cost_usd": 0.0,
+        "cost_source": "durable_agent_evidence",
+        "cost_scope": "no_additional_provider_call",
+        "provenance": "agent",
+        "recovery_evidence": ".leanflow/workflow-state/workers/campaign-9640ffc81e2741c397a39ba815a61929/outcomes.jsonl",
+        "recovered_tactic": "exact convex_convexHull ℝ T",
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "recorded_at": "2026-08-24T09:23:09+00:00"
+      }
     },
     {
       "id": "items-1.2",
