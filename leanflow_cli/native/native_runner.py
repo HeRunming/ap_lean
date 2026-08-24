@@ -12748,6 +12748,55 @@ _MAX_PROOF_SEARCH_RESULTS = 20
 _CAMPAIGN_CHEAP_PROOF_CHECK_KEY = "_campaign_cheap_proof_check"
 
 
+def _normalize_campaign_bare_target_replacement(
+    function_name: str,
+    args: Mapping[str, Any] | None,
+    autonomy_state: Mapping[str, Any],
+) -> bool:
+    """Expand a bare campaign proof body using the locked source signature."""
+    if (
+        function_name != "lean_incremental_check"
+        or not isinstance(args, dict)
+        or _workflow_kind() != "prove"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return False
+    action = str(args.get("action", "check_target") or "check_target")
+    replacement = str(args.get("replacement", "") or "").strip()
+    if action.strip().lower().replace("-", "_") != "check_target" or not re.match(
+        r"^by(?:\s|$)", replacement
+    ):
+        return False
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    requested_target = str(
+        args.get("theorem_id", "") or args.get("target_symbol", "") or target_symbol
+    ).strip()
+    requested_file = str(
+        args.get("file_path", "") or args.get("active_file", "") or active_file
+    ).strip()
+    if (
+        not target_symbol
+        or requested_target != target_symbol
+        or not active_file
+        or not _same_active_file(requested_file, active_file)
+    ):
+        return False
+    try:
+        source = Path(active_file).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    declaration = _assigned_candidate_declaration_raw(source, target_symbol)
+    if not declaration or ":=" not in declaration:
+        return False
+    signature = declaration.split(":=", 1)[0].rstrip()
+    if not signature:
+        return False
+    args["replacement"] = f"{signature} := {replacement}"
+    return True
+
+
 def _campaign_proof_bootstrap_pre_tool_guard(
     function_name: str,
     args: Mapping[str, Any] | None,
@@ -12916,6 +12965,23 @@ def _managed_pre_tool_call(
         return campaign_bootstrap_guard
     autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
     if isinstance(autonomy_state, dict):
+        normalized_bare_replacement = _normalize_campaign_bare_target_replacement(
+            function_name,
+            args,
+            autonomy_state,
+        )
+        if normalized_bare_replacement:
+            with contextlib.suppress(Exception):
+                assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+                _record_agent_activity(
+                    agent,
+                    "campaign-bare-target-replacement-normalized",
+                    "Expanded a bare proof body with the locked assigned declaration signature",
+                    target_symbol=str(assignment.get("target_symbol", "") or ""),
+                    active_file=str(assignment.get("active_file", "") or ""),
+                    provider_called=False,
+                    campaign_progress=False,
+                )
         expensive_patch_guard = _campaign_expensive_patch_pre_tool_guard(
             function_name,
             autonomy_state,

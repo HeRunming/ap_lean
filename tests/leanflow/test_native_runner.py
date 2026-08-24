@@ -14352,6 +14352,52 @@ def test_campaign_patch_requires_successful_cheap_target_check(monkeypatch, tmp_
     )
 
 
+def test_campaign_expands_bare_target_proof_with_locked_signature(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo (P : Prop) (h : P) : P := by\n  sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    state = {
+        "current_queue_assignment": {
+            "target_symbol": "demo",
+            "active_file": str(active),
+        }
+    }
+    args = {
+        "action": "check_target",
+        "theorem_id": "demo",
+        "file_path": str(active),
+        "replacement": "by\n  exact h",
+    }
+
+    assert runner._normalize_campaign_bare_target_replacement("lean_incremental_check", args, state)
+    assert args["replacement"] == "theorem demo (P : Prop) (h : P) : P := by\n  exact h"
+
+
+def test_campaign_does_not_expand_bare_proof_for_wrong_target(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    state = {
+        "current_queue_assignment": {
+            "target_symbol": "demo",
+            "active_file": str(active),
+        }
+    }
+    args = {
+        "action": "check_target",
+        "theorem_id": "other",
+        "file_path": str(active),
+        "replacement": "by trivial",
+    }
+
+    assert not runner._normalize_campaign_bare_target_replacement(
+        "lean_incremental_check", args, state
+    )
+    assert args["replacement"] == "by trivial"
+
+
 def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_path):
     active = tmp_path / "Main.lean"
     source = "theorem demo : True := by sorry\n"
