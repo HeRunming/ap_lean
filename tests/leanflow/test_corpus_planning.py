@@ -930,6 +930,32 @@ def test_corpus_plan_defers_meta_proof_repair_exercises():
     assert build_campaign(plan)["batches"][0]["source_complexity_tier"] == "complex"
 
 
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "Deduce the Hoeffding inequality for bounded random variables from the MGF lemma.",
+        "Show that any subgaussian random variable satisfying this MGF bound has zero mean.",
+        (
+            "Demonstrate by example that the bound is asymptotically tight. For every n "
+            "find a set in Euclidean space with the required high-dimensional lower bound."
+        ),
+    ],
+)
+def test_corpus_plan_marks_short_but_semantically_deep_exercises_complex(statement):
+    plan = build_corpus_plan(
+        {
+            "theorem_blocks": [{"label": "deep", "statement": statement}],
+            "qa_batches": [{"id": "deep", "labels": ["deep"]}],
+        },
+        source_relative="book/questions.json",
+        shared_module="Demo.Questions.Shared.Basic",
+    )
+
+    item = plan["items"][0]
+    assert item["source_semantic_depth_score"] >= 6
+    assert item["source_complexity_tier"] == "complex"
+
+
 def test_fresh_proofs_prefer_fewer_obligations():
     plan = {
         "source": "book.json",

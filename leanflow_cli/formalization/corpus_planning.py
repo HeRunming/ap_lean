@@ -36,7 +36,7 @@ _DOMAIN_CONCEPTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def source_formalization_complexity(text: str) -> dict[str, int | str]:
-    """Return a conservative source-shape cost hint, never a semantic verdict."""
+    """Return a conservative source and formalization-cost hint, never a verdict."""
     source = str(text or "")
     subpart_count = len(re.findall(r"(?m)^\s*\([a-z0-9]+\)\s+", source))
     display_count = len(re.findall(r"\$\$", source)) // 2
@@ -49,19 +49,50 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
             flags=re.IGNORECASE | re.DOTALL,
         )
     )
+    semantic_depth_score = sum(
+        weight
+        for pattern, weight in (
+            (
+                r"\b(?:hoeffding|subgaussian|moment[- ]generating|\bmgf\b|"
+                r"concentration inequality|tail bound)\b",
+                6,
+            ),
+            (
+                r"\b(?:asymptotically tight|demonstrate by example|construct an? |"
+                r"find (?:a|the) (?:set|family|example)|high dimensions?)\b",
+                6,
+            ),
+            (
+                r"\b(?:limit|derivative|differentiab|integral|measurab|integrab|"
+                r"almost everywhere|essential supremum)\b|\b(?:limsup|liminf)\b",
+                3,
+            ),
+            (
+                r"\bfor every\b.{0,180}\b(?:for any|there exists|find)\b",
+                3,
+            ),
+        )
+        if re.search(pattern, source, flags=re.IGNORECASE | re.DOTALL)
+    )
     score = (
         subpart_count * 3
         + min(4, len(source) // 500)
         + min(4, display_count)
         + (8 if meta_proof_repair else 0)
+        + semantic_depth_score
     )
-    tier = "complex" if score >= 8 else "moderate" if score >= 4 else "routine"
+    tier = (
+        "complex"
+        if score >= 8 or semantic_depth_score >= 6
+        else "moderate" if score >= 4 else "routine"
+    )
     return {
         "source_complexity_score": score,
         "source_complexity_tier": tier,
         "source_subpart_count": subpart_count,
         "source_display_count": display_count,
         "source_meta_proof_repair": int(meta_proof_repair),
+        "source_semantic_depth_score": semantic_depth_score,
     }
 
 

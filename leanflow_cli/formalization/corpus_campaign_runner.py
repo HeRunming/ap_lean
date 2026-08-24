@@ -101,7 +101,11 @@ def refresh_campaign_source_complexity(
                 continue
             score = max(int(item["source_complexity_score"]) for item in batch_hints)
             subparts = sum(int(item["source_subpart_count"]) for item in batch_hints)
-            tier = "complex" if score >= 8 else "moderate" if score >= 4 else "routine"
+            tier_rank = {"routine": 0, "moderate": 1, "complex": 2}
+            tier = max(
+                (str(item["source_complexity_tier"]) for item in batch_hints),
+                key=lambda value: tier_rank.get(value, 0),
+            )
             values = {
                 "source_complexity_score": score,
                 "source_complexity_tier": tier,
