@@ -74,6 +74,7 @@ from agent.providers.auxiliary_client import call_llm
 from agent.providers.model_metadata import estimate_messages_tokens_rough
 from leanflow_cli.config import load_config
 from leanflow_cli.lean import negation_probe
+from leanflow_cli.lean.lean_attempt_location import _multi_attempt_replacement_candidate
 from leanflow_cli.lean.lean_attempt_screening import compact_multi_attempt_payload
 from leanflow_cli.lean.lean_incremental import (
     compact_check_payload,
@@ -5565,6 +5566,68 @@ def _project_managed_tool_result(
     else:
         return result
     return json.dumps(projected, ensure_ascii=False)
+
+
+def _auto_commit_campaign_multi_attempt(
+    agent: Any,
+    function_name: str,
+    args: Mapping[str, Any] | None,
+    result: str,
+) -> bool:
+    """Commit an exact-target tactic already authenticated by LeanProbe."""
+    if (
+        function_name != "lean_multi_attempt"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return False
+    payload = _json_tool_result_payload(result)
+    verified = [str(item or "").strip() for item in payload.get("verified_attempts", []) or []]
+    verified = [item for item in verified if item]
+    if not payload.get("target_verified") or len(verified) != 1:
+        return False
+    autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    arguments = dict(args or {})
+    try:
+        line = int(payload.get("line", arguments.get("line", 0)) or 0)
+        raw_column = payload.get("column", arguments.get("column"))
+        column = int(raw_column) if raw_column not in (None, "") else None
+    except (TypeError, ValueError):
+        return False
+    path = Path(active_file)
+    if not active_file or not target_symbol or not path.is_file():
+        return False
+    replacement = _multi_attempt_replacement_candidate(path, line, column, verified[0])
+    if replacement is None or replacement[0] != target_symbol:
+        return False
+    declaration = replacement[1]
+    if re.search(r"\b(?:sorry|admit|sorryAx)\b", declaration):
+        return False
+    before = path.read_bytes()
+    source = before.decode("utf-8")
+    old_declaration = _assigned_candidate_declaration_raw(source, target_symbol)
+    if not old_declaration or source.count(old_declaration) != 1:
+        return False
+    after = source.replace(old_declaration, declaration, 1).encode("utf-8")
+    committed = decomposition_provenance.compare_and_swap_source(
+        path,
+        expected_bytes=before,
+        replacement_bytes=after,
+    )
+    if committed:
+        _record_agent_activity(
+            agent,
+            "campaign-verified-multi-attempt-auto-committed",
+            f"Auto-committed LeanProbe-verified tactic for {target_symbol}",
+            target_symbol=target_symbol,
+            active_file=active_file,
+            tactic=verified[0],
+            source_revision_sha256=_source_revision_sha256(active_file),
+            campaign_progress=True,
+        )
+    return committed
 
 
 def _disable_agent_tool_schema(agent: Any, tool_name: str) -> None:
@@ -12672,6 +12735,40 @@ _MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 2
 _MAX_PROOF_SEARCH_RESULTS = 20
 
 
+def _campaign_proof_bootstrap_pre_tool_guard(
+    function_name: str,
+    args: Mapping[str, Any] | None,
+) -> str | None:
+    """Skip redundant corpus bootstrap already present in the queue handoff."""
+    if (
+        _workflow_kind() != "prove"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return None
+    arguments = dict(args or {})
+    path = str(arguments.get("path", "") or arguments.get("file_path", "") or "")
+    blueprint_read = function_name == "read_file" and Path(path).name == "Blueprint.md"
+    redundant = function_name in {"skill_view", "lean_capabilities", "lean_inspect"}
+    if not blueprint_read and not redundant:
+        return None
+    return json.dumps(
+        {
+            "success": False,
+            "status": "campaign_bootstrap_already_injected",
+            "blocked_tool": function_name,
+            "lean_started": False,
+            "provider_called": False,
+            "required_action": (
+                "The managed queue handoff already contains the active skill contract, exact "
+                "declaration, source-fidelity digest, and current diagnostics. Do not reload "
+                "skills, Blueprint.md, capabilities, or unchanged inspection state. Use one "
+                "focused theorem search if needed, then submit a concrete Lean candidate."
+            ),
+        },
+        ensure_ascii=False,
+    )
+
+
 def _bound_proof_retrieval_args(
     function_name: str,
     args: Mapping[str, Any] | None,
@@ -12725,6 +12822,9 @@ def _managed_pre_tool_call(
     formalization_guard = _document_formalization_pre_tool_guard(agent, function_name, args)
     if formalization_guard:
         return formalization_guard
+    campaign_bootstrap_guard = _campaign_proof_bootstrap_pre_tool_guard(function_name, args)
+    if campaign_bootstrap_guard:
+        return campaign_bootstrap_guard
     autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
     if isinstance(autonomy_state, dict):
         _bound_proof_retrieval_args(function_name, args)
@@ -24173,6 +24273,7 @@ def _build_agent() -> AIAgent:
     ) -> None:
         callback_started = time.monotonic()
         phase_seconds: dict[str, float] = {}
+        _auto_commit_campaign_multi_attempt(agent, function_name, _args, _result)
         phase_started = time.monotonic()
         edit_verdict = _ManagedQueueEditVerdict()
         queue_edit_candidate_declaration = ""

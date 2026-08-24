@@ -14265,6 +14265,64 @@ def test_campaign_system_prompt_requires_search_to_check_conversion(monkeypatch)
     assert "do not read Blueprint.md" in prompt
 
 
+def test_campaign_proof_bootstrap_guard_blocks_redundant_context(monkeypatch):
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+
+    for function_name, args in (
+        ("skill_view", {"name": "lean-theorem-queue-worker"}),
+        ("lean_capabilities", {"cwd": "/tmp/project"}),
+        ("lean_inspect", {"target": "/tmp/project/Main.lean"}),
+        ("read_file", {"path": "/tmp/project/Blueprint.md"}),
+    ):
+        blocked = json.loads(runner._campaign_proof_bootstrap_pre_tool_guard(function_name, args))
+        assert blocked["status"] == "campaign_bootstrap_already_injected"
+        assert blocked["lean_started"] is False
+
+    assert (
+        runner._campaign_proof_bootstrap_pre_tool_guard(
+            "read_file", {"path": "/tmp/project/Main.lean"}
+        )
+        is None
+    )
+
+
+def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    source = "theorem demo : True := by sorry\n"
+    active.write_text(source, encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_record_agent_activity", lambda *args, **kwargs: None)
+    agent = SimpleNamespace(
+        _managed_autonomy_state={
+            "current_queue_assignment": {
+                "target_symbol": "demo",
+                "active_file": str(active),
+            }
+        }
+    )
+    column = source.index("sorry") + 1
+    result = json.dumps(
+        {
+            "success": True,
+            "target_verified": True,
+            "verified_attempts": ["exact True.intro"],
+            "line": 1,
+            "column": column,
+        }
+    )
+
+    committed = runner._auto_commit_campaign_multi_attempt(
+        agent,
+        "lean_multi_attempt",
+        {"file_path": str(active), "line": 1},
+        result,
+    )
+
+    assert committed is True
+    assert active.read_text(encoding="utf-8") == "theorem demo : True := by exact True.intro\n"
+
+
 def test_proof_retrieval_result_count_is_bounded(monkeypatch):
     monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
     args = {"pattern": "factorial", "limit": 100}
