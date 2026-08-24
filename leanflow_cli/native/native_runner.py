@@ -11404,7 +11404,45 @@ def _research_helper_candidate_pre_tool_guard(
         target_symbol=target_symbol,
         active_file=active_file,
     )
-    if autonomy_state.get("_research_helper_target_candidate_attempted") is True:
+    consumption_record = research_helper_candidate_priority.target_consumption_record(
+        autonomy_state
+    )
+    attempt_record = autonomy_state.get("_research_helper_target_candidate_attempted")
+    attempt_matches = bool(
+        isinstance(attempt_record, Mapping)
+        and str(attempt_record.get("candidate_id", "") or "")
+        == str(consumption_record.get("candidate_id", "") or "")
+    )
+    normalized_action = (
+        str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
+        if function_name == "lean_incremental_check"
+        else ""
+    )
+    if (
+        attempt_matches
+        and normalized_action == "check_target"
+        and int(attempt_record.get("count", 0) or 0) >= 2
+    ):
+        return json.dumps(
+            {
+                "success": False,
+                "status": "helper_isolation_required",
+                "blocked_tool": function_name,
+                "blocked_action": normalized_action,
+                "target_symbol": target_symbol,
+                "target_attempts_used": int(attempt_record.get("count", 0) or 0),
+                "required_action": (
+                    "The last complete target candidates exposed a local failing lemma. "
+                    "Isolate that lemma as a standalone `check_helper` candidate now."
+                ),
+                "reason": (
+                    "Repeating the full target rechecks the same large context; a verified helper "
+                    "will preserve the local progress and make the next target attempt cheaper."
+                ),
+            },
+            ensure_ascii=False,
+        )
+    if attempt_matches:
         consumption_pending = False
     if consumption_pending and function_name in {"lean_search", "search_files"}:
         search_key = "_research_helper_target_consumption_search_count"
@@ -11436,7 +11474,7 @@ def _research_helper_candidate_pre_tool_guard(
             )
         autonomy_state[search_key] = search_count + 1
     if consumption_pending and function_name == "lean_incremental_check":
-        action = str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
+        action = normalized_action
         if action == "feedback":
             feedback_key = "_research_helper_target_consumption_feedback_count"
             try:
@@ -24025,7 +24063,20 @@ def _build_agent() -> AIAgent:
             assignment = dict(managed_autonomy.get("current_queue_assignment") or {})
             if _concrete_sorry_free_target_attempt(function_name, _args, _result):
                 target_attempt = _json_tool_result_payload(_result)
-                managed_autonomy["_research_helper_target_candidate_attempted"] = True
+                consumption = research_helper_candidate_priority.target_consumption_record(
+                    managed_autonomy
+                )
+                prior_attempt = managed_autonomy.get("_research_helper_target_candidate_attempted")
+                prior_count = (
+                    int(prior_attempt.get("count", 0) or 0)
+                    if isinstance(prior_attempt, Mapping)
+                    and prior_attempt.get("candidate_id") == consumption.get("candidate_id")
+                    else 0
+                )
+                managed_autonomy["_research_helper_target_candidate_attempted"] = {
+                    "candidate_id": consumption.get("candidate_id", ""),
+                    "count": prior_count + 1,
+                }
                 _record_agent_activity(
                     agent,
                     "research-helper-target-candidate-attempted",

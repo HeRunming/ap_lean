@@ -14356,6 +14356,26 @@ def test_integrated_helper_consumption_allows_target_work_before_next_priority(
     )
     agent = _Agent()
 
+    state["_research_helper_target_candidate_attempted"] = {
+        "candidate_id": first.candidate_id,
+        "count": 2,
+    }
+    blocked_repeated_target = json.loads(
+        runner._managed_pre_tool_call(
+            agent,
+            "lean_incremental_check",
+            {
+                "action": "check_target",
+                "theorem_id": "demo",
+                "file_path": str(active),
+                "replacement": "theorem demo : True := by\n  trivial",
+            },
+        )
+    )
+    assert blocked_repeated_target["status"] == "helper_isolation_required"
+    assert blocked_repeated_target["target_attempts_used"] == 2
+    del state["_research_helper_target_candidate_attempted"]
+
     assert (
         runner._managed_pre_tool_call(
             agent,
