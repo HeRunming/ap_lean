@@ -31495,6 +31495,14 @@ def _recheck_pending_research_helper_if_due(
         target_symbol=target_symbol,
         active_file=active_file,
     )
+    consumption_record = research_helper_candidate_priority.target_consumption_record(
+        autonomy_state
+    )
+    # Two complete target attempts satisfy the old helper's handoff and force
+    # local helper isolation. Do not let that still-durable audit marker
+    # deadlock the exact parent recheck of the newly isolated candidate.
+    if int(consumption_record.get("target_attempt_count", 0) or 0) >= 2:
+        consumption_pending = False
     if candidate is None:
         existing = research_helper_candidate_priority.load(autonomy_state)
         if existing is not None and (target_symbol or active_file):
