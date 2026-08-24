@@ -14329,13 +14329,16 @@ def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_pat
     active.write_text(source, encoding="utf-8")
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
     monkeypatch.setattr(runner, "_record_agent_activity", lambda *args, **kwargs: None)
+    interrupts = []
     agent = SimpleNamespace(
         _managed_autonomy_state={
             "current_queue_assignment": {
                 "target_symbol": "demo",
                 "active_file": str(active),
             }
-        }
+        },
+        interrupt=lambda message: interrupts.append(message),
+        stage_tool_result_appendix=lambda _message: None,
     )
     column = source.index("sorry") + 1
     result = json.dumps(
@@ -14357,6 +14360,8 @@ def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_pat
 
     assert committed is True
     assert active.read_text(encoding="utf-8") == "theorem demo : True := by exact True.intro\n"
+    assert interrupts == [runner.WORKFLOW_STEP_BOUNDARY_INTERRUPT]
+    assert agent._managed_step_boundary_closed is True
 
 
 def test_proof_retrieval_result_count_is_bounded(monkeypatch):

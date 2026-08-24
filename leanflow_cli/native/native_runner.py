@@ -5627,6 +5627,16 @@ def _auto_commit_campaign_multi_attempt(
             source_revision_sha256=_source_revision_sha256(active_file),
             campaign_progress=True,
         )
+        with contextlib.suppress(Exception):
+            agent.stage_tool_result_appendix(
+                f"LeanFlow auto-committed the exact LeanProbe-verified proof for "
+                f"`{target_symbol}`. This theorem turn is complete; the manager will "
+                "refresh the queue instead of asking for another edit."
+            )
+        with contextlib.suppress(Exception):
+            agent._managed_pending_theorem_feedback = None
+            agent._managed_step_boundary_closed = True
+            _request_step_boundary_interrupt(agent)
     return committed
 
 
