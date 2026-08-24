@@ -10969,6 +10969,8 @@ def _advisor_success_cooldown_pre_tool_guard(
     autonomy_state: dict[str, Any],
 ) -> str | None:
     """Block a repeated successful advisor call until concrete evidence changes."""
+    if function_name not in advisor_failure_circuit.ADVISOR_TOOL_NAMES:
+        return None
     record = dict(
         dict(autonomy_state.get(_ADVISOR_SUCCESS_COOLDOWNS_KEY) or {}).get(
             _REASONING_ADVISOR_FAMILY_KEY

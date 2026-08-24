@@ -4210,6 +4210,35 @@ def test_successful_advisor_cooldown_blocks_unchanged_repeat(tmp_path):
     assert payload["blocked_tool"] == "lean_reasoning_help"
 
 
+def test_successful_advisor_cooldown_does_not_block_lean_recheck(tmp_path):
+    active = tmp_path / "Demo.lean"
+    active.write_text("theorem goal : True := by\n  sorry\n", encoding="utf-8")
+    state = {
+        runner._ADVISOR_SUCCESS_COOLDOWNS_KEY: {
+            runner._REASONING_ADVISOR_FAMILY_KEY: {
+                "target_symbol": "goal",
+                "active_file": str(active),
+                "source_revision_sha256": "source-a",
+                "target_revision_sha256": "target-a",
+                "evidence_revision_sha256": "evidence-a",
+            }
+        }
+    }
+
+    assert (
+        runner._advisor_success_cooldown_pre_tool_guard(
+            "lean_incremental_check",
+            target_symbol="goal",
+            active_file=str(active),
+            source_revision_sha256="source-a",
+            target_revision_sha256="target-a",
+            evidence_revision_sha256="evidence-a",
+            autonomy_state=state,
+        )
+        is None
+    )
+
+
 def test_successful_advisor_cooldown_releases_after_source_change(tmp_path):
     active = tmp_path / "Demo.lean"
     active.write_text("theorem goal : True := by\n  sorry\n", encoding="utf-8")
