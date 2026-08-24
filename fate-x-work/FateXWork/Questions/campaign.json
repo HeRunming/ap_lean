@@ -8,7 +8,7 @@
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 7,
   "failure_class_counts": {
-    "budget_limit": 43,
+    "budget_limit": 45,
     "statement_generation_incomplete": 33,
     "infrastructure": 14,
     "proof_incomplete": 5
@@ -16,7 +16,7 @@
   "statement_completed_batch_count": 7,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 154.54508,
+  "spent_usd": 156.94081,
   "budget_usd": 207.09587,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -1909,22 +1909,41 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T07:14:23+00:00",
+          "target_file": "FateXWork/Questions/Items0438222EE4/Main.lean",
+          "proof_obligations": 2,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 113604,
+            "completion_tokens": 1412,
+            "total_tokens": 115016
+          },
+          "cost_usd": 1.1784,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
         "success": false,
         "exit_code": 2,
-        "recorded_at": "2026-08-24T04:13:52+00:00",
+        "recorded_at": "2026-08-24T07:14:23+00:00",
         "target_file": "FateXWork/Questions/Items0438222EE4/Main.lean",
         "proof_obligations": 2,
         "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 25011,
-          "completion_tokens": 498,
-          "total_tokens": 25509
+          "prompt_tokens": 113604,
+          "completion_tokens": 1412,
+          "total_tokens": 115016
         },
-        "cost_usd": 0.26505,
+        "cost_usd": 1.1784,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
@@ -2658,40 +2677,45 @@
             "prompt_tokens": 3348,
             "total_tokens": 3992
           }
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-24T07:16:10+00:00",
+          "target_file": "FateXWork/Questions/Items066BBAC934/Main.lean",
+          "proof_obligations": 5,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 117329,
+            "completion_tokens": 1468,
+            "total_tokens": 118797
+          },
+          "cost_usd": 1.21733,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
-        "cost_scope": "independent_statement_reviewer",
-        "cost_source": "reviewer_token_usage",
-        "cost_usd": 0.0528,
-        "exit_code": 0,
-        "model": "gpt-5.6-terra",
-        "proof_obligations": 5,
-        "provenance": "agent",
-        "provider": "openai-codex",
-        "reason": "independent bounded statement/source review passed",
-        "recorded_at": "2026-08-22T07:24:38+00:00",
-        "review_decision": "PASS",
-        "review_evidence": "FateXWork/Questions/Items066BBAC934/IndependentReview.md",
-        "review_findings": [
-          "`integer_binomial_coefficient_bounds` faithfully quantifies over integers `n, k` with hypotheses `1 ≤ k` and `k ≤ n`.",
-          "The three conjuncts exactly encode the displayed lower bound, binomial-to-partial-sum comparison, and upper bound.",
-          "`intBinomial` explicitly represents integer inputs through `Int.toNat`; under the stated positivity hypotheses this agrees with the intended positive-integer binomial coefficient.",
-          "`Finset.range (k.toNat + 1)` faithfully represents the sum from `j = 0` through `k`.",
-          "Real coercions correctly represent the divisions and comparisons, and `Real.exp 1` correctly represents Euler’s number `e`.",
-          "The auxiliary natural-number lemmas are valid decomposition/strengthening declarations and do not alter the source-facing integer theorem.",
-          "No extra integrability, representation, or analytic hypotheses have been added beyond the disclosed `Int.toNat` bridge.",
-          "None required for statement fidelity."
-        ],
-        "review_status": "ok",
-        "stage": "statements",
-        "success": true,
+        "stage": "proofs",
+        "success": false,
+        "exit_code": 2,
+        "recorded_at": "2026-08-24T07:16:10+00:00",
         "target_file": "FateXWork/Questions/Items066BBAC934/Main.lean",
+        "proof_obligations": 5,
+        "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "completion_tokens": 644,
-          "prompt_tokens": 3348,
-          "total_tokens": 3992
-        }
+          "prompt_tokens": 117329,
+          "completion_tokens": 1468,
+          "total_tokens": 118797
+        },
+        "cost_usd": 1.21733,
+        "cost_source": "estimated",
+        "cost_scope": "primary_agent_only",
+        "provenance": "agent",
+        "failure_class": "budget_limit"
       }
     },
     {
