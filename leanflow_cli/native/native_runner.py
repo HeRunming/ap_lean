@@ -11418,6 +11418,12 @@ def _research_helper_candidate_pre_tool_guard(
     )
     attempt_count = max(durable_attempt_count, transient_attempt_count)
     attempt_matches = bool(consumption_record and attempt_count > 0)
+    if candidate is not None and attempt_count >= 2:
+        # A newly staged exact candidate is the deterministic continuation of
+        # the old helper handoff. Its recheck/integration gate must be visible
+        # before the older consumption marker's isolation message.
+        consumption_pending = False
+        attempt_matches = False
     normalized_action = (
         str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
         if function_name == "lean_incremental_check"
@@ -11689,6 +11695,24 @@ def _research_helper_candidate_pre_tool_guard(
                     "required_action": (
                         "Replay this exact preserved declaration with `check_helper`; "
                         "do not synthesize a replacement until its parent recheck finishes."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        if same_assignment_probe and not checks_active_candidate and candidate.ready:
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "checked_helper_integration_required",
+                    "blocked_tool": function_name,
+                    "blocked_action": action,
+                    "candidate_id": candidate.candidate_id,
+                    "helper_symbol": candidate.helper_name,
+                    "declaration_sha256": candidate.declaration_sha256,
+                    "preserved_declaration": candidate.declaration,
+                    "required_action": (
+                        "Integrate this exact parent-checked declaration with "
+                        "`apply_verified_patch` before further target work."
                     ),
                 },
                 ensure_ascii=False,
