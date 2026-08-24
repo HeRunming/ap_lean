@@ -14243,6 +14243,17 @@ def test_proof_retrieval_budget_requires_a_lean_candidate(monkeypatch):
     assert runner._proof_retrieval_pre_tool_guard("read_file", state) is None
 
 
+def test_proof_context_counts_toward_candidate_fence(monkeypatch):
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    state: dict = {}
+
+    assert runner._proof_retrieval_pre_tool_guard("lean_proof_context", state) is None
+    assert runner._proof_retrieval_pre_tool_guard("lean_search", state) is None
+
+    blocked = json.loads(runner._proof_retrieval_pre_tool_guard("lean_search", state))
+    assert blocked["status"] == "proof_candidate_check_required"
+
+
 def test_proof_retrieval_result_count_is_bounded(monkeypatch):
     monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
     args = {"pattern": "factorial", "limit": 100}

@@ -12660,7 +12660,13 @@ def _tool_result_loop_pre_tool_guard(
 
 _PROOF_RETRIEVAL_COUNT_KEY = "_proof_retrieval_since_lean_check"
 _PROOF_RETRIEVAL_TOOLS = frozenset(
-    {"lean_search", "search_files", "lean_auto_search", "lean_lemma_suggest"}
+    {
+        "lean_search",
+        "search_files",
+        "lean_auto_search",
+        "lean_lemma_suggest",
+        "lean_proof_context",
+    }
 )
 _MAX_PROOF_RETRIEVALS_BEFORE_CHECK = 2
 _MAX_PROOF_SEARCH_RESULTS = 20
