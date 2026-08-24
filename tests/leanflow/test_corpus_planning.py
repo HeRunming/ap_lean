@@ -61,6 +61,28 @@ def test_latest_statement_audit_overrides_an_earlier_pass():
     assert campaign["batches"][0]["status"] == "statement_retry"
 
 
+def test_campaign_outcome_delivery_is_idempotent_by_timestamped_payload():
+    plan = {
+        "source": "book.json",
+        "item_count": 1,
+        "execution_plan": {"order": ["1"]},
+        "source_batches": [{"id": "b", "labels": ["1"]}],
+    }
+    outcome = {
+        "stage": "proofs",
+        "success": False,
+        "exit_code": 130,
+        "reason": "signal interrupt",
+        "cost_usd": 0.25,
+        "recorded_at": "2026-08-24T15:01:52+00:00",
+    }
+    campaign = record_campaign_outcome(build_campaign(plan), batch_id="b", outcome=outcome)
+    campaign = record_campaign_outcome(campaign, batch_id="b", outcome=outcome)
+
+    assert campaign["spent_usd"] == 0.25
+    assert campaign["batches"][0]["attempts"] == [{**outcome, "failure_class": "proof_incomplete"}]
+
+
 def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path, monkeypatch):
     target = tmp_path / "Book" / "Batch1" / "Main.lean"
     target.parent.mkdir(parents=True)

@@ -310,7 +310,16 @@ def build_campaign(
             derived_soft_dependencies,
             key=lambda label: positions.get(label, len(positions) + 1),
         )
-        attempts = list(previous.get("attempts", []) or [])
+        attempts = []
+        for raw_attempt in previous.get("attempts", []) or []:
+            attempt = dict(raw_attempt) if isinstance(raw_attempt, Mapping) else raw_attempt
+            # Native finalization and the campaign subprocess can observe the
+            # same terminal outcome concurrently. Keep the ledger append-only
+            # for genuine retries, but collapse byte-equivalent timestamped
+            # deliveries of one outcome.
+            if isinstance(attempt, Mapping) and attempt.get("recorded_at") and attempt in attempts:
+                continue
+            attempts.append(attempt)
         successful_stages = _successful_stages(attempts)
         agent_stages = _successful_stages(attempts, provenance="agent")
         manual_stages = _successful_stages(attempts, provenance="manual_gold")
@@ -565,7 +574,8 @@ def record_campaign_outcome(
         if failure_class:
             attempt["failure_class"] = failure_class
         attempts = list(batch.get("attempts", []) or [])
-        attempts.append(attempt)
+        if not (attempt.get("recorded_at") and attempt in attempts):
+            attempts.append(attempt)
         batch["attempts"] = attempts
         batch["last_outcome"] = attempt
         batch.pop("lease", None)

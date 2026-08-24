@@ -55,12 +55,12 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
             (
                 r"\b(?:hoeffding|subgaussian|moment[- ]generating|\bmgf\b|"
                 r"concentration inequality|tail bound)\b",
-                6,
+                8,
             ),
             (
                 r"\b(?:asymptotically tight|demonstrate by example|construct an? |"
                 r"find (?:a|the) (?:set|family|example)|high dimensions?)\b",
-                6,
+                8,
             ),
             (
                 r"\b(?:limit|derivative|differentiab|integral|measurab|integrab|"
