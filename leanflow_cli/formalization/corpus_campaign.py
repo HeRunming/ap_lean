@@ -122,7 +122,9 @@ def classify_campaign_failure(attempt: Mapping[str, Any]) -> str:
     return "statement_generation_incomplete" if stage == "statements" else "proof_incomplete"
 
 
-def _batch_stage_priority(batch: Mapping[str, Any], *, stage: str) -> tuple[float, int, int]:
+def _batch_stage_priority(
+    batch: Mapping[str, Any], *, stage: str
+) -> tuple[float, int, int, int, int]:
     """Prefer untouched/cheap work over repeatedly expensive local blockers."""
     attempts = [
         attempt
@@ -131,7 +133,15 @@ def _batch_stage_priority(batch: Mapping[str, Any], *, stage: str) -> tuple[floa
     ]
     cost = sum(max(0.0, float(attempt.get("cost_usd", 0.0) or 0.0)) for attempt in attempts)
     failures = sum(not bool(attempt.get("success", False)) for attempt in attempts)
-    return (round(cost, 9), failures, len(attempts))
+    source_complexity = max(0, int(batch.get("source_complexity_score", 0) or 0))
+    proof_obligations = max(
+        0,
+        int(dict(batch.get("last_outcome", {}) or {}).get("proof_obligations", 0) or 0),
+    )
+    stage_complexity = (
+        proof_obligations if stage == "proofs" and proof_obligations else source_complexity
+    )
+    return (round(cost, 9), failures, stage_complexity, source_complexity, len(attempts))
 
 
 def batch_stage_attempt_count(batch: Mapping[str, Any], *, stage: str) -> int:
@@ -216,6 +226,11 @@ def build_campaign(
         if isinstance(batch, Mapping) and batch.get("id")
     }
     execution = dict(corpus_plan.get("execution_plan", {}) or {})
+    item_metadata = {
+        str(item.get("label", "") or ""): dict(item)
+        for item in corpus_plan.get("items", []) or []
+        if isinstance(item, Mapping) and str(item.get("label", "") or "").strip()
+    }
     positions = {
         str(label): index + 1 for index, label in enumerate(execution.get("order", []) or [])
     }
@@ -239,6 +254,20 @@ def build_campaign(
         labels = [str(value) for value in source_batch.get("labels", []) or []]
         labels.sort(key=lambda label: positions.get(label, len(positions) + 1))
         previous = prior_batches.get(batch_id, {})
+        source_complexity_score = max(
+            [
+                int(item_metadata.get(label, {}).get("source_complexity_score", 0) or 0)
+                for label in labels
+            ]
+            + [int(previous.get("source_complexity_score", 0) or 0)]
+        )
+        source_subpart_count = max(
+            sum(
+                int(item_metadata.get(label, {}).get("source_subpart_count", 0) or 0)
+                for label in labels
+            ),
+            int(previous.get("source_subpart_count", 0) or 0),
+        )
         label_set = set(labels)
         derived_dependencies = {
             dependency
@@ -310,6 +339,13 @@ def build_campaign(
                 "dependency_labels": dependency_labels,
                 "soft_dependency_labels": soft_dependency_labels,
                 "count": len(labels),
+                "source_complexity_score": source_complexity_score,
+                "source_complexity_tier": (
+                    "complex"
+                    if source_complexity_score >= 8
+                    else "moderate" if source_complexity_score >= 4 else "routine"
+                ),
+                "source_subpart_count": source_subpart_count,
                 "status": status,
                 "agent_status": _status_from_stages(agent_stages),
                 "completion_provenance": completion_provenance,

@@ -32,6 +32,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     lease_next_campaign_actions,
     plan_next_campaign_action,
     recover_agent_verified_proof,
+    refresh_campaign_source_complexity,
     review_existing_agent_statement,
     select_campaign_model,
     validate_campaign_action_paths,
@@ -724,6 +725,98 @@ def test_build_corpus_plan_types_declared_and_candidate_edges():
         ("1.2", "1.1", "uses_theorem", "declared_unverified"),
         ("1.2", "1.1", "shared_foundation", "candidate"),
     }
+
+
+def test_corpus_plan_records_source_shape_complexity():
+    plan = build_corpus_plan(
+        {
+            "theorem_blocks": [
+                {"label": "1.1", "statement": "Prove that x = x."},
+                {
+                    "label": "1.2",
+                    "statement": (
+                        "Prove all parts.\n(a) First identity.\n$$x=x$$\n"
+                        "(b) Second identity.\n$$y=y$$\n(c) Third identity."
+                    ),
+                },
+            ],
+            "qa_batches": [
+                {"id": "complex", "labels": ["1.2"]},
+                {"id": "routine", "labels": ["1.1"]},
+            ],
+        },
+        source_relative="book/questions.json",
+        shared_module="Demo.Questions.Shared.Basic",
+    )
+    campaign = build_campaign(plan)
+    by_id = {batch["id"]: batch for batch in campaign["batches"]}
+
+    assert by_id["routine"]["source_complexity_tier"] == "routine"
+    assert by_id["complex"]["source_subpart_count"] == 3
+    assert by_id["complex"]["source_complexity_tier"] == "complex"
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "routine"
+
+
+def test_fresh_proofs_prefer_fewer_obligations():
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["1.1", "1.2"]},
+        "source_batches": [
+            {"id": "three", "labels": ["1.1"]},
+            {"id": "one", "labels": ["1.2"]},
+        ],
+    }
+    campaign = build_campaign(plan)
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="three",
+        outcome={"stage": "statements", "success": True, "proof_obligations": 3},
+    )
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="one",
+        outcome={"stage": "statements", "success": True, "proof_obligations": 1},
+    )
+
+    assert next_campaign_batch(campaign, stage="proofs")["id"] == "one"
+
+
+def test_refresh_campaign_source_complexity_migrates_legacy_campaign(tmp_path):
+    source = tmp_path / "questions.json"
+    source.write_text(
+        json.dumps(
+            [
+                {"label": "1.1", "question": "Prove x = x."},
+                {
+                    "label": "1.2",
+                    "question": "Prove all.\n(a) One.\n(b) Two.\n(c) Three.\n$$x=x$$",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "questions.json",
+                "batches": [
+                    {"id": "complex", "labels": ["1.2"]},
+                    {"id": "routine", "labels": ["1.1"]},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert refresh_campaign_source_complexity(campaign_path, project_root=tmp_path)
+    refreshed = json.loads(campaign_path.read_text(encoding="utf-8"))
+    by_id = {batch["id"]: batch for batch in refreshed["batches"]}
+    assert by_id["complex"]["source_complexity_tier"] == "complex"
+    assert by_id["complex"]["source_subpart_count"] == 3
+    assert by_id["routine"]["source_complexity_tier"] == "routine"
+    assert not refresh_campaign_source_complexity(campaign_path, project_root=tmp_path)
 
 
 def test_build_corpus_plan_adds_source_foundation_without_inflating_qa_count():

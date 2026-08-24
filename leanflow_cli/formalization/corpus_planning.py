@@ -35,6 +35,21 @@ _DOMAIN_CONCEPTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+def source_formalization_complexity(text: str) -> dict[str, int | str]:
+    """Return a conservative source-shape cost hint, never a semantic verdict."""
+    source = str(text or "")
+    subpart_count = len(re.findall(r"(?m)^\s*\([a-z0-9]+\)\s+", source))
+    display_count = len(re.findall(r"\$\$", source)) // 2
+    score = subpart_count * 3 + min(4, len(source) // 500) + min(4, display_count)
+    tier = "complex" if score >= 8 else "moderate" if score >= 4 else "routine"
+    return {
+        "source_complexity_score": score,
+        "source_complexity_tier": tier,
+        "source_subpart_count": subpart_count,
+        "source_display_count": display_count,
+    }
+
+
 def _chapter_for_label(label: str) -> str:
     """Return a stable chapter identifier derived from a source label."""
     return str(label or "").partition(".")[0].strip() or "unscoped"
@@ -211,6 +226,9 @@ def build_corpus_plan(
         uses = raw_block.get("uses", []) or []
         if isinstance(uses, str):
             uses = [uses]
+        source_text = " ".join(
+            str(raw_block.get(key, "") or "") for key in ("title", "statement", "proof")
+        )
         items.append(
             {
                 "label": label,
@@ -222,6 +240,7 @@ def build_corpus_plan(
                 "declared_dependencies": [
                     str(value).strip() for value in uses if str(value).strip()
                 ],
+                **source_formalization_complexity(source_text),
             }
         )
 

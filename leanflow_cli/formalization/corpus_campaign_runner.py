@@ -30,6 +30,7 @@ from leanflow_cli.formalization.corpus_campaign import (
     record_campaign_outcome,
     release_campaign_lease,
 )
+from leanflow_cli.formalization.corpus_planning import source_formalization_complexity
 from leanflow_cli.formalization.formalization_document_runner import (
     _approved_blueprint_statement_review_text,
 )
@@ -49,6 +50,70 @@ from leanflow_cli.workflows.verification_review import (
 
 class CampaignExecutionBlocked(RuntimeError):
     """Report campaign state that cannot safely produce an executable action."""
+
+
+def refresh_campaign_source_complexity(
+    campaign_path: str | Path,
+    *,
+    project_root: str | Path,
+) -> bool:
+    """Attach deterministic QA source-shape hints to legacy campaign batches."""
+    path = Path(campaign_path).expanduser().resolve()
+    root = Path(project_root).expanduser().resolve()
+    campaign = read_campaign(path)
+    source = (root / str(campaign.get("source", "") or "")).resolve()
+    if not source.is_relative_to(root) or not source.is_file():
+        return False
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if isinstance(payload, Mapping):
+        records = payload.get("items", payload.get("questions", [])) or []
+    else:
+        records = payload
+    if not isinstance(records, list):
+        return False
+    hints: dict[str, dict[str, int | str]] = {}
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        label = str(record.get("label", "") or record.get("id", "") or "").strip()
+        if not label:
+            continue
+        text = " ".join(
+            str(record.get(key, "") or "")
+            for key in ("title", "question", "statement", "answer", "solution")
+        )
+        hints[label] = source_formalization_complexity(text)
+    if not hints:
+        return False
+    changed = False
+
+    def commit(current: Mapping[str, Any]):
+        nonlocal changed
+        updated = {**current, "batches": [dict(item) for item in current.get("batches", []) or []]}
+        for batch in updated["batches"]:
+            batch_hints = [
+                hints[label] for label in batch.get("labels", []) or [] if label in hints
+            ]
+            if not batch_hints:
+                continue
+            score = max(int(item["source_complexity_score"]) for item in batch_hints)
+            subparts = sum(int(item["source_subpart_count"]) for item in batch_hints)
+            tier = "complex" if score >= 8 else "moderate" if score >= 4 else "routine"
+            values = {
+                "source_complexity_score": score,
+                "source_complexity_tier": tier,
+                "source_subpart_count": subparts,
+            }
+            if any(batch.get(key) != value for key, value in values.items()):
+                batch.update(values)
+                changed = True
+        return updated, None
+
+    update_campaign_file(path, commit)
+    return changed
 
 
 @dataclass(frozen=True)
@@ -1359,6 +1424,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     campaign_path = Path(args.campaign).expanduser().resolve()
     project_root = Path(args.project_root).expanduser().resolve()
+    refresh_campaign_source_complexity(campaign_path, project_root=project_root)
     if args.refine_statement_bounded:
         if args.reserve_usd is None or args.reserve_usd <= 0:
             parser.error("--refine-statement-bounded requires a positive --reserve-usd")
