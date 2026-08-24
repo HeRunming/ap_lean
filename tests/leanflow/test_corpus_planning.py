@@ -288,6 +288,41 @@ def test_parallel_claim_is_atomic_and_reserves_total_wave_budget(tmp_path):
     assert len([item for item in persisted["batches"] if item.get("lease")]) == 2
 
 
+def test_parallel_claim_plans_completed_document_foundation_as_proof(tmp_path):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0,
+                "budget_usd": 2,
+                "batches": [
+                    {
+                        "id": "foundation",
+                        "selection_kind": "document",
+                        "source_file": "foundation.json",
+                        "labels": ["foundation:0.0.2"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/Foundation/Main.lean"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=1,
+        python_executable="python",
+        reserve_usd=1,
+    )
+
+    assert len(claims) == 1
+    assert claims[0][1].stage == "proofs"
+    assert claims[0][1].target_file == "Book/Foundation/Main.lean"
+
+
 def test_campaign_model_policy_escalates_only_non_infrastructure_failures():
     action = CampaignAction("proofs", "a", ("1.1",), ("python",))
     policy = CampaignModelPolicy(

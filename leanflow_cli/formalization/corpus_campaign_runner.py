@@ -195,11 +195,61 @@ def plan_campaign_batch_action(
     python_executable: str,
 ) -> CampaignAction:
     """Plan a previously selected batch, including one protected by a lease."""
-    isolated = {**campaign, "batches": [{**batch, "lease": None}]}
-    action = plan_next_campaign_action(isolated, python_executable=python_executable)
-    if action is None or action.stage != stage:
-        raise CampaignExecutionBlocked(f"batch {batch.get('id', '')} is not eligible for {stage}")
-    return action
+    batch_id = str(batch.get("id", "") or "")
+    labels = tuple(str(label) for label in batch.get("labels", []) or [])
+    if stage == "proofs":
+        target_file = _batch_target_file(batch)
+        if not target_file:
+            raise CampaignExecutionBlocked(
+                f"batch {batch_id} has approved statements but no target file"
+            )
+        return CampaignAction(
+            stage="proofs",
+            batch_id=batch_id,
+            labels=labels,
+            target_file=target_file,
+            argv=(
+                python_executable,
+                "-m",
+                "leanflow_cli.main",
+                "workflow",
+                "prove",
+                target_file,
+            ),
+        )
+    if stage != "statements":
+        raise CampaignExecutionBlocked(f"unknown campaign stage: {stage}")
+    source = str(campaign.get("source", "") or "").strip()
+    selection_kind = str(batch.get("selection_kind", "batch") or "batch")
+    if selection_kind == "items":
+        if not labels:
+            raise CampaignExecutionBlocked(f"batch {batch_id} has no explicit item labels")
+        selector = ("--qa-items", ",".join(labels))
+    elif selection_kind == "batch":
+        selector = ("--qa-batch", batch_id)
+    elif selection_kind == "document":
+        source = str(batch.get("source_file", "") or "").strip()
+        if not source:
+            raise CampaignExecutionBlocked(f"document batch {batch_id} has no source file")
+        selector = ()
+    else:
+        raise CampaignExecutionBlocked(f"unknown batch selection kind: {selection_kind}")
+    if not source:
+        raise CampaignExecutionBlocked("campaign source is missing")
+    return CampaignAction(
+        stage="statements",
+        batch_id=batch_id,
+        labels=labels,
+        argv=(
+            python_executable,
+            "-m",
+            "leanflow_cli.main",
+            "workflow",
+            "formalize",
+            source,
+            *selector,
+        ),
+    )
 
 
 def lease_next_campaign_actions(
