@@ -190,6 +190,35 @@ def test_reference_resolver_recovers_exercise_from_same_qa_corpus(tmp_path, monk
     assert "Hint." in contexts["Exercise 3.2"]
 
 
+def test_source_pdf_text_cache_is_shared_across_calls(tmp_path, monkeypatch):
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"%PDF-placeholder")
+    source = tmp_path / "qa" / "questions.json"
+    source.parent.mkdir()
+    source.write_text("[]", encoding="utf-8")
+    (tmp_path / "lakefile.lean").write_text("", encoding="utf-8")
+    calls = 0
+
+    def extract_once(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return SimpleNamespace(
+            returncode=0,
+            stdout="Proposition 1.2.3 (Cached). The claim.",
+            stderr="",
+        )
+
+    monkeypatch.setattr(bounded.shutil, "which", lambda _name: "/usr/bin/pdftotext")
+    monkeypatch.setattr(bounded.subprocess, "run", extract_once)
+
+    first = bounded._source_pdf_text(pdf, source_file=source, timeout_s=5)
+    second = bounded._source_pdf_text(pdf, source_file=source, timeout_s=5)
+
+    assert first == second
+    assert calls == 1
+    assert len(list((tmp_path / ".leanflow" / "source-reference-cache").glob("*.txt"))) == 1
+
+
 def test_bounded_statement_lane_blocks_missing_referenced_source_before_model_call(
     tmp_path, monkeypatch
 ):

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -129,6 +131,69 @@ def extract_reference_contexts_from_text(
     return contexts
 
 
+def _source_pdf_text(pdf: Path, *, source_file: Path, timeout_s: int) -> str:
+    """Extract one source PDF once across campaign worker processes."""
+    try:
+        fingerprint = f"{pdf.resolve()}:{pdf.stat().st_size}:{pdf.stat().st_mtime_ns}"
+    except OSError:
+        return ""
+    project_root = next(
+        (
+            parent
+            for parent in source_file.parents
+            if (parent / "lakefile.lean").is_file() or (parent / "lean-toolchain").is_file()
+        ),
+        source_file.parent,
+    )
+    cache = (
+        project_root
+        / ".leanflow"
+        / "source-reference-cache"
+        / f"{hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()}.txt"
+    )
+    try:
+        cached = cache.read_text(encoding="utf-8")
+    except OSError:
+        cached = ""
+    if cached:
+        return cached
+
+    command: list[str]
+    if shutil.which("pdftotext"):
+        command = ["pdftotext", "-layout", "-enc", "UTF-8", str(pdf), "-"]
+    else:
+        system_python = Path("/usr/bin/python3")
+        if not system_python.is_file():
+            return ""
+        command = [
+            str(system_python),
+            "-c",
+            (
+                "import fitz,sys; d=fitz.open(sys.argv[1]); "
+                "sys.stdout.write('\\f'.join(p.get_text('text') for p in d))"
+            ),
+            str(pdf),
+        ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=max(1, int(timeout_s)),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if completed.returncode != 0 or not completed.stdout:
+        return ""
+    with contextlib.suppress(OSError):
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        temporary = cache.with_name(f".{cache.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_text(completed.stdout, encoding="utf-8")
+        os.replace(temporary, cache)
+    return completed.stdout
+
+
 def resolve_source_reference_context(
     statement: str, *, source_file: Path, timeout_s: int = 60
 ) -> tuple[dict[str, str], tuple[str, ...]]:
@@ -143,35 +208,8 @@ def resolve_source_reference_context(
             break
     if not pdfs:
         return {}, references
-    command: list[str]
-    if shutil.which("pdftotext"):
-        command = ["pdftotext", "-layout", "-enc", "UTF-8", str(pdfs[0]), "-"]
-    else:
-        system_python = Path("/usr/bin/python3")
-        if not system_python.is_file():
-            return {}, references
-        command = [
-            str(system_python),
-            "-c",
-            (
-                "import fitz,sys; d=fitz.open(sys.argv[1]); "
-                "sys.stdout.write('\\f'.join(p.get_text('text') for p in d))"
-            ),
-            str(pdfs[0]),
-        ]
-    try:
-        completed = subprocess.run(
-            command,
-            check=False,
-            text=True,
-            capture_output=True,
-            timeout=max(1, int(timeout_s)),
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return {}, references
-    if completed.returncode != 0:
-        return {}, references
-    contexts = extract_reference_contexts_from_text(completed.stdout, references)
+    book_text = _source_pdf_text(pdfs[0], source_file=source_file, timeout_s=timeout_s)
+    contexts = extract_reference_contexts_from_text(book_text, references) if book_text else {}
     unresolved_exercises = [
         reference
         for reference in references
