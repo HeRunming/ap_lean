@@ -1048,7 +1048,6 @@ def _execute_campaign_action(
         ):
             child_env["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] = str(evidence_path)
     action_argv = action.argv
-    action_argv = action.argv
     if provider.strip():
         action_argv = (*action_argv[:4], "--provider", provider.strip(), *action_argv[4:])
     if model.strip():
@@ -1079,6 +1078,26 @@ def _execute_campaign_action(
                     process.kill()
                 process.wait()
         raise
+    if action.stage == "proofs" and return_code != 0:
+        try:
+            recovered = recover_agent_verified_proof(
+                path,
+                project_root=project_root,
+                batch_id=action.batch_id,
+                lake_executable=lake_executable,
+            )
+        except CampaignExecutionBlocked:
+            recovered = None
+        if recovered is not None:
+            return {
+                "executed": True,
+                "stage": action.stage,
+                "batch_id": action.batch_id,
+                "exit_code": 0,
+                "success": True,
+                "recovered_after_exit_code": int(return_code),
+                "outcome": recovered,
+            }
     return {
         "executed": True,
         "stage": action.stage,

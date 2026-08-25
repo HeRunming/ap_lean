@@ -914,6 +914,54 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
     assert all("lease" not in batch for batch in persisted["batches"])
 
 
+def test_failed_prover_exit_auto_recovers_durable_candidate(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text("{}", encoding="utf-8")
+    action = CampaignAction(
+        stage="proofs",
+        batch_id="item",
+        labels=("1",),
+        target_file="Book/Main.lean",
+        argv=("python", "worker"),
+    )
+
+    class FailedProcess:
+        pid = 123
+
+        def wait(self, timeout=None):
+            return 2
+
+        def poll(self):
+            return 2
+
+    monkeypatch.setattr(
+        corpus_campaign_runner, "try_zero_cost_proof_preflight", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess, "Popen", lambda *args, **kwargs: FailedProcess()
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner,
+        "recover_agent_verified_proof",
+        lambda *args, **kwargs: {"stage": "proofs", "success": True, "cost_usd": 0.0},
+    )
+
+    result = corpus_campaign_runner._execute_campaign_action(
+        action,
+        campaign_path=campaign_path,
+        campaign={"spent_usd": 0.0, "budget_usd": 1.0, "batches": []},
+        project_root=tmp_path,
+        reserve_usd=1.0,
+    )
+
+    assert result["success"] is True
+    assert result["exit_code"] == 0
+    assert result["recovered_after_exit_code"] == 2
+
+
 def test_campaign_wave_splits_explicit_total_budget_across_workers(tmp_path, monkeypatch):
     (tmp_path / "book.json").write_text("[]", encoding="utf-8")
     campaign_path = tmp_path / "campaign.json"
