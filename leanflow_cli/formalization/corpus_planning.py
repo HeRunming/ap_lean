@@ -81,6 +81,12 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
                 8,
             ),
             (
+                r"\b(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Example|Remark|"
+                r"Section)\s+"
+                r"\d+(?:\.\d+)+",
+                8,
+            ),
+            (
                 r"\b(?:find|construct|give an? example of)\b.{0,100}"
                 r"\b(?:random variables?|random vectors?|distributions?)\b|"
                 r"\b(?:uncorrelated|dependent)\b.{0,80}\b(?:normal|random variables?)\b",

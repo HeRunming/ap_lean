@@ -139,12 +139,26 @@ def test_reference_context_extraction_flags_same_number_kind_mismatch():
 
     assert "REFERENCE KIND MISMATCH" in contexts["Proposition 7.5.11"]
     assert "book heading is Lemma 7.5.11" in contexts["Proposition 7.5.11"]
-    assert (
-        "Exercise 7.5.11"
-        not in bounded.extract_reference_contexts_from_text(
-            "Lemma 7.5.11 (Not the exercise).", ("Exercise 7.5.11",)
-        )
+    assert "Exercise 7.5.11" not in bounded.extract_reference_contexts_from_text(
+        "Lemma 7.5.11 (Not the exercise).", ("Exercise 7.5.11",)
     )
+
+
+def test_reference_context_extraction_supports_examples_remarks_and_sections():
+    book = (
+        "5.1.2 A section heading\nSection body.\n"
+        "Example 5.1.3 (Example heading). Example body.\n"
+        "Remark 5.1.4 (Remark heading). Remark body.\n"
+    )
+    statement = "Use Section 5.1.2, Example 5.1.3, and Remark 5.1.4."
+
+    references = bounded.source_references(statement)
+    contexts = bounded.extract_reference_contexts_from_text(book, references)
+
+    assert references == ("Section 5.1.2", "Example 5.1.3", "Remark 5.1.4")
+    assert "Section body" in contexts["Section 5.1.2"]
+    assert "Example body" in contexts["Example 5.1.3"]
+    assert "Remark body" in contexts["Remark 5.1.4"]
 
 
 def test_reference_resolver_recovers_exercise_from_same_qa_corpus(tmp_path, monkeypatch):

@@ -67,7 +67,8 @@ def source_fidelity_preflight(statement: str) -> str:
 
 
 _SOURCE_REFERENCE_RE = re.compile(
-    r"\b(Proposition|Theorem|Lemma|Definition|Corollary|Exercise)\s+(\d+(?:\.\d+)+)",
+    r"\b(Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Example|Remark|Section)"
+    r"\s+(\d+(?:\.\d+)+)",
     flags=re.IGNORECASE,
 )
 
@@ -84,17 +85,7 @@ def source_references(statement: str) -> tuple[str, ...]:
 
 def source_reference_context_required(statement: str) -> bool:
     """Reject paid guessing when an exercise delegates its actual statement to a reference."""
-    source = str(statement or "")
-    return bool(source_references(source)) and bool(
-        re.search(
-            r"\b(?:properties?|parts?)\s*\([ivxa-z0-9]+\).{0,40}\b(?:in|of)\b|"
-            r"\b(?:deduce|derive|prove|show|state)\b.{0,100}\b(?:from|version of|in)\b.{0,60}"
-            r"\b(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise)\b|"
-            r"\b(?:modif(?:y|ying)|tighten(?:ing)?|improv(?:e|ing)) the proof of\b",
-            source,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-    )
+    return bool(source_references(statement))
 
 
 def extract_reference_contexts_from_text(
@@ -104,18 +95,21 @@ def extract_reference_contexts_from_text(
     text = str(book_text or "")
     contexts: dict[str, str] = {}
     heading = re.compile(
-        r"(?im)^\s*(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Remark)\s+"
-        r"\d+(?:\.\d+)+\b"
+        r"(?im)^\s*(?:(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Remark|"
+        r"Example)\s+)?\d+(?:\.\d+)+\b"
     )
     starts = [match.start() for match in heading.finditer(text)]
     for reference in references:
         match = re.search(rf"(?im)^\s*{re.escape(reference)}\b", text)
         resolved_heading = reference
+        if match is None and reference.startswith("Section "):
+            section_number = reference.removeprefix("Section ").strip()
+            match = re.search(rf"(?im)^\s*{re.escape(section_number)}\s+[^\n]+", text)
         if match is None and not reference.startswith("Exercise "):
             number_match = re.search(r"\d+(?:\.\d+)+", reference)
             if number_match is not None:
                 fuzzy = re.search(
-                    rf"(?im)^\s*(Proposition|Theorem|Lemma|Definition|Corollary|Remark)\s+"
+                    rf"(?im)^\s*(Proposition|Theorem|Lemma|Definition|Corollary|Remark|Example)\s+"
                     rf"{re.escape(number_match.group(0))}\b",
                     text,
                 )
