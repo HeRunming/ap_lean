@@ -110,10 +110,28 @@ def extract_reference_contexts_from_text(
     starts = [match.start() for match in heading.finditer(text)]
     for reference in references:
         match = re.search(rf"(?im)^\s*{re.escape(reference)}\b", text)
+        resolved_heading = reference
+        if match is None and not reference.startswith("Exercise "):
+            number_match = re.search(r"\d+(?:\.\d+)+", reference)
+            if number_match is not None:
+                fuzzy = re.search(
+                    rf"(?im)^\s*(Proposition|Theorem|Lemma|Definition|Corollary|Remark)\s+"
+                    rf"{re.escape(number_match.group(0))}\b",
+                    text,
+                )
+                if fuzzy is not None:
+                    match = fuzzy
+                    resolved_heading = fuzzy.group(0).strip()
         if match is None:
             continue
         end = next((start for start in starts if start > match.start()), len(text))
-        contexts[reference] = text[match.start() : min(end, match.start() + max_chars)].strip()
+        context = text[match.start() : min(end, match.start() + max_chars)].strip()
+        if resolved_heading.casefold() != reference.casefold():
+            context = (
+                f"[REFERENCE KIND MISMATCH: source question cites {reference}; "
+                f"book heading is {resolved_heading}]\n{context}"
+            )
+        contexts[reference] = context
     return contexts
 
 
@@ -160,6 +178,38 @@ def resolve_source_reference_context(
     if completed.returncode != 0:
         return {}, references
     contexts = extract_reference_contexts_from_text(completed.stdout, references)
+    unresolved_exercises = [
+        reference
+        for reference in references
+        if reference not in contexts and reference.startswith("Exercise ")
+    ]
+    if unresolved_exercises:
+        try:
+            qa_payload = json.loads(source_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            qa_payload = []
+        records = (
+            qa_payload.get("questions", qa_payload.get("items", []))
+            if isinstance(qa_payload, Mapping)
+            else qa_payload
+        )
+        by_label = {
+            str(item.get("label", "") or item.get("id", "") or "").strip(): item
+            for item in records or []
+            if isinstance(item, Mapping)
+        }
+        for reference in unresolved_exercises:
+            label = reference.removeprefix("Exercise ").strip()
+            item = by_label.get(label)
+            if item is None:
+                continue
+            contexts[reference] = "\n".join(
+                [
+                    f"Exercise {label} (resolved from the same QA corpus)",
+                    f"Question: {str(item.get('question', '') or '').strip()}",
+                    f"Solution/reference answer: {str(item.get('solution', '') or item.get('answer', '') or '[none]').strip()}",
+                ]
+            )
     missing = tuple(reference for reference in references if reference not in contexts)
     return contexts, missing
 

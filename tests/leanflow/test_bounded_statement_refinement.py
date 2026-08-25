@@ -131,6 +131,51 @@ def test_reference_context_extraction_recovers_exact_book_declarations():
     assert bounded.source_reference_context_required(statement)
 
 
+def test_reference_context_extraction_flags_same_number_kind_mismatch():
+    contexts = bounded.extract_reference_contexts_from_text(
+        "Lemma 7.5.11 (Actual heading). The result.\nRemark 7.5.12 Next.",
+        ("Proposition 7.5.11",),
+    )
+
+    assert "REFERENCE KIND MISMATCH" in contexts["Proposition 7.5.11"]
+    assert "book heading is Lemma 7.5.11" in contexts["Proposition 7.5.11"]
+    assert (
+        "Exercise 7.5.11"
+        not in bounded.extract_reference_contexts_from_text(
+            "Lemma 7.5.11 (Not the exercise).", ("Exercise 7.5.11",)
+        )
+    )
+
+
+def test_reference_resolver_recovers_exercise_from_same_qa_corpus(tmp_path, monkeypatch):
+    qa = tmp_path / "qa" / "questions.json"
+    qa.parent.mkdir()
+    qa.write_text(
+        json.dumps(
+            [
+                {"label": "3.2", "question": "Prove the prerequisite.", "solution": "Hint."},
+                {"label": "3.3", "question": "Use Exercise 3.2 to prove the next claim."},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "book.pdf").write_bytes(b"%PDF-placeholder")
+    monkeypatch.setattr(bounded.shutil, "which", lambda _name: "/usr/bin/pdftotext")
+    monkeypatch.setattr(
+        bounded.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    contexts, missing = bounded.resolve_source_reference_context(
+        "Use Exercise 3.2 to prove the next claim.", source_file=qa
+    )
+
+    assert missing == ()
+    assert "Prove the prerequisite" in contexts["Exercise 3.2"]
+    assert "Hint." in contexts["Exercise 3.2"]
+
+
 def test_bounded_statement_lane_blocks_missing_referenced_source_before_model_call(
     tmp_path, monkeypatch
 ):
