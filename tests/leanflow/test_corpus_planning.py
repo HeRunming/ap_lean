@@ -640,11 +640,54 @@ def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeyp
     assert outcome is not None
     assert outcome["cost_usd"] == 0
     assert "(simp; done)" in observed["source"]
+    assert "simp_all [" not in observed["source"]
     assert "maxRuleApplications := 100" in observed["source"]
     assert "by sorry" not in target.read_text(encoding="utf-8")
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert campaign["spent_usd"] == 2.0
     assert campaign["batches"][0]["status"] == "proofs_completed"
+
+
+def test_zero_cost_proof_preflight_unfolds_local_definitions(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "import Mathlib\ndef LocalPredicate : Prop := True\n"
+        "theorem demo : LocalPredicate := by sorry\n",
+        encoding="utf-8",
+    )
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "batches": [
+                    {
+                        "id": "item",
+                        "status": "statements_completed",
+                        "attempts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    observed = {}
+
+    def compile_candidate(argv, **kwargs):
+        observed["source"] = Path(argv[-1]).read_text(encoding="utf-8")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(corpus_campaign_runner.subprocess, "run", compile_candidate)
+    action = CampaignAction(
+        stage="proofs", batch_id="item", labels=("1",), target_file="Book/Main.lean", argv=()
+    )
+
+    assert (
+        try_zero_cost_proof_preflight(campaign_path, project_root=tmp_path, action=action)
+        is not None
+    )
+    assert "simp_all [LocalPredicate]" in observed["source"]
 
 
 def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkeypatch):
@@ -708,6 +751,65 @@ def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkey
     assert target.read_text(encoding="utf-8") == "theorem demo : True := by exact True.intro\n"
     persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert persisted["batches"][0]["agent_status"] == "proofs_completed"
+
+
+def test_recover_agent_verified_proof_promotes_parent_accepted_equivalent_helper(
+    tmp_path, monkeypatch
+):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("import Mathlib\ntheorem demo : True := by sorry\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "batches": [
+                    {
+                        "id": "item",
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                        "attempts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = tmp_path / ".leanflow" / "campaign-plan-state" / "item" / "summary.json"
+    summary.parent.mkdir(parents=True)
+    summary.write_text(
+        json.dumps(
+            {
+                "pending_research_helper_candidate": {
+                    "state": "ready_to_integrate",
+                    "parent_recheck_status": "accepted",
+                    "active_file": str(target),
+                    "target_symbol": "demo",
+                    "helper_name": "demo_candidate",
+                    "declaration": "private theorem demo_candidate : True := by trivial",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    outcome = recover_agent_verified_proof(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="item",
+    )
+
+    assert outcome["success"] is True
+    assert outcome["cost_usd"] == 0
+    recovered = target.read_text(encoding="utf-8")
+    assert "theorem demo : True := by trivial" in recovered
+    assert "demo_candidate" not in recovered
 
 
 def test_campaign_store_preserves_concurrent_outcomes(tmp_path):

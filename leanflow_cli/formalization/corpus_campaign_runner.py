@@ -687,18 +687,33 @@ def validate_campaign_action_paths(
         raise CampaignExecutionBlocked("proof target is not a Lean file")
 
 
-_ZERO_COST_PROOF = (
-    "by\n  first"
-    " | (rfl; done)"
-    " | (assumption; done)"
-    " | (simp; done)"
-    " | (norm_num; done)"
-    " | (omega; done)"
-    " | (linarith; done)"
-    " | (nlinarith; done)"
-    " | (ring; done)"
-    " | (aesop (config := { maxRuleApplications := 100 }); done)"
-)
+def _zero_cost_proof(source: str) -> str:
+    local_defs = tuple(
+        dict.fromkeys(re.findall(r"(?m)^\s*(?:def|abbrev)\s+([A-Za-z_][A-Za-z0-9_']*)\b", source))
+    )
+    branches = [
+        "(rfl; done)",
+        "(assumption; done)",
+        "(simp; done)",
+        "(norm_num; done)",
+        "(omega; done)",
+        "(linarith; done)",
+        "(nlinarith; done)",
+        "(ring; done)",
+        "(aesop (config := { maxRuleApplications := 100 }); done)",
+    ]
+    if local_defs:
+        definitions = ", ".join(local_defs)
+        branches.extend(
+            [
+                f"(simp_all [{definitions}]; done)",
+                (
+                    f"(simp_all [{definitions}] <;> "
+                    "aesop (config := { maxRuleApplications := 100 }); done)"
+                ),
+            ]
+        )
+    return "by\n  first | " + " | ".join(branches)
 
 
 def try_zero_cost_proof_preflight(
@@ -718,7 +733,9 @@ def try_zero_cost_proof_preflight(
     if not target.is_relative_to(root) or not target.is_file():
         return None
     source = target.read_text(encoding="utf-8")
-    candidate_source, replacements = re.subn(r"\bby\s+sorry\b", _ZERO_COST_PROOF, source)
+    candidate_source, replacements = re.subn(
+        r"\bby\s+sorry\b", lambda _match: _zero_cost_proof(source), source
+    )
     if replacements <= 0 or re.search(r"\bby\s+sorry\b", candidate_source):
         return None
     candidate = target.with_name(f"ZeroCostCandidate_{uuid.uuid4().hex}.lean")
@@ -1589,30 +1606,81 @@ def recover_agent_verified_proof(
                 and len(verified) == 1
             ):
                 matches.append((str(record.get("timestamp", "") or ""), payload, evidence))
-    if not matches:
-        raise CampaignExecutionBlocked("no durable exact LeanProbe candidate found for batch")
-    _timestamp, payload, evidence = max(matches, key=lambda item: item[0])
-    try:
-        line = int(payload.get("line", 0) or 0)
-        raw_column = payload.get("column")
-        column = int(raw_column) if raw_column not in (None, "") else None
-    except (TypeError, ValueError) as exc:
-        raise CampaignExecutionBlocked("verified candidate has invalid source coordinates") from exc
-    tactic = str(payload["verified_attempts"][0]).strip()
-    replacement = _multi_attempt_replacement_candidate(target, line, column, tactic)
-    if replacement is None:
-        raise CampaignExecutionBlocked("verified candidate no longer matches current source")
     before = target.read_bytes()
     source = before.decode("utf-8")
-    declaration_name, declaration = replacement
-    old_declaration = next(
+    target_declaration = next(
         (
-            str(item.get("text", "") or "")
+            (str(item.get("name", "") or ""), str(item.get("text", "") or ""))
             for item in _declaration_line_index_from_text(source)
-            if str(item.get("name", "") or "") == declaration_name
+            if str(item.get("name", "") or "")
+            in {str(value) for value in batch.get("declarations", []) or []}
+            or (
+                "sorry" in str(item.get("text", "") or "")
+                and str(item.get("kind", "") or "") in {"theorem", "lemma"}
+            )
         ),
-        "",
+        ("", ""),
     )
+    declaration_name, old_declaration = target_declaration
+    tactic = ""
+    evidence: Path
+    if matches:
+        _timestamp, payload, evidence = max(matches, key=lambda item: item[0])
+        try:
+            line = int(payload.get("line", 0) or 0)
+            raw_column = payload.get("column")
+            column = int(raw_column) if raw_column not in (None, "") else None
+        except (TypeError, ValueError) as exc:
+            raise CampaignExecutionBlocked(
+                "verified candidate has invalid source coordinates"
+            ) from exc
+        tactic = str(payload["verified_attempts"][0]).strip()
+        replacement = _multi_attempt_replacement_candidate(target, line, column, tactic)
+        if replacement is None:
+            raise CampaignExecutionBlocked("verified candidate no longer matches current source")
+        declaration_name, declaration = replacement
+    else:
+        evidence = root / ".leanflow" / "campaign-plan-state" / batch_id / "summary.json"
+        try:
+            summary = json.loads(evidence.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise CampaignExecutionBlocked(
+                "no durable exact LeanProbe candidate found for batch"
+            ) from exc
+        candidate = dict(summary.get("pending_research_helper_candidate", {}) or {})
+        helper_declaration = str(candidate.get("declaration", "") or "").strip()
+        if (
+            candidate.get("state") != "ready_to_integrate"
+            or candidate.get("parent_recheck_status") != "accepted"
+            or Path(str(candidate.get("active_file", "") or "")).resolve() != target
+            or str(candidate.get("target_symbol", "") or "") != declaration_name
+            or not helper_declaration
+        ):
+            raise CampaignExecutionBlocked(
+                "no parent-accepted durable helper candidate matches the target"
+            )
+        helper_name = str(candidate.get("helper_name", "") or "")
+        helper_header = helper_declaration.partition(":=")[0]
+        target_header = old_declaration.partition(":=")[0]
+
+        def normalized_header(header: str, name: str) -> str:
+            declaration_start = re.search(r"\b(?:theorem|lemma)\s+", header)
+            scoped = header[declaration_start.start() :] if declaration_start else header
+            scoped = re.sub(r"^private\s+", "", scoped.strip())
+            scoped = re.sub(rf"\b{re.escape(name)}\b", "__TARGET__", scoped, count=1)
+            return re.sub(r"\s+", " ", scoped).strip()
+
+        if normalized_header(helper_header, helper_name) != normalized_header(
+            target_header, declaration_name
+        ):
+            raise CampaignExecutionBlocked(
+                "parent-accepted helper is not signature-equivalent to the assigned target"
+            )
+        separator = helper_declaration.find(":=")
+        if separator < 0 or "sorry" in helper_declaration[separator:]:
+            raise CampaignExecutionBlocked("durable helper proof is incomplete")
+        declaration = old_declaration[: old_declaration.find(":=")] + helper_declaration[separator:]
+        tactic = "parent-accepted signature-equivalent helper"
     if not old_declaration or source.count(old_declaration) != 1:
         raise CampaignExecutionBlocked("verified declaration cannot be uniquely recovered")
     after = source.replace(old_declaration, declaration, 1).encode("utf-8")
