@@ -5640,6 +5640,125 @@ def _auto_commit_campaign_multi_attempt(
     return committed
 
 
+def _auto_commit_campaign_target_equivalent_helper(
+    agent: Any,
+    function_name: str,
+    args: Mapping[str, Any] | None,
+    result: str,
+) -> bool:
+    """Promote a renamed full-target helper without another provider turn."""
+    if (
+        function_name != "lean_incremental_check"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return False
+    arguments = dict(args or {})
+    if str(arguments.get("action", "") or "").strip().lower().replace("-", "_") != "check_helper":
+        return False
+    payload = _json_tool_result_payload(result)
+    if not (
+        payload.get("ok") is True
+        and payload.get("valid_without_sorry") is True
+        and payload.get("has_errors") is False
+        and payload.get("has_sorry") is False
+    ):
+        return False
+    autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    requested_target = str(
+        arguments.get("theorem_id", "") or arguments.get("target_symbol", "") or ""
+    ).strip()
+    replacement = str(arguments.get("replacement", "") or "").strip()
+    path = Path(active_file)
+    if (
+        not active_file
+        or not target_symbol
+        or requested_target != target_symbol
+        or not path.is_file()
+        or not replacement
+    ):
+        return False
+    helper_match = re.search(
+        r"\b(?:private\s+)?(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)\b",
+        replacement,
+    )
+    if helper_match is None or helper_match.group(1) == target_symbol or ":=" not in replacement:
+        return False
+    helper_symbol = helper_match.group(1)
+    before = path.read_bytes()
+    source = before.decode("utf-8")
+    old_declaration = _assigned_candidate_declaration_raw(source, target_symbol)
+    if not old_declaration or source.count(old_declaration) != 1 or ":=" not in old_declaration:
+        return False
+
+    def normalized_header(header: str, symbol: str) -> str:
+        start = re.search(r"\b(?:theorem|lemma)\s+", header)
+        scoped = header[start.start() :] if start else header
+        scoped = re.sub(r"^private\s+", "", scoped.strip())
+        scoped = re.sub(rf"\b{re.escape(symbol)}\b", "__TARGET__", scoped, count=1)
+        return re.sub(r"\s+", " ", scoped).strip()
+
+    if normalized_header(replacement.partition(":=")[0], helper_symbol) != normalized_header(
+        old_declaration.partition(":=")[0], target_symbol
+    ):
+        return False
+    declaration = (
+        old_declaration[: old_declaration.find(":=")] + replacement[replacement.find(":=") :]
+    )
+    if re.search(r"\b(?:sorry|admit|sorryAx)\b", declaration):
+        return False
+    raw_recheck = lean_incremental_check(
+        action="check_target",
+        file_path=active_file,
+        theorem_id=target_symbol,
+        replacement=declaration,
+        cwd=_project_root(),
+        include_tactics=False,
+        include_axiom_profile=True,
+        timeout_s=_manager_incremental_check_timeout_s(),
+    )
+    check = dict(raw_recheck or {})
+    axioms = {str(value or "").strip() for value in check.get("axiom_profile_axioms", []) or []}
+    if not (
+        check.get("ok") is True
+        and check.get("valid_without_sorry") is True
+        and check.get("has_errors") is False
+        and check.get("has_sorry") is False
+        and check.get("replacement_matches_target") is True
+        and check.get("axiom_profile_checked") is True
+        and not list(check.get("axiom_profile_blockers") or [])
+        and not (axioms - _allowed_axioms())
+    ):
+        return False
+    after = source.replace(old_declaration, declaration, 1).encode("utf-8")
+    committed = decomposition_provenance.compare_and_swap_source(
+        path, expected_bytes=before, replacement_bytes=after
+    )
+    if committed:
+        _record_agent_activity(
+            agent,
+            "campaign-target-equivalent-helper-auto-committed",
+            f"Promoted checked target-equivalent helper {helper_symbol} into {target_symbol}",
+            target_symbol=target_symbol,
+            helper_symbol=helper_symbol,
+            active_file=active_file,
+            source_revision_sha256=_source_revision_sha256(active_file),
+            campaign_progress=True,
+        )
+        with contextlib.suppress(Exception):
+            agent.stage_tool_result_appendix(
+                f"LeanFlow promoted the checked target-equivalent helper into "
+                f"`{target_symbol}` and committed its kernel-checked proof."
+            )
+        with contextlib.suppress(Exception):
+            agent._managed_pending_theorem_feedback = None
+            agent._managed_step_boundary_closed = True
+            _request_step_boundary_interrupt(agent)
+    return committed
+
+
 def _disable_agent_tool_schema(agent: Any, tool_name: str) -> None:
     name = str(tool_name or "").strip()
     if not name:
@@ -24442,6 +24561,12 @@ def _build_agent() -> AIAgent:
         callback_started = time.monotonic()
         phase_seconds: dict[str, float] = {}
         _auto_commit_campaign_multi_attempt(agent, function_name, _args, _result)
+        target_equivalent_helper_committed = _auto_commit_campaign_target_equivalent_helper(
+            agent,
+            function_name,
+            _args,
+            _result,
+        )
         phase_started = time.monotonic()
         edit_verdict = _ManagedQueueEditVerdict()
         queue_edit_candidate_declaration = ""
@@ -24492,8 +24617,9 @@ def _build_agent() -> AIAgent:
                     target_symbol=str(assignment.get("target_symbol", "") or "").strip(),
                     active_file=str(assignment.get("active_file", "") or "").strip(),
                 )
-            with contextlib.suppress(Exception):
-                _retain_foreground_checked_helper(agent, function_name, _args, _result)
+            if not target_equivalent_helper_committed:
+                with contextlib.suppress(Exception):
+                    _retain_foreground_checked_helper(agent, function_name, _args, _result)
         phase_seconds["edit_finalization"] = max(0.0, time.monotonic() - phase_started)
         phase_started = time.monotonic()
         # ``apply_verified_patch`` installs a continuous marker before its

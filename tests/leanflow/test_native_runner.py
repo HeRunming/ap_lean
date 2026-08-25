@@ -14439,6 +14439,68 @@ def test_campaign_auto_commits_exact_verified_multi_attempt(monkeypatch, tmp_pat
     assert agent._managed_step_boundary_closed is True
 
 
+def test_campaign_auto_promotes_target_equivalent_checked_helper(monkeypatch, tmp_path):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo (P : Prop) (h : P) : P := by sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "/tmp/campaign.json")
+    monkeypatch.setattr(runner, "_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(runner, "_record_agent_activity", lambda *args, **kwargs: None)
+    observed = {}
+
+    def exact_target_recheck(**kwargs):
+        observed.update(kwargs)
+        return {
+            "ok": True,
+            "valid_without_sorry": True,
+            "has_errors": False,
+            "has_sorry": False,
+            "replacement_matches_target": True,
+            "axiom_profile_checked": True,
+            "axiom_profile_axioms": [],
+            "axiom_profile_blockers": [],
+        }
+
+    monkeypatch.setattr(runner, "lean_incremental_check", exact_target_recheck)
+    interrupts = []
+    agent = SimpleNamespace(
+        _managed_autonomy_state={
+            "current_queue_assignment": {
+                "target_symbol": "demo",
+                "active_file": str(active),
+            }
+        },
+        interrupt=lambda message: interrupts.append(message),
+        stage_tool_result_appendix=lambda _message: None,
+    )
+    helper = "private theorem demo_candidate (P : Prop) (h : P) : P := by\n" "  exact h"
+    result = json.dumps(
+        {
+            "ok": True,
+            "valid_without_sorry": True,
+            "has_errors": False,
+            "has_sorry": False,
+        }
+    )
+
+    committed = runner._auto_commit_campaign_target_equivalent_helper(
+        agent,
+        "lean_incremental_check",
+        {
+            "action": "check_helper",
+            "file_path": str(active),
+            "theorem_id": "demo",
+            "replacement": helper,
+        },
+        result,
+    )
+
+    assert committed is True
+    assert observed["action"] == "check_target"
+    assert "theorem demo (P : Prop) (h : P) : P := by" in observed["replacement"]
+    assert active.read_text(encoding="utf-8").endswith(": P := by\n  exact h\n")
+    assert interrupts == [runner.WORKFLOW_STEP_BOUNDARY_INTERRUPT]
+
+
 def test_proof_retrieval_result_count_is_bounded(monkeypatch):
     monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
     args = {"pattern": "factorial", "limit": 100}
