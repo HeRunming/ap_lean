@@ -55,13 +55,29 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
             (
                 r"\b(?:random variables?|random vectors?|random matrix|probability|"
                 r"expectation|expected value|variance|independen(?:t|ce)|distributions?|"
-                r"probabilistic)\b",
+                r"probabilistic)\b|\\mathbb\{[PE]\}",
                 8,
             ),
             (
-                r"\b(?:parseval frame|orthonormal rows?|orthonormal columns?|random matrix|"
+                r"\b(?:matrix|matrices|parseval frame|orthonormal rows?|orthonormal columns?|random matrix|"
                 r"singular values?|eigenvalues?|positive semidefinite|spectral norm|"
                 r"orthogonal projections?|operator norm|hilbert space)\b",
+                8,
+            ),
+            (
+                r"\b(?:VC dimension|VC dichotomy|growth function|shatter(?:ed|ing)?|"
+                r"sauer(?:-shelah)? lemma)\b|\\Pi_\{?\\mathcal",
+                8,
+            ),
+            (
+                r"\b(?:covering number|packing number|metric entropy)\b|"
+                r"\\varepsilon\$?\s*[- ]?net\b|[εϵ]\$?\s*[- ]?net\b",
+                8,
+            ),
+            (
+                r"\b(?:gaussian width|effective dimension|support function|sparse recovery|"
+                r"sparse vectors?|dudley integral|gamma[_ ]?2 functional)\b|"
+                r"\\gamma_2|\\asymp",
                 8,
             ),
             (
@@ -82,8 +98,7 @@ def source_formalization_complexity(text: str) -> dict[str, int | str]:
             ),
             (
                 r"\b(?:Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Example|Remark|"
-                r"Section)\s+"
-                r"\d+(?:\.\d+)+",
+                r"Section)\s+\$?\d+(?:\.\d+)+\$?",
                 8,
             ),
             (

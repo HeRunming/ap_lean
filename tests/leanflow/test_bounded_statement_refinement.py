@@ -159,6 +159,7 @@ def test_reference_context_extraction_supports_examples_remarks_and_sections():
     assert "Section body" in contexts["Section 5.1.2"]
     assert "Example body" in contexts["Example 5.1.3"]
     assert "Remark body" in contexts["Remark 5.1.4"]
+    assert bounded.source_references("Apply Theorem $8.3.13$.") == ("Theorem 8.3.13",)
 
 
 def test_reference_resolver_recovers_exercise_from_same_qa_corpus(tmp_path, monkeypatch):

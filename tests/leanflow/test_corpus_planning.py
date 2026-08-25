@@ -1112,6 +1112,10 @@ def test_corpus_plan_defers_meta_proof_repair_exercises():
             "find a set in Euclidean space with the required high-dimensional lower bound."
         ),
         "Find normal random variables that are uncorrelated but not independent.",
+        r"Let N be an $\varepsilon$-net of the sphere and compute a supremum over N.",
+        "Prove the Schur bound for an m by n matrix.",
+        r"Compute the Gaussian width up to $\asymp$ equivalence.",
+        "Relate a support function to the Euclidean norm by duality.",
     ],
 )
 def test_corpus_plan_marks_short_but_semantically_deep_exercises_complex(statement):

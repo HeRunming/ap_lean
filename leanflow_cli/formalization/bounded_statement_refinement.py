@@ -70,7 +70,7 @@ def source_fidelity_preflight(statement: str) -> str:
 
 _SOURCE_REFERENCE_RE = re.compile(
     r"\b(Proposition|Theorem|Lemma|Definition|Corollary|Exercise|Example|Remark|Section)"
-    r"\s+(\d+(?:\.\d+)+)",
+    r"\s+\$?(\d+(?:\.\d+)+)\$?",
     flags=re.IGNORECASE,
 )
 
