@@ -31,12 +31,70 @@ private lemma binomial_ratio_le_tail (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) 
   push_cast
   nlinarith [mul_nonneg hnonneg (sub_nonneg.mpr hkone)]
 
+private lemma choose_step (n k : ℕ) (hkn : k + 2 ≤ n) :
+    n.choose (k + 2) * (k + 2) = n * (n - 1).choose (k + 1) := by
+  have hsymm : n.choose (n - (k + 2)) = n.choose (k + 2) :=
+    Nat.choose_symm hkn
+  have hsymm' : (n - 1).choose ((n - 1) - (k + 1)) = (n - 1).choose (k + 1) :=
+    Nat.choose_symm (by omega)
+  have h := Nat.choose_mul_succ_eq (n - 1) (n - (k + 2))
+  rw [show n - (k + 2) = (n - 1) - (k + 1) by omega, hsymm'] at h
+  rw [show n - 1 + 1 = n by omega] at h
+  rw [show (n - 1) - (k + 1) = n - (k + 2) by omega, hsymm] at h
+  rw [show n - (n - (k + 2)) = k + 2 by omega] at h
+  simpa [Nat.mul_comm] using h.symm
+
 /-- Source proof: express the binomial coefficient as a product of `k` fractions and
 bound each by `n / k`. Prover notes: use a factorial/product formula for `Nat.choose`
 and multiply the resulting nonnegative real inequalities. -/
 lemma binomial_lower_bound (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) :
     ((n : ℝ) / (k : ℝ)) ^ k ≤ (n.choose k : ℝ) := by
-  sorry
+  induction k generalizing n with
+  | zero => omega
+  | succ k ih =>
+    cases k with
+    | zero =>
+      simp
+    | succ k =>
+      have hkn' : k + 1 ≤ n - 1 := by omega
+      have ih' := ih (n - 1) (by omega) hkn'
+      have hrec := choose_step n k hkn
+      have hxy : (n : ℝ) / (k + 2 : ℕ) ≤ ((n - 1 : ℕ) : ℝ) / (k + 1 : ℕ) := by
+        rw [Nat.cast_sub (by omega : 1 ≤ n)]
+        apply (div_le_div_iff₀ (by positivity) (by positivity)).2
+        push_cast
+        have hknR : (k + 2 : ℝ) ≤ n := by exact_mod_cast hkn
+        nlinarith
+      have hpow : ((n : ℝ) / (k + 2 : ℕ)) ^ (k + 1) ≤
+          (n - 1).choose (k + 1) := by
+        calc
+          ((n : ℝ) / (k + 2 : ℕ)) ^ (k + 1) ≤
+              (((n - 1 : ℕ) : ℝ) / (k + 1 : ℕ)) ^ (k + 1) := by gcongr
+          _ ≤ (n - 1).choose (k + 1) := ih'
+      have hxnonneg : (0 : ℝ) ≤ (n : ℝ) / (k + 2 : ℕ) := by positivity
+      have hmult : ((n : ℝ) / (k + 2 : ℕ)) ^ (k + 1) *
+          ((n : ℝ) / (k + 2 : ℕ)) ≤
+          (n - 1).choose (k + 1) * ((n : ℝ) / (k + 2 : ℕ)) := by
+        exact mul_le_mul_of_nonneg_right hpow hxnonneg
+      have hrecR : (n.choose (k + 2) : ℝ) * (k + 2 : ℕ) =
+          (n : ℝ) * ((n - 1).choose (k + 1) : ℝ) := by
+        exact_mod_cast hrec
+      have hdenpos : (0 : ℝ) < (k + 2 : ℕ) := by positivity
+      have hident : ((n - 1).choose (k + 1) : ℝ) *
+          ((n : ℝ) / (k + 2 : ℕ)) = (n.choose (k + 2) : ℝ) := by
+        calc
+          ((n - 1).choose (k + 1) : ℝ) * ((n : ℝ) / (k + 2 : ℕ)) =
+              (((n - 1).choose (k + 1) : ℝ) * n) / (k + 2 : ℕ) := by ring
+          _ = (n.choose (k + 2) : ℝ) := by
+            rw [show ((n - 1).choose (k + 1) : ℝ) * n =
+                (n.choose (k + 2) : ℝ) * (k + 2 : ℕ) by nlinarith [hrecR]]
+            exact mul_div_cancel_right₀ _ hdenpos.ne'
+      calc
+        ((n : ℝ) / (k + 2 : ℕ)) ^ (k + 2) =
+            ((n : ℝ) / (k + 2 : ℕ)) ^ (k + 1) * ((n : ℝ) / (k + 2 : ℕ)) := by
+          rw [show k + 2 = (k + 1) + 1 by omega, pow_succ]
+        _ ≤ (n - 1).choose (k + 1) * ((n : ℝ) / (k + 2 : ℕ)) := hmult
+        _ = (n.choose (k + 2) : ℝ) := hident
 
 /-- Source proof: the `j = k` summand is present in the displayed partial sum.
 Prover notes: show that `k ∈ Finset.range (k + 1)` and use nonnegativity of the
