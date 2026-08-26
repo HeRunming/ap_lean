@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 from core import project_resource_admission as admission
+from core.project_lean_capacity import MAX_PROJECT_LEAN_CAPACITY, project_lean_capacity
 from core.project_resource_admission import (
     MAX_FOREGROUND_HANDOFF_LEASE_S,
     ProjectLeanAdmission,
@@ -153,6 +154,15 @@ def test_configured_project_capacity_admits_two_threads_and_blocks_third(
     second.join(timeout=3)
     assert third_entered.wait(timeout=3)
     third.join(timeout=3)
+
+
+def test_project_capacity_supports_large_verification_hosts(monkeypatch) -> None:
+    """Do not silently clamp an explicitly configured server to eight slots."""
+    monkeypatch.setenv("LEANFLOW_PROJECT_LEAN_CAPACITY", "48")
+    assert project_lean_capacity() == 48
+
+    monkeypatch.setenv("LEANFLOW_PROJECT_LEAN_CAPACITY", "999")
+    assert project_lean_capacity() == MAX_PROJECT_LEAN_CAPACITY
 
 
 @pytest.mark.skipif(admission.fcntl is None, reason="foreground priority requires flock")

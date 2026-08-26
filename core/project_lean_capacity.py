@@ -19,7 +19,10 @@ except ImportError:  # pragma: no cover
 
 
 PROJECT_LEAN_CAPACITY_ENV = "LEANFLOW_PROJECT_LEAN_CAPACITY"
-_MAX_CAPACITY = 8
+# This is a guardrail against accidental unbounded fan-out, not an operating
+# recommendation.  Large verification hosts commonly have more than eight
+# useful Lean slots; callers still opt in explicitly and the default remains 1.
+MAX_PROJECT_LEAN_CAPACITY = 64
 _POLL_INTERVAL_S = 0.05
 _SEMAPHORE_GUARD = threading.Lock()
 _SEMAPHORES: dict[tuple[str, int], threading.BoundedSemaphore] = {}
@@ -32,7 +35,7 @@ def project_lean_capacity() -> int:
     """Return the explicitly configured project Lean slot count."""
     raw = str(os.getenv(PROJECT_LEAN_CAPACITY_ENV, "1") or "1").strip()
     try:
-        return max(1, min(_MAX_CAPACITY, int(raw)))
+        return max(1, min(MAX_PROJECT_LEAN_CAPACITY, int(raw)))
     except ValueError:
         return 1
 

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from core.project_lean_capacity import MAX_PROJECT_LEAN_CAPACITY
 from core.utils import atomic_json_write
 from leanflow_cli.formalization.bounded_statement_refinement import (
     refine_campaign_statement_bounded,
@@ -698,22 +699,16 @@ def _zero_cost_proof(source: str) -> str:
         "(norm_num; done)",
         "(omega; done)",
         "(linarith; done)",
-        "(nlinarith; done)",
         "(ring; done)",
-        "(aesop (config := { maxRuleApplications := 100 }); done)",
     ]
     if local_defs:
         definitions = ", ".join(local_defs)
         branches.extend(
             [
                 f"(simp_all [{definitions}]; done)",
-                (
-                    f"(simp_all [{definitions}] <;> "
-                    "aesop (config := { maxRuleApplications := 100 }); done)"
-                ),
             ]
         )
-    return "by\n  first | " + " | ".join(branches)
+    return "by\n  set_option maxHeartbeats 5000 in\n    first | " + " | ".join(branches)
 
 
 def try_zero_cost_proof_preflight(
@@ -725,7 +720,12 @@ def try_zero_cost_proof_preflight(
     timeout_s: int = 30,
     failure_diagnostics: list[str] | None = None,
 ) -> dict[str, Any] | None:
-    """Close mechanically trivial approved goals before launching a paid prover."""
+    """Close mechanically trivial approved goals before launching a paid prover.
+
+    A resident LeanProbe REPL is a screening accelerator only.  A successful
+    candidate is still checked as an exact project file by ``lake env lean``
+    before the source or campaign ledger is changed.
+    """
     if action.stage != "proofs" or not action.target_file:
         return None
     root = Path(project_root).expanduser().resolve()
@@ -738,6 +738,36 @@ def try_zero_cost_proof_preflight(
     )
     if replacements <= 0 or re.search(r"\bby\s+sorry\b", candidate_source):
         return None
+
+    # Most deterministic tactic cascades fail.  Screen them in the resident
+    # REPL first so a campaign sweep does not pay one cold Lean process per
+    # negative candidate.  Missing/degraded incremental infrastructure falls
+    # through to the canonical file check and therefore cannot cause a false
+    # acceptance or make this optimization a correctness dependency.
+    try:
+        from leanflow_cli.lean.lean_incremental import lean_scratch_check
+
+        screen = lean_scratch_check(
+            candidate_source,
+            cwd=str(root),
+            timeout_s=min(max(1, int(timeout_s)), 10),
+        )
+    except Exception:
+        screen = {}
+    screen_rejected = bool(
+        (screen.get("success") is True and screen.get("ok") is not True)
+        or screen.get("timed_out") is True
+        or str(screen.get("error_code", "") or "").strip().lower() == "timeout"
+    )
+    if screen_rejected:
+        if failure_diagnostics is not None:
+            failure_diagnostics.append(
+                str(screen.get("error") or screen.get("output") or "incremental screen rejected")[
+                    -4000:
+                ]
+            )
+        return None
+
     candidate = target.with_name(f"ZeroCostCandidate_{uuid.uuid4().hex}.lean")
     candidate.write_text(candidate_source, encoding="utf-8")
     try:
@@ -1911,8 +1941,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--workers must be positive")
         if args.wave_budget_usd is not None and args.wave_budget_usd <= 0:
             parser.error("--wave-budget-usd must be positive")
-        if not 1 <= args.lean_slots <= 8:
-            parser.error("--lean-slots must be between 1 and 8")
+        if not 1 <= args.lean_slots <= MAX_PROJECT_LEAN_CAPACITY:
+            parser.error(f"--lean-slots must be between 1 and {MAX_PROJECT_LEAN_CAPACITY}")
         if not 1 <= args.statement_candidates <= 8:
             parser.error("--statement-candidates must be between 1 and 8")
         if args.statement_candidate_workers <= 0:

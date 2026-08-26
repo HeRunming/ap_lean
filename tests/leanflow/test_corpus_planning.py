@@ -641,7 +641,9 @@ def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeyp
     assert outcome["cost_usd"] == 0
     assert "(simp; done)" in observed["source"]
     assert "simp_all [" not in observed["source"]
-    assert "maxRuleApplications := 100" in observed["source"]
+    assert "aesop" not in observed["source"]
+    assert "nlinarith" not in observed["source"]
+    assert "maxHeartbeats 5000" in observed["source"]
     assert "by sorry" not in target.read_text(encoding="utf-8")
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert campaign["spent_usd"] == 2.0
@@ -688,6 +690,114 @@ def test_zero_cost_proof_preflight_unfolds_local_definitions(tmp_path, monkeypat
         is not None
     )
     assert "simp_all [LocalPredicate]" in observed["source"]
+
+
+def test_zero_cost_proof_preflight_screen_rejection_skips_cold_lean(tmp_path, monkeypatch):
+    project = tmp_path / "Demo"
+    target = project / "Demo" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem hard (p : Prop) : p := by sorry\n", encoding="utf-8")
+    (project / "lakefile.lean").write_text("package Demo\n", encoding="utf-8")
+    campaign_path = project / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "questions.json",
+                "batches": [
+                    {
+                        "id": "hard",
+                        "status": "statements_completed",
+                        "target_file": "Demo/Main.lean",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    action = CampaignAction(
+        stage="proofs",
+        batch_id="hard",
+        labels=("hard",),
+        argv=(),
+        target_file="Demo/Main.lean",
+    )
+    monkeypatch.setattr(
+        "leanflow_cli.lean.lean_incremental.lean_scratch_check",
+        lambda *args, **kwargs: {
+            "success": True,
+            "ok": False,
+            "error": "unsolved goals",
+        },
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("cold Lean should not run after REPL rejection"),
+    )
+
+    diagnostics = []
+    assert (
+        try_zero_cost_proof_preflight(
+            campaign_path,
+            project_root=project,
+            action=action,
+            failure_diagnostics=diagnostics,
+        )
+        is None
+    )
+    assert diagnostics == ["unsolved goals"]
+    assert "sorry" in target.read_text(encoding="utf-8")
+
+
+def test_zero_cost_proof_preflight_screen_timeout_skips_cold_lean(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem hard (p : Prop) : p := by sorry\n", encoding="utf-8")
+    (tmp_path / "lakefile.lean").write_text("package Demo\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "questions.json",
+                "batches": [{"id": "hard", "status": "statements_completed"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    action = CampaignAction(
+        stage="proofs",
+        batch_id="hard",
+        labels=("hard",),
+        argv=(),
+        target_file="Book/Main.lean",
+    )
+    monkeypatch.setattr(
+        "leanflow_cli.lean.lean_incremental.lean_scratch_check",
+        lambda *args, **kwargs: {
+            "success": False,
+            "ok": False,
+            "timed_out": True,
+            "error_code": "timeout",
+            "error": "screen deadline",
+        },
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("timeout must not launch cold Lean"),
+    )
+
+    diagnostics = []
+    assert (
+        try_zero_cost_proof_preflight(
+            campaign_path,
+            project_root=tmp_path,
+            action=action,
+            failure_diagnostics=diagnostics,
+        )
+        is None
+    )
+    assert diagnostics == ["screen deadline"]
 
 
 def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkeypatch):
