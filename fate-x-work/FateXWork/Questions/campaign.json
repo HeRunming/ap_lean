@@ -3,21 +3,21 @@
   "source": "HDP/source/full/qa/questions.json",
   "status": "active",
   "batch_count": 367,
-  "completed_batch_count": 6,
-  "agent_e2e_completed_batch_count": 6,
+  "completed_batch_count": 7,
+  "agent_e2e_completed_batch_count": 7,
   "manual_gold_completed_batch_count": 0,
-  "agent_e2e_statement_completed_batch_count": 26,
+  "agent_e2e_statement_completed_batch_count": 27,
   "failure_class_counts": {
-    "budget_limit": 65,
+    "budget_limit": 66,
     "statement_generation_incomplete": 38,
     "infrastructure": 15,
     "proof_incomplete": 6
   },
-  "statement_completed_batch_count": 26,
+  "statement_completed_batch_count": 27,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 178.41158,
-  "budget_usd": 179.43448,
+  "spent_usd": 179.41158,
+  "budget_usd": 379.43448,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
     "default_pilot_batch_limit": 2,
@@ -12423,11 +12423,124 @@
       "source_complexity_score": 1,
       "source_complexity_tier": "routine",
       "source_subpart_count": 0,
-      "status": "pending",
-      "agent_status": "pending",
-      "completion_provenance": "none",
-      "attempts": [],
-      "last_outcome": {}
+      "status": "proofs_completed",
+      "agent_status": "proofs_completed",
+      "completion_provenance": "agent_e2e",
+      "attempts": [
+        {
+          "stage": "statements",
+          "success": true,
+          "exit_code": 0,
+          "reason": "bounded retrieval/refinement statement passed",
+          "target_file": "FateXWork/Questions/Items934EC5C2BC4/Main.lean",
+          "proof_obligations": 1,
+          "cost_usd": 0.12256,
+          "cost_source": "auxiliary_token_usage",
+          "cost_scope": "bounded_statement_pipeline",
+          "provenance": "agent",
+          "iterations": 3,
+          "candidate_attempts": 3,
+          "candidates_per_iteration": 1,
+          "failure_stage": "",
+          "final_diagnostic": "",
+          "candidate_diagnostics": [
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nThe subadditivity hypothesis and conclusion are pointwise and otherwise correctly formalized; subtraction has the intended additive-group meaning, with no relevant totalized-operation edge cases.\n\nHowever, the Lean statement unnecessarily restricts `V` to an `ℝ`-module. The proof and source require only an additive commutative group structure on `V` (unless the book has explicitly fixed all vector spaces to be real vector spaces). Remove `[Module ℝ V]` for faithful generality."
+            },
+            {
+              "stage": "semantic_review",
+              "diagnostic": "BLOCK\n\nThe pointwise subadditivity hypothesis and conclusion are correctly represented, and subtraction has the intended additive-group semantics. No totalized-operation edge cases are involved.\n\nHowever, the source quantifies over a vector space `V`, while the Lean statement quantifies over every additive commutative group `[AddCommGroup V]`. This changes the class of objects and is not bidirectionally faithful under the stated criterion. Retain the appropriate vector-space/module assumptions from the source’s ambient setting (including its scalar field, if specified)."
+            }
+          ],
+          "retry_feedback_source": "",
+          "retrieval_queries": [
+            "subadditive",
+            "sub_eq_add_neg",
+            "linarith",
+            "add_sub_cancel_right",
+            "sub_le_iff_le_add",
+            "sub_nonpos",
+            "Real vector space module assumptions Mathlib",
+            "Submodule Module ℝ additive commutative group vector space Lean"
+          ],
+          "statement_providers": {
+            "planner": "openai-codex",
+            "generator": "openai-codex",
+            "generator_fallback": "",
+            "judge": "openai-codex"
+          },
+          "review_evidence": "FateXWork/Questions/Items934EC5C2BC4/IndependentReview.md",
+          "review_decision": "PASS",
+          "model": "gpt-5.6-terra",
+          "provider": "openai-codex",
+          "usage": {
+            "prompt_tokens": 5782,
+            "completion_tokens": 2158,
+            "total_tokens": 7940
+          },
+          "recorded_at": "2026-08-26T06:28:16+00:00"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-26T06:50:11+00:00",
+          "target_file": "FateXWork/Questions/Items934EC5C2BC4/Main.lean",
+          "proof_obligations": 1,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 82080,
+            "completion_tokens": 1888,
+            "total_tokens": 83968
+          },
+          "cost_usd": 0.87744,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": true,
+          "exit_code": 0,
+          "reason": "recovered durable agent LeanProbe proof candidate",
+          "target_file": "FateXWork/Questions/Items934EC5C2BC4/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.0,
+          "cost_source": "durable_agent_evidence",
+          "cost_scope": "no_additional_provider_call",
+          "provenance": "agent",
+          "recovery_evidence": ".leanflow/workflow-state/activity/agents/prove-56840.jsonl",
+          "recovered_tactic": "exact target replacement recovered from successful LeanProbe check_target",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "recorded_at": "2026-08-26T07:02:57+00:00"
+        }
+      ],
+      "last_outcome": {
+        "stage": "proofs",
+        "success": true,
+        "exit_code": 0,
+        "reason": "recovered durable agent LeanProbe proof candidate",
+        "target_file": "FateXWork/Questions/Items934EC5C2BC4/Main.lean",
+        "proof_obligations": 0,
+        "cost_usd": 0.0,
+        "cost_source": "durable_agent_evidence",
+        "cost_scope": "no_additional_provider_call",
+        "provenance": "agent",
+        "recovery_evidence": ".leanflow/workflow-state/activity/agents/prove-56840.jsonl",
+        "recovered_tactic": "exact target replacement recovered from successful LeanProbe check_target",
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "recorded_at": "2026-08-26T07:02:57+00:00"
+      }
     },
     {
       "id": "items-9.35",
