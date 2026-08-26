@@ -13238,13 +13238,6 @@ def _managed_pre_tool_call(
                     provider_called=False,
                     campaign_progress=False,
                 )
-        expensive_patch_guard = _campaign_expensive_patch_pre_tool_guard(
-            function_name,
-            autonomy_state,
-            args,
-        )
-        if expensive_patch_guard:
-            return expensive_patch_guard
         _bound_proof_retrieval_args(function_name, args)
         retrieval_guard = _proof_retrieval_pre_tool_guard(function_name, autonomy_state)
         if retrieval_guard:
@@ -13335,6 +13328,19 @@ def _managed_pre_tool_call(
         )
         if helper_priority_guard:
             return helper_priority_guard
+        # Helper authority must run before the generic campaign cheap-check
+        # fence.  An awaiting-parent-recheck candidate needs to close a safe
+        # boundary so the manager can authenticate it; a ready candidate then
+        # rewrites the patch to the exact verified insertion image.  Applying
+        # the broad-patch fence first creates an impossible check_target ↔
+        # helper-integration loop.
+        expensive_patch_guard = _campaign_expensive_patch_pre_tool_guard(
+            function_name,
+            autonomy_state,
+            args,
+        )
+        if expensive_patch_guard:
+            return expensive_patch_guard
         helper_name_guard = _nonproduction_generated_helper_source_patch_guard(
             agent,
             function_name,
