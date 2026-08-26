@@ -17,7 +17,7 @@
   "item_count": 366,
   "batch_item_limit": 1,
   "spent_usd": 178.41158,
-  "budget_usd": 207.09587,
+  "budget_usd": 179.43448,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
     "default_pilot_batch_limit": 2,
