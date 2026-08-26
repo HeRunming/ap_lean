@@ -944,6 +944,53 @@ def test_recover_agent_verified_proof_from_checked_target_activity(
     assert target.read_text(encoding="utf-8") == "theorem demo : True := by\n  trivial\n"
 
 
+def test_recent_campaign_candidate_evidence_recovers_failed_concrete_candidate(tmp_path):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    evidence = (
+        tmp_path
+        / ".leanflow"
+        / "workflow-state"
+        / "workers"
+        / "worker-1"
+        / "activity"
+        / "agents"
+        / "prove-1.jsonl"
+    )
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text(
+        json.dumps(
+            {
+                "type": "tool-result",
+                "details": {
+                    "tool": "lean_incremental_check",
+                    "arguments": {
+                        "action": "check_helper",
+                        "file_path": str(target),
+                        "theorem_id": "demo",
+                        "replacement": "private lemma useful : True := by trivial",
+                    },
+                    "result": json.dumps(
+                        {"ok": False, "error": "LeanProbe wall-clock timeout"}
+                    ),
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rendered = corpus_campaign_runner._recent_campaign_candidate_evidence(
+        tmp_path,
+        target_file="Book/Main.lean",
+    )
+
+    assert "private lemma useful" in rendered
+    assert "LeanProbe wall-clock timeout" in rendered
+    assert "check_helper candidate (failed" in rendered
+
+
 def test_recover_agent_verified_proof_promotes_parent_accepted_equivalent_helper(
     tmp_path, monkeypatch
 ):

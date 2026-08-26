@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -921,6 +922,83 @@ def execute_next_campaign_action(
     )
 
 
+def _recent_campaign_candidate_evidence(
+    project_root: str | Path,
+    *,
+    target_file: str,
+    max_records: int = 8,
+    max_chars: int = 7000,
+) -> str:
+    """Recover compact concrete Lean candidates from prior isolated workers."""
+    root = Path(project_root).expanduser().resolve()
+    target = (root / target_file).resolve()
+    activity_root = root / ".leanflow" / "workflow-state" / "workers"
+    paths = sorted(
+        activity_root.glob("*/activity/agents/*.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )[:24]
+    found: list[tuple[str, str]] = []
+    for evidence in paths:
+        try:
+            with evidence.open("rb") as handle:
+                handle.seek(0, os.SEEK_END)
+                size = handle.tell()
+                handle.seek(max(0, size - 2_000_000))
+                raw = handle.read().decode("utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in reversed(raw.splitlines()):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            details = dict(record.get("details", {}) or {})
+            arguments = dict(details.get("arguments", {}) or {})
+            action = str(arguments.get("action", "") or "").replace("-", "_")
+            if (
+                str(record.get("type", "") or "") != "tool-result"
+                or str(details.get("tool", "") or "") != "lean_incremental_check"
+                or action not in {"check_target", "check_helper"}
+            ):
+                continue
+            candidate_file = Path(str(arguments.get("file_path", "") or "")).expanduser()
+            if not candidate_file.is_absolute():
+                candidate_file = root / candidate_file
+            if candidate_file.resolve() != target:
+                continue
+            replacement = str(arguments.get("replacement", "") or "").strip()
+            if not replacement:
+                continue
+            try:
+                result = json.loads(str(details.get("result", "") or "{}"))
+            except json.JSONDecodeError:
+                result = {}
+            verdict = "passed" if result.get("ok") is True else "failed"
+            diagnostic = str(
+                result.get("error", "") or result.get("output", "") or "no diagnostic"
+            ).strip()
+            block = (
+                f"- {action} candidate ({verdict}; {evidence.name}):\n"
+                f"```lean\n{replacement[:1400]}\n```\n"
+                f"  Lean result: {diagnostic[:500]}"
+            )
+            declaration_match = re.search(
+                r"\b(?:theorem|lemma|def)\s+([A-Za-z0-9_'.]+)", replacement
+            )
+            fingerprint = (
+                f"{action}:{declaration_match.group(1)}"
+                if declaration_match
+                else hashlib.sha256(replacement.encode("utf-8")).hexdigest()
+            )
+            if not any(key == fingerprint for key, _ in found):
+                found.append((fingerprint, block))
+            if len(found) >= max_records:
+                rendered = "\n".join(value for _, value in found)
+                return rendered[:max_chars]
+    return "\n".join(value for _, value in found)[:max_chars]
+
+
 def _execute_campaign_action(
     action: CampaignAction,
     *,
@@ -1058,12 +1136,17 @@ def _execute_campaign_action(
                 r"(?m)^\s*(?:private\s+)?(?:theorem|lemma|def)\s+([A-Za-z0-9_'.]+)",
                 target_path.read_text(encoding="utf-8"),
             )[:24]
+        recent_candidates = _recent_campaign_candidate_evidence(
+            project_root,
+            target_file=action.target_file,
+        )
         child_env["LEANFLOW_PROOF_RESUME_EVIDENCE"] = (
             "This is a paid campaign retry. Preserve and use the declarations already present in the "
             f"target file: {declarations or '[none]'}. Previous outcome: "
             f"{str(last_outcome.get('reason', '') or '[unspecified]')}. Do not repeat broad project search, "
             "lean_decompose_helpers, or lean_reasoning_help before executing at least one concrete, "
             "substantive lean_incremental_check that advances the next missing helper or the target."
+            + (f"\n\nRECENT DURABLE CANDIDATE EVIDENCE:\n{recent_candidates}" if recent_candidates else "")
         )
     review_evidence = str(last_outcome.get("review_evidence", "") or "").strip()
     if (
