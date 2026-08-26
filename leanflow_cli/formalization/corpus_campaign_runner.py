@@ -1671,6 +1671,74 @@ def recover_agent_verified_proof(
         ("", ""),
     )
     declaration_name, old_declaration = target_declaration
+    activity_matches: list[tuple[str, str, Path]] = []
+    activity_roots = [root / ".leanflow" / "workflow-state" / "activity" / "agents"]
+    activity_roots.extend(
+        (root / ".leanflow" / "workflow-state" / "workers").glob("*/activity/agents")
+    )
+    allowed_axioms = {"propext", "Classical.choice", "Quot.sound"}
+    for activity_root in activity_roots:
+        if not activity_root.is_dir():
+            continue
+        for evidence_path in activity_root.glob("*.jsonl"):
+            for line in evidence_path.read_text(encoding="utf-8").splitlines():
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                details = dict(record.get("details", {}) or {})
+                arguments = dict(details.get("arguments", {}) or {})
+                if (
+                    str(record.get("type", "") or "") != "tool-result"
+                    or str(details.get("tool", "") or "") != "lean_incremental_check"
+                    or str(arguments.get("action", "") or "").replace("-", "_") != "check_target"
+                    or str(arguments.get("theorem_id", "") or "") != declaration_name
+                ):
+                    continue
+                candidate_file = Path(str(arguments.get("file_path", "") or "")).expanduser()
+                if not candidate_file.is_absolute():
+                    candidate_file = root / candidate_file
+                if candidate_file.resolve() != target:
+                    continue
+                try:
+                    checked = json.loads(str(details.get("result", "") or "{}"))
+                except json.JSONDecodeError:
+                    continue
+                axioms = {
+                    str(value or "").strip()
+                    for value in checked.get("axiom_profile_axioms", []) or []
+                }
+                replacement_text = str(arguments.get("replacement", "") or "").strip()
+                if not (
+                    checked.get("ok") is True
+                    and checked.get("valid_without_sorry") is True
+                    and checked.get("has_errors") is False
+                    and checked.get("has_sorry") is False
+                    and checked.get("replacement_matches_target") is True
+                    and checked.get("axiom_profile_checked") is True
+                    and not list(checked.get("axiom_profile_blockers") or [])
+                    and not (axioms - allowed_axioms)
+                    and replacement_text
+                ):
+                    continue
+                entries = [
+                    item
+                    for item in _declaration_line_index_from_text(replacement_text)
+                    if str(item.get("name", "") or "") == declaration_name
+                ]
+                if len(entries) != 1:
+                    continue
+                recovered = str(entries[0].get("text", "") or "").strip()
+                if (
+                    not recovered
+                    or "sorry" in recovered
+                    or re.sub(r"\s+", " ", recovered.partition(":=")[0]).strip()
+                    != re.sub(r"\s+", " ", old_declaration.partition(":=")[0]).strip()
+                ):
+                    continue
+                activity_matches.append(
+                    (str(record.get("timestamp", "") or ""), recovered, evidence_path)
+                )
     tactic = ""
     evidence: Path
     if matches:
@@ -1688,6 +1756,9 @@ def recover_agent_verified_proof(
         if replacement is None:
             raise CampaignExecutionBlocked("verified candidate no longer matches current source")
         declaration_name, declaration = replacement
+    elif activity_matches:
+        _timestamp, declaration, evidence = max(activity_matches, key=lambda item: item[0])
+        tactic = "exact target replacement recovered from successful LeanProbe check_target"
     else:
         evidence = root / ".leanflow" / "campaign-plan-state" / batch_id / "summary.json"
         try:

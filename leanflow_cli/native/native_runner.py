@@ -5759,6 +5759,99 @@ def _auto_commit_campaign_target_equivalent_helper(
     return committed
 
 
+def _auto_commit_campaign_checked_target(
+    agent: Any,
+    function_name: str,
+    args: Mapping[str, Any] | None,
+    result: str,
+) -> bool:
+    """CAS-commit an exact campaign target already accepted by LeanProbe."""
+    if (
+        function_name != "lean_incremental_check"
+        or not str(os.getenv("LEANFLOW_FORMALIZATION_CAMPAIGN", "") or "").strip()
+    ):
+        return False
+    arguments = dict(args or {})
+    if str(arguments.get("action", "") or "").strip().lower().replace("-", "_") != "check_target":
+        return False
+    payload = _json_tool_result_payload(result)
+    axioms = {str(value or "").strip() for value in payload.get("axiom_profile_axioms", []) or []}
+    if not (
+        payload.get("ok") is True
+        and payload.get("valid_without_sorry") is True
+        and payload.get("has_errors") is False
+        and payload.get("has_sorry") is False
+        and payload.get("replacement_matches_target") is True
+        and payload.get("axiom_profile_checked") is True
+        and not list(payload.get("axiom_profile_blockers") or [])
+        and not (axioms - _allowed_axioms())
+    ):
+        return False
+    autonomy_state = getattr(agent, "_managed_autonomy_state", {}) or {}
+    assignment = dict(autonomy_state.get("current_queue_assignment") or {})
+    active_file = str(assignment.get("active_file", "") or "").strip()
+    target_symbol = str(assignment.get("target_symbol", "") or "").strip()
+    requested_target = str(
+        arguments.get("theorem_id", "") or arguments.get("target_symbol", "") or ""
+    ).strip()
+    replacement = str(arguments.get("replacement", "") or "").strip()
+    path = Path(active_file)
+    if (
+        not active_file
+        or not target_symbol
+        or requested_target != target_symbol
+        or not path.is_file()
+        or not replacement
+        or re.search(r"\b(?:sorry|admit|sorryAx)\b", replacement)
+    ):
+        return False
+    replacement_entries = [
+        item
+        for item in _declaration_line_index_from_text(replacement)
+        if str(item.get("name", "") or "") == target_symbol
+    ]
+    if len(replacement_entries) != 1:
+        return False
+    declaration = str(replacement_entries[0].get("text", "") or "").strip()
+    if not declaration or ":=" not in declaration:
+        return False
+    before = path.read_bytes()
+    source = before.decode("utf-8")
+    old_declaration = _assigned_candidate_declaration_raw(source, target_symbol)
+    if not old_declaration or source.count(old_declaration) != 1:
+        return False
+
+    def normalized_signature(value: str) -> str:
+        return re.sub(r"\s+", " ", _statement_signature_text(value)).strip()
+
+    if normalized_signature(declaration) != normalized_signature(old_declaration):
+        return False
+    after = source.replace(old_declaration, declaration, 1).encode("utf-8")
+    committed = decomposition_provenance.compare_and_swap_source(
+        path, expected_bytes=before, replacement_bytes=after
+    )
+    if committed:
+        _record_agent_activity(
+            agent,
+            "campaign-checked-target-auto-committed",
+            f"Auto-committed exact LeanProbe-verified target {target_symbol}",
+            target_symbol=target_symbol,
+            active_file=active_file,
+            source_revision_sha256=_source_revision_sha256(active_file),
+            campaign_progress=True,
+        )
+        with contextlib.suppress(Exception):
+            agent.stage_tool_result_appendix(
+                f"LeanFlow auto-committed the exact checked replacement for "
+                f"`{target_symbol}`. The manager will run the canonical parent/file gate."
+            )
+        with contextlib.suppress(Exception):
+            agent._managed_pending_theorem_feedback = None
+            agent._managed_step_boundary_closed = True
+            _request_step_boundary_interrupt(agent)
+    return committed
+
+
 def _disable_agent_tool_schema(agent: Any, tool_name: str) -> None:
     name = str(tool_name or "").strip()
     if not name:
@@ -24561,6 +24654,12 @@ def _build_agent() -> AIAgent:
         callback_started = time.monotonic()
         phase_seconds: dict[str, float] = {}
         _auto_commit_campaign_multi_attempt(agent, function_name, _args, _result)
+        checked_target_committed = _auto_commit_campaign_checked_target(
+            agent,
+            function_name,
+            _args,
+            _result,
+        )
         target_equivalent_helper_committed = _auto_commit_campaign_target_equivalent_helper(
             agent,
             function_name,
@@ -24617,7 +24716,7 @@ def _build_agent() -> AIAgent:
                     target_symbol=str(assignment.get("target_symbol", "") or "").strip(),
                     active_file=str(assignment.get("active_file", "") or "").strip(),
                 )
-            if not target_equivalent_helper_committed:
+            if not checked_target_committed and not target_equivalent_helper_committed:
                 with contextlib.suppress(Exception):
                     _retain_foreground_checked_helper(agent, function_name, _args, _result)
         phase_seconds["edit_finalization"] = max(0.0, time.monotonic() - phase_started)

@@ -863,6 +863,77 @@ def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkey
     assert persisted["batches"][0]["agent_status"] == "proofs_completed"
 
 
+def test_recover_agent_verified_proof_from_checked_target_activity(tmp_path, monkeypatch):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "batches": [
+                    {
+                        "id": "item",
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/Main.lean"},
+                        "attempts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence = tmp_path / ".leanflow" / "workflow-state" / "activity" / "agents" / "prove-1.jsonl"
+    evidence.parent.mkdir(parents=True)
+    checked = {
+        "ok": True,
+        "valid_without_sorry": True,
+        "has_errors": False,
+        "has_sorry": False,
+        "replacement_matches_target": True,
+        "axiom_profile_checked": True,
+        "axiom_profile_axioms": ["propext", "Classical.choice", "Quot.sound"],
+        "axiom_profile_blockers": [],
+    }
+    evidence.write_text(
+        json.dumps(
+            {
+                "type": "tool-result",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "details": {
+                    "tool": "lean_incremental_check",
+                    "arguments": {
+                        "action": "check_target",
+                        "file_path": str(target),
+                        "theorem_id": "demo",
+                        "replacement": "theorem demo : True := by\n  trivial",
+                    },
+                    "result": json.dumps(checked),
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    outcome = recover_agent_verified_proof(
+        campaign_path,
+        project_root=tmp_path,
+        batch_id="item",
+    )
+
+    assert outcome["success"] is True
+    assert outcome["cost_usd"] == 0
+    assert outcome["recovery_evidence"].endswith("activity/agents/prove-1.jsonl")
+    assert target.read_text(encoding="utf-8") == "theorem demo : True := by\n  trivial\n"
+
+
 def test_recover_agent_verified_proof_promotes_parent_accepted_equivalent_helper(
     tmp_path, monkeypatch
 ):
