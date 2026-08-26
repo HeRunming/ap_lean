@@ -6855,7 +6855,8 @@ def _inject_exact_candidate_axiom_profile(
     ):
         return
     action = str(args.get("action", "check_target") or "check_target")
-    if action.strip().lower().replace("-", "_") != "check_target":
+    normalized_action = action.strip().lower().replace("-", "_")
+    if normalized_action not in {"check_target", "check_helper"}:
         return
     assignment = dict(autonomy_state.get("current_queue_assignment") or {})
     target_symbol = str(assignment.get("target_symbol", "") or "").strip()
@@ -6869,6 +6870,14 @@ def _inject_exact_candidate_axiom_profile(
         target_symbol=target_symbol,
         active_file=active_file,
     ):
+        return
+    if normalized_action == "check_helper":
+        # Managed campaign helpers need the same inline axiom evidence before
+        # they can become durable integration candidates.  Selecting the
+        # profiled one-shot backend here also applies its cold-start timeout
+        # floor instead of repeatedly killing a fresh LeanProbe at 60s.
+        if str(args.get("replacement", "") or "").strip():
+            args["include_axiom_profile"] = True
         return
     replacement = str(args.get("replacement", "") or "").strip()
     if not replacement:
@@ -13051,6 +13060,7 @@ def _campaign_proof_bootstrap_pre_tool_guard(
 def _campaign_expensive_patch_pre_tool_guard(
     function_name: str,
     autonomy_state: Mapping[str, Any],
+    args: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Require a successful target-local check before broad patch verification."""
     if (
@@ -13062,6 +13072,35 @@ def _campaign_expensive_patch_pre_tool_guard(
     assignment = dict(autonomy_state.get("current_queue_assignment") or {})
     target_symbol = str(assignment.get("target_symbol", "") or "").strip()
     active_file = str(assignment.get("active_file", "") or "").strip()
+    candidate = research_helper_candidate_priority.load(autonomy_state)
+    if candidate is not None and candidate.ready:
+        arguments = dict(args or {})
+        proposed_text = _tool_proposed_edit_text(function_name, arguments)
+        added_patch_text = "\n".join(
+            line[1:]
+            for line in proposed_text.splitlines()
+            if line.startswith("+") and not line.startswith("+++")
+        )
+        integrates_authenticated_helper = bool(
+            research_helper_candidate_priority.parent_recheck_evidence_authenticated(candidate)
+            and (candidate.declaration in proposed_text or candidate.declaration in added_patch_text)
+            and _managed_edit_targets_assignment(
+                arguments,
+                active_file,
+                function_name=function_name,
+            )
+            and str(
+                arguments.get("theorem_id", "")
+                or arguments.get("target_symbol", "")
+                or target_symbol
+            ).strip()
+            == target_symbol
+        )
+        if integrates_authenticated_helper:
+            # This transaction is not speculative broad verification: the
+            # exact helper already passed the parent check, and the verified
+            # patch is the only safe way to integrate it atomically.
+            return None
     evidence = dict(autonomy_state.get(_CAMPAIGN_CHEAP_PROOF_CHECK_KEY) or {})
     evidence_matches = bool(
         target_symbol
@@ -13202,6 +13241,7 @@ def _managed_pre_tool_call(
         expensive_patch_guard = _campaign_expensive_patch_pre_tool_guard(
             function_name,
             autonomy_state,
+            args,
         )
         if expensive_patch_guard:
             return expensive_patch_guard

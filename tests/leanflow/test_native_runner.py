@@ -14352,6 +14352,34 @@ def test_campaign_patch_requires_successful_cheap_target_check(monkeypatch, tmp_
     )
 
 
+def test_campaign_helper_check_injects_axiom_profile_for_cold_start_floor(
+    monkeypatch, tmp_path
+):
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    monkeypatch.setattr(runner, "_axiom_profile_check_enabled", lambda: True)
+    args = {
+        "action": "check_helper",
+        "file_path": str(active),
+        "theorem_id": "demo",
+        "replacement": "private lemma helper : True := by trivial",
+        "timeout_s": 60,
+    }
+
+    runner._inject_exact_candidate_axiom_profile(
+        "lean_incremental_check",
+        args,
+        {
+            "current_queue_assignment": {
+                "target_symbol": "demo",
+                "active_file": str(active),
+            }
+        },
+    )
+
+    assert args["include_axiom_profile"] is True
+
+
 def test_campaign_expands_bare_target_proof_with_locked_signature(monkeypatch, tmp_path):
     active = tmp_path / "Main.lean"
     active.write_text("theorem demo (P : Prop) (h : P) : P := by\n  sorry\n", encoding="utf-8")
