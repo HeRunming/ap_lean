@@ -91,6 +91,47 @@ private lemma sum_pi_weights_eq_one
   rw [← Fintype.prod_sum]
   simp [hsum]
 
+private lemma sum_pi_apply_weight
+    {ι κ : Type} [Fintype ι] [Fintype κ] [DecidableEq κ]
+    (w f : ι → ℝ) (hsum : (∑ i, w i) = 1) (j : κ) :
+    (∑ s : κ → ι, (∏ l : κ, w (s l)) * f (s j)) = ∑ i, w i * f i := by
+  classical
+  let g : κ → ι → ℝ := fun l i => if l = j then w i * f i else w i
+  have hpoint : ∀ s : κ → ι, (∏ l : κ, w (s l)) * f (s j) = ∏ l : κ, g l (s l) := by
+    intro s
+    have hj : j ∈ (Finset.univ : Finset κ) := Finset.mem_univ j
+    calc
+      (∏ l : κ, w (s l)) * f (s j)
+          = (w (s j) * ∏ x ∈ (Finset.univ : Finset κ) \ {j}, w (s x)) * f (s j) := by
+              rw [Finset.prod_eq_mul_prod_diff_singleton (s := (Finset.univ : Finset κ)) (i := j) hj]
+      _ = (w (s j) * f (s j)) * ∏ x ∈ (Finset.univ : Finset κ) \ {j}, w (s x) := by ring
+      _ = ∏ l : κ, g l (s l) := by
+              rw [Finset.prod_eq_mul_prod_diff_singleton (s := (Finset.univ : Finset κ)) (i := j) hj]
+              simp only [g, if_true]
+              congr 1
+              apply Finset.prod_congr rfl
+              intro l hl
+              have hlne : l ≠ j := by simpa using (Finset.mem_sdiff.mp hl).2
+              simp [hlne]
+  calc
+    (∑ s : κ → ι, (∏ l : κ, w (s l)) * f (s j))
+        = ∑ s : κ → ι, ∏ l : κ, g l (s l) := by
+          exact Finset.sum_congr rfl (fun s _ => hpoint s)
+    _ = ∏ l : κ, ∑ i : ι, g l i := by
+          rw [Fintype.prod_sum]
+    _ = ∑ i : ι, w i * f i := by
+          rw [Finset.prod_eq_mul_prod_diff_singleton (s := (Finset.univ : Finset κ)) (i := j) (Finset.mem_univ j)]
+          simp only [g, if_true]
+          have hrest : (∏ x ∈ Finset.univ \ {j}, ∑ i, (if x = j then w i * f i else w i)) = 1 := by
+            have hterm : ∀ x ∈ (Finset.univ \ {j} : Finset κ), (∑ i, (if x = j then w i * f i else w i)) = 1 := by
+              intro x hx
+              have hxne : x ≠ j := by simpa using (Finset.mem_sdiff.mp hx).2
+              simp [hxne, hsum]
+            rw [Finset.prod_congr rfl hterm]
+            simp
+          rw [hrest]
+          ring
+
 theorem approximate_caratheodory_equal_weights
     (n : ℕ) (T : Set (EuclideanSpace ℝ (Fin n)))
     (hT : ∀ y ∈ T, ‖y‖ ≤ 1) :
