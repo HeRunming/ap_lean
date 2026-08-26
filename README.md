@@ -1,35 +1,262 @@
-# LeanFlow
+# AP Lean / LeanFlow Harness
 
-**LeanFlow is a Lean-first AI automation tool.** It drives a language model
-inside a real Lean 4 project to repair proofs, formalize mathematics from source
-documents, and complete proof workflows until no `sorry` remains.
+**A research harness for autonomous, book-scale mathematical formalization in Lean 4.**
 
-Point it at a Lean file or project and it inspects diagnostics and goals, edits proofs, re-verifies with Lean after every step, and keeps going — with workflow logs, checkpoints, and resumable state — until the target actually builds clean.
+The long-term goal is not only to prove isolated Lean theorems. It is to build an
+end-to-end system that can start from a mathematical book, recover its mathematical
+structure, and formalize the resulting theory in dependency order until the whole
+selected corpus is kernel-verified.
 
-```bash
-leanflow                          # interactive shell
-leanflow workflow prove Main.lean # or run a workflow directly
-leanflow workflow prove Main.lean --provider codex --research
-leanflow workflow prove Main.lean --provider rcp --model zai-org/GLM-5.2
+```text
+PDF / TeX / structured QA source
+        │
+        ▼
+source extraction + provenance
+        │
+        ▼
+mathematical items + source foundations
+        │
+        ▼
+book manifest + typed dependency graph
+        │
+        ▼
+dependency-aware ready frontier
+        │
+        ▼
+statement formalization
+        │
+        ▼
+theory building + proof search + retrieval
+        │
+        ▼
+Lean verification
+        │
+        ├──► promote reusable verified declarations
+        ├──► refine dependencies / shared library
+        └──► checkpoint campaign state
+                     │
+                     ▼
+          repeat until the book closes
 ```
 
-## Features
+The working thesis is that **book-scale autoformalization is primarily a
+dependency-aware theory-building problem, not only a tactic-level proof-search
+problem**. A plausible proof, a successful search, or a large amount of model work is
+not progress by itself. The durable unit of progress is a source-grounded declaration
+that Lean has verified and that later nodes can safely reuse.
 
-- **Proof repair** — completes and fixes Lean proofs one declaration at a time, re-verifying with Lean after every edit (warm LeanProbe incremental checks, with Lake as the final gate). A run is "done" only when the code builds with no open goals and no `sorry`.
-- **Formalization** — turns a LaTeX/PDF source document, TeX project, or parser-produced QA JSON manifest into a buildable, statement-verified Lean draft with source-linked declarations, then hands off to proof repair.
-- **Whole-project verification** — scans a project for remaining `sorry`s, ranks the files by dependency and difficulty, and works them in order until the project is clean.
-- **Resumable** — every run records activity, logs, checkpoints, file locks, and its work queue under the project, so long sessions resume without starting blind.
-- **Grounded research** — research mode combines Lean and mathlib search with
-  bounded exploration of local code, public repositories, papers, and the web;
-  failed routes and reusable findings remain in durable workflow state.
-- **Flexible providers** — Codex OAuth, direct provider APIs,
-  OpenAI-compatible endpoints, and local runtimes (vLLM, Ollama, or llama.cpp).
-- **Host isolation** — an optional sandbox runs the agent in a container and exports the result as a patch, never touching your working tree.
-- **Opt-in multi-agent** — file-lock-aware swarm mode for concurrent work, off by default.
+## Research goal
 
-The scope is deliberately narrow: Lean automation, not a general chat assistant.
+We want a system that can take a source such as a PDF textbook and autonomously:
+
+1. extract definitions, theorems, propositions, examples, exercises, and useful source
+   foundations while retaining source provenance;
+2. normalize those objects into stable mathematical items;
+3. recover explicit and implicit dependencies and construct a book-level DAG;
+4. schedule work from the bottom of the DAG upward, prioritizing nodes whose hard
+   prerequisites are already verified;
+5. translate informal statements into faithful Lean declarations;
+6. synthesize missing bridge lemmas when Mathlib does not expose the exact interface
+   needed by the source mathematics;
+7. prove each node with bounded retrieval, proof search, decomposition, and reusable
+   local theory building;
+8. verify every promoted declaration with Lean before it becomes a dependency for
+   downstream work;
+9. promote genuinely reusable verified material into a shared local library; and
+10. persist failures, costs, dependencies, checkpoints, and partial progress so a
+    long-running whole-book campaign can resume rather than restart.
+
+The dependency graph is therefore both a planning artifact and an evolving research
+object. Some edges come directly from the source, some are inferred as useful
+foundations, and additional dependencies may only become visible while formalizing a
+node. The system should be able to validate, reject, and repair those edges over time.
+
+## What already exists on this branch
+
+This branch contains substantially more of that pipeline than the root README
+previously described.
+
+### 1. Source extraction and provenance
+
+`leanflow_cli/formalization/document_extraction.py` implements the extraction layer for
+text, LaTeX, PDF-derived material, and parser-produced QA JSON. For structured QA
+corpora it preserves labels, statements, optional reference solutions, declared
+`uses`/dependencies, page information, source locators, crop boxes, and visual-audit
+metadata.
+
+The important contract is that source text remains the statement source of truth.
+Natural-language solutions may help the prover, but they are hints rather than proof
+fidelity constraints.
+
+### 2. Whole-corpus planning
+
+`leanflow_cli/formalization/corpus_planning.py` builds durable book-level planning
+artifacts rather than treating each theorem as an unrelated prompt. The current plan
+includes:
+
+- a stable item inventory and source batches;
+- source-declared foundations and dependencies;
+- conservative mathematical concept extraction;
+- typed dependency edges;
+- a topological execution plan with source-order tie breaking;
+- candidate shared-library structure; and
+- reusable-concept and declaration-placement metadata.
+
+The canonical corpus artifacts are:
+
+```text
+BookBlueprint.md
+book-manifest.json
+dependency-graph.json
+reuse-registry.json
+library-architecture.json
+declaration-placement.json
+campaign.json
+```
+
+### 3. A deliberately non-authoritative dependency graph
+
+The current planner distinguishes two important classes of edge.
+
+**Declared dependencies** are recorded as `declared_unverified`. They are treated as
+hard scheduling constraints, but they are still explicitly marked unverified until the
+formalization validates the corresponding Lean interface.
+
+**Inferred `candidate` dependencies** are currently conservative retrieval/reuse hints,
+for example from recurring concepts and nearby source structure. They are not silently
+promoted into mathematical truth and do not become hard imports merely because a
+heuristic suggested them.
+
+This distinction is intentional. Reliable full-book dependency recovery is a core
+research problem, not something the repository should claim is already solved.
+
+### 4. Bottom-up, dependency-aware campaigns
+
+`leanflow_cli/formalization/corpus_campaign.py` turns a corpus plan into a resumable
+campaign. It tracks statement and proof stages separately and computes a ready
+frontier from dependency status.
+
+Hard predecessors must reach the required verified stage before a dependent batch is
+selected. Soft/candidate predecessors influence reuse-aware prioritization without
+blocking all progress. Within the available frontier, the scheduler can prefer cheaper,
+less repeatedly-failed work rather than spending the entire budget on one local
+blocker.
+
+`corpus_campaign_runner.py` carries the campaign through durable attempts and outcomes,
+while the rest of the LeanFlow workflow state provides checkpoints, activity logs,
+research findings, and resumability.
+
+### 5. Verified reuse and local theory growth
+
+The corpus planner already has a conservative promotion policy for shared material:
+promote a candidate only after it has two verified consumers or when it corresponds to
+an explicit source-level definition. Domain-level shared modules are scaffolds, not
+automatic imports; verified declarations are required before reuse is trusted.
+
+This is meant to let the formalized book gradually become its own useful local library
+instead of repeatedly reproving the same bridge facts in isolated theorem files.
+
+### 6. Lean-first proof and verification engine
+
+The existing LeanFlow proof workflows remain the execution engine underneath the
+book-scale planner:
+
+- declaration-by-declaration proof repair;
+- Lean diagnostics and proof-state inspection;
+- incremental LeanProbe checks with Lake as the final build gate;
+- bounded Mathlib / semantic / local-code retrieval;
+- research and theory-building lanes;
+- resumable workflow state and failed-route memory;
+- optional file-lock-aware multi-agent execution; and
+- sandboxed runs that can export changes without touching the host working tree.
+
+A run is not successful because the model produced plausible Lean. It is successful
+only when the requested Lean scope verifies.
+
+## The target node lifecycle
+
+At book scale, it is useful to think of each mathematical node as moving through a
+lifecycle like:
+
+```text
+extracted
+  → normalized
+  → dependency-resolved
+  → statement-verified
+  → proof-verified
+  → reusable/promoted
+```
+
+Not every one of these names is a literal runtime enum today. They describe the system
+boundary we want the harness to enforce: downstream automation should consume verified
+artifacts whenever possible, and uncertainty should remain explicit rather than being
+hidden inside generated code.
+
+## What is still open
+
+The current branch is an implementation scaffold for the full vision, not evidence that
+whole-book autonomous formalization is solved. The main research problems include:
+
+- **PDF-to-math fidelity.** Recovering mathematical items, notation, theorem boundaries,
+  figures, references, and source foundations robustly across real books.
+- **Dependency recovery.** Inferring hidden mathematical prerequisites rather than only
+  literal source references or lexical concept overlap.
+- **Edge verification and graph repair.** Converting candidate edges into verified Lean
+  dependencies, rejecting false edges, discovering missing bridges, and handling cycles.
+- **Statement fidelity.** Distinguishing a theorem that merely typechecks from one that
+  faithfully represents the source statement.
+- **Theory building.** Materializing intermediate Lean declarations when the desired
+  mathematics is not available as a one-shot Mathlib theorem.
+- **Shared-library architecture.** Deciding when a helper should remain local, become a
+  domain module, or be generalized for broader reuse.
+- **Long-horizon scheduling.** Allocating model calls and verification time across a DAG
+  without repeatedly exhausting budget on a small set of blockers.
+- **Dynamic replanning.** Updating readiness, complexity, dependencies, and priorities as
+  verified declarations and new failure evidence arrive.
+- **Whole-book closure.** Defining and measuring completion in terms of source coverage,
+  statement fidelity, dependency closure, verified proofs, and explicit exclusions.
+
+## Design principles
+
+A few principles guide the current harness:
+
+- **Lean verification is the gate.** Searches, model confidence, and token usage are not
+  substitutes for verified declarations.
+- **Source provenance stays attached.** A formal statement should remain auditable
+  against the PDF/TeX/QA item from which it came.
+- **Dependencies are typed and uncertainty is explicit.** Candidate edges are not treated
+  as verified imports.
+- **Build bottom-up.** Prefer nodes whose prerequisites are already available; let early
+  verified foundations unlock later work.
+- **Grow reusable theory, not a pile of isolated answers.** Successful bridge lemmas
+  should reduce the cost of downstream formalization.
+- **Failures are durable data.** Retrieval failures, statement blockers, proof blockers,
+  infrastructure failures, and budget limits should inform later scheduling.
+- **Long runs must resume.** Whole-book campaigns are too expensive and stateful to rely
+  on one uninterrupted agent session.
+
+## Relation to existing formalization workflows
+
+The project is complementary to blueprint-driven Lean development. The Lean community's
+`leanblueprint` tooling makes dependencies between human-written mathematical statements
+explicit and connects blueprint nodes to Lean declarations. That is a useful model for
+what a trustworthy dependency graph should expose.
+
+ATLAS demonstrates that LLM-based textbook formalization can be scaled to many books and
+provides a library/visualizer with informal statements, Lean code, and logical dependency
+graphs. The focus of this harness is especially on the **process that produces and closes
+such a graph autonomously**: source extraction, dependency recovery, ready-frontier
+scheduling, theory building, Lean verification, reuse, budget control, and resumability.
+
+Related projects:
+
+- Lean Blueprint: <https://github.com/PatrickMassot/leanblueprint>
+- Lean project template for blueprint-driven formalization: <https://github.com/leanprover-community/LeanProject>
+- ATLAS: <https://github.com/facebookresearch/atlas-lean>
 
 ## Install
+
+This branch retains LeanFlow's normal development and workflow interface.
 
 ```bash
 git clone https://github.com/epfl-lara/LeanFlow.git
@@ -41,25 +268,25 @@ Verify the install:
 
 ```bash
 leanflow --help
-leanflow doctor          # checks the Lean toolchain, MCP backends, and external tools
+leanflow doctor
 ```
 
-`doctor` also checks the external CLIs the workflows use: `rg` for local search and Poppler's
-`pdftotext` / `pdfinfo` / `pdfimages` for reading PDF sources.
+`doctor` checks the Lean toolchain, MCP backends, and external tools used by the
+workflows, including `rg` and Poppler utilities for PDF processing.
 
 ## Quick start
 
-Register an existing Lean project, then run a workflow:
+Register an existing Lean project and run a workflow:
 
 ```bash
 cd /path/to/lean-project
-leanflow project init                  # registers the project (and sets up Lean acceleration when safe)
-leanflow workflow prove Main.lean      # repair proofs in a file
-leanflow workflow formalize paper.tex  # formalize a source document
-leanflow workflow formalize book.qa.json  # consume extracted QA items
+leanflow project init
+leanflow workflow prove Main.lean
+leanflow workflow formalize paper.tex
+leanflow workflow formalize book.qa.json
 ```
 
-Or use the interactive shell (the leading `/` is optional):
+Or use the interactive shell:
 
 ```bash
 leanflow
@@ -72,67 +299,54 @@ leanflow
 /skills   /provider   /doctor   /mcp status   /exit
 ```
 
-From another terminal, `leanflow status` returns a bounded live summary without
-waiting on the sandbox engine. Use `leanflow status --verbose` only when you
-also want the larger run history and a live sandbox-engine probe.
+From another terminal, `leanflow status` returns a bounded live summary. Use
+`leanflow status --verbose` when you also want larger run history and a live sandbox
+engine probe.
 
-When it can do so safely, `project init` also prepares Lean REPL acceleration (adds the
-`leanprover-community/repl` dependency and builds it) and local `lean-lsp-mcp` power modes — local
-Loogle, REPL-backed tactic screening for `lean_multi_attempt`, and optional local LeanExplore
-semantic search (`lean-explore[local]`). Anything unavailable falls back cleanly and is reported by
-`leanflow doctor`.
+## What a proof run guarantees
 
-## What a run guarantees
+A `prove` run is not done because the agent made a plausible edit. A successful run
+ends with:
 
-A `prove` run is not "done" because the agent made a plausible edit — it is done only when Lean agrees. A successful run ends with:
+- the relevant Lean code building;
+- clean diagnostics and no open goals;
+- no `sorry` in the active target; and
+- no remaining project `sorry` outside dependencies in the requested scope.
 
-- the relevant Lean code building
-- clean diagnostics and no open goals
-- no `sorry` in the active target
-- no remaining project `sorry` outside dependencies
+LeanFlow works in small verified steps. Failed proof attempts are recorded and the file
+is kept buildable. Research findings remain advisory until they pass the same Lean
+verification gates as foreground work.
 
-LeanFlow reaches that by working in small, Lean-verified steps rather than one big edit:
+Useful modes include:
 
-- **`prove <file>`** drives the model one declaration at a time, re-checking with Lean after every edit and advancing only when the target is clean. Failed attempts are recorded and the original `sorry` is restored, so the file always stays buildable.
-- **`prove`** (no file) scans the project for remaining `sorry`s, ranks the files, and works them one at a time. Parallel agents stay off unless you opt into swarm mode.
-- **`prove --research`** keeps the foreground prover moving while a bounded
-  portfolio explores grounding, counterexamples, decompositions, and alternate
-  routes. Research findings remain advisory until they pass the same Lean
-  verification gates as foreground work, and exhausted branches are retained
-  instead of rediscovered. Repository and prior-solution research can be
-  disabled for clean-room benchmarks; see the
-  [product reference](docs/product-reference.md#relentless-proving-and-research-mode).
-- **`prove --clean-room`** disables repository-backed and task-specific
-  prior-solution research for one benchmark run while retaining general web,
-  paper, and local library search. Add one or more `--clean-room-label`
-  spellings when the file name alone does not identify the benchmark. Managed
-  writes remain limited to the assigned Lean source, its exact `Helpers.lean`
-  companion, and durable workflow state.
-- **`prove --human-review`** explicitly permits the orchestrator to park an
-  ambiguous goal for human review. Without this flag, uncertainty is recorded
-  and the workflow continues autonomously without changing the source statement.
-- **`formalize` / `autoformalize`** turn a LaTeX/PDF source or QA JSON manifest into a buildable Lean draft with source-linked statements and intentional `sorry`s. Natural-language solutions in QA JSON are optional prover hints, not proof-fidelity constraints. The draft is handed off once it builds and its statement/source review is approved; you then run `/prove` to fill in the proofs.
+```bash
+leanflow workflow prove Main.lean --research
+leanflow workflow prove Main.lean --clean-room
+leanflow workflow prove Main.lean --human-review
+leanflow workflow prove Main.lean --agents 3
+```
 
-Headless proof outcomes are explicit: `0` means verified, `3` means an authoritatively promoted
-main-goal disproof, `2` means unresolved but checkpointed/resumable, `1` is a startup/runtime
-failure, and `130` is a signal interruption. LeanFlow never returns success while the requested
-scope still contains `sorry`.
-
-The deeper mechanics (LaTeX preflight, the blueprint/verifier handoff, the project prove-manager, queue and checkpoint internals) are in the [product reference](docs/product-reference.md).
+Headless proof outcomes are explicit: `0` means verified, `3` means an authoritatively
+promoted main-goal disproof, `2` means unresolved but checkpointed/resumable, `1` is a
+startup/runtime failure, and `130` is a signal interruption.
 
 ## Workflows
 
 - `prove` — repair and complete existing Lean proofs.
-- `formalize` — turn a LaTeX/PDF source document or TeX project into statement-verified Lean declarations; `/prove` then fills the resulting `sorry`s.
+- `formalize` — turn a LaTeX/PDF source, TeX project, or structured QA corpus into
+  statement-verified Lean declarations; proof workflows then fill the resulting
+  obligations.
 - `draft` — create Lean declarations and proof skeletons.
 - `review` — inspect blockers, diagnostics, goals, and remaining `sorry`.
 - `refactor` / `golf` — simplify existing Lean code without breaking verification.
 
-`autoprove` and `autoformalize` are compatibility aliases of `prove` and `formalize`.
+`autoprove` and `autoformalize` remain compatibility aliases of `prove` and
+`formalize`.
 
-## Sandbox (host isolation)
+## Sandbox
 
-Run a workflow inside a container so the model can edit freely without touching your working tree:
+Run a workflow in an isolated container when you do not want the agent editing the host
+working tree directly:
 
 ```bash
 ./scripts/install-sandbox.sh
@@ -141,108 +355,62 @@ leanflow-sandbox workflow prove Main.lean
 leanflow sandbox status
 ```
 
-The sandbox builds a local Docker/Podman image, copies the active project into a per-run worktree,
-and exports the final diff as `changes.patch` under `~/.leanflow/sandbox/runs/<run-id>/`. See the
-[sandbox runtime](docs/sandbox-runtime.md) doc for image options and the update flow.
+The sandbox exports the final diff as `changes.patch` under
+`~/.leanflow/sandbox/runs/<run-id>/`.
 
 ## Providers and local runtimes
 
-Inspect the active route with `leanflow provider`. For an RCP deployment with
-model-family-specific credentials:
-
-```bash
-export GLM_BASE_URL="https://inference.rcp.epfl.ch/v1"
-export GLM_API_KEY="..."
-export RCP_OPENAI_BASE_URL="https://inference.rcp.epfl.ch/v1"
-export RCP_OPENAI_API_KEY="..."
-leanflow workflow prove Main.lean --provider rcp --model zai-org/GLM-5.2
-```
-
-`--model` is scoped to that workflow and is propagated to its foreground,
-manager, planner, advisor, and compression calls. The general `custom` route
-remains available for other OpenAI-compatible endpoints through
-`LEANFLOW_OPENAI_BASE_URL` and `LEANFLOW_OPENAI_API_KEY`.
-
-To use an existing Codex CLI login (model and reasoning effort are read from `~/.codex/config.toml`
-unless `LEANFLOW_CODEX_MODEL` / `LEANFLOW_CODEX_REASONING_EFFORT` are set):
+LeanFlow supports Codex OAuth, direct provider APIs, OpenAI-compatible endpoints, and
+local runtimes such as vLLM, Ollama, and llama.cpp.
 
 ```bash
 codex login
 leanflow config set model.provider codex
-```
 
-An explicit workflow provider applies its resolved model and reasoning effort
-to the foreground prover and every model-backed auxiliary lane for that launch.
-Process environment values take precedence over `~/.leanflow/.env`, so
-launch-scoped `LEANFLOW_CODEX_MODEL` and
-`LEANFLOW_CODEX_REASONING_EFFORT` overrides remain authoritative.
-
-To run a local model server (`vllm`, `ollama`, or `llama.cpp`):
-
-```bash
 leanflow models local start vllm google/gemma-3-27b-it
 leanflow provider --requested local
 ```
 
-Override the provider for a single run without changing the saved default:
-
-```bash
-leanflow workflow --provider codex prove Main.lean
-```
-
-Run a clean-room benchmark without weakening normal research for later work:
-
-```bash
-leanflow workflow prove Benchmarks/P2.lean \
-  --provider rcp --model zai-org/GLM-5.2 --research \
-  --clean-room --clean-room-label "Benchmark Problem 2"
-```
-
-## Multi-agent mode
-
-LeanFlow does not spawn agents by default. Opt into swarm mode only when you want concurrent Lean work:
-
-```bash
-leanflow workflow prove Main.lean --agents 3
-```
-
-Swarm mode uses file-lock-aware delegation: locks live in `.leanflow/workflow-state/file_locks.json`,
-and file-write tools reject edits when another agent owns the file. Use `--prompt` for run-specific
-guidance on top of the Lean-first workflow contract:
-
-```bash
-leanflow workflow prove Main.lean --prompt "try abs_abs_sub before ring_nf"
-```
+An explicit workflow provider/model is launch-scoped and propagates to model-backed
+auxiliary lanes for that run.
 
 ## Project state
 
-LeanFlow keeps user-level state separate from per-project workflow state:
+LeanFlow separates user state from project workflow state:
 
-- user config: `~/.leanflow/config.yaml`  ·  user env: `~/.leanflow/.env`
-- project manifest: `.leanflow/project.yaml`  ·  project workflow state: `.leanflow/workflow-state/`
+- user config: `~/.leanflow/config.yaml`
+- user env: `~/.leanflow/.env`
+- project manifest: `.leanflow/project.yaml`
+- project workflow state: `.leanflow/workflow-state/`
 
-Workflow state holds activity, logs, checkpoints, file locks, route decisions,
-failed-attempt history, research findings, project plans, and outcomes. Safe
-provider or infrastructure pauses checkpoint current source and return a
-resumable status instead of discarding progress.
+Workflow state stores activity, logs, checkpoints, file locks, route decisions,
+failed-attempt history, research findings, project plans, and outcomes. Safe provider or
+infrastructure pauses checkpoint current progress instead of discarding it.
 
-## Skills and specs
+## Repository map
 
-LeanFlow steers the agent with a small curated Lean skill core in `leanflow_skills/` (e.g.
-`lean-proof-loop`, `lean-theorem-queue-worker`, `lean-diagnostics`, `lean-formalization`,
-`lean-search`, `lean-refactor-golf`). The canonical
-workflow contract lives in markdown specs under `leanflow_specs/workflows/` and `leanflow_specs/workers/`.
+The book-scale work is concentrated in the formalization layer:
 
-Skills route the agent to the right workflow behavior; specs define the native tool order, verification
-gates, and worker recommendations. Keep skills thin — if a rule changes the workflow contract, put it in
-the linked spec and have the skill point to it rather than duplicating the procedure.
+```text
+leanflow_cli/formalization/
+  document_extraction.py       source / PDF / QA extraction
+  corpus_planning.py           book manifest, DAG, execution plan, library architecture
+  corpus_campaign.py           resumable dependency-aware campaign scheduling
+  corpus_campaign_runner.py    durable statement/proof campaign execution
+  corpus_reuse.py              reuse and shared-declaration machinery
+  bounded_statement_refinement.py
+                               bounded statement-generation/refinement loop
+```
 
-## Documentation
+The broader execution engine lives under `leanflow_cli/lean/`,
+`leanflow_cli/workflows/`, `core/`, and the workflow/skill specifications.
 
-- [Product reference](docs/product-reference.md) — the full feature documentation.
-- [Sandbox runtime](docs/sandbox-runtime.md) — the isolated container runtime, patch export, and update flow.
-- [Architecture](ARCHITECTURE.md) — the module map and internals.
-- [Contributing / agent guide](AGENTS.md) — coding standards, the quality gate, and the repo's gotchas.
+For deeper implementation details see:
+
+- [Product reference](docs/product-reference.md)
+- [Sandbox runtime](docs/sandbox-runtime.md)
+- [Architecture](ARCHITECTURE.md)
+- [Contributing / agent guide](AGENTS.md)
 
 ## Development
 
@@ -252,17 +420,14 @@ source .venv/bin/activate
 python -m pip install -e '.[dev]'
 ```
 
-Run the quality gate before committing (CI enforces all four):
+Run the quality gate before committing:
 
 ```bash
-black .                # format (https://github.com/psf/black); CI checks with `black --check .`
-ruff check .           # lint (incl. unused-import F401)
-mypy                   # type-check the gated module set
-python -m pytest -q    # full suite
+black .
+ruff check .
+mypy
+python -m pytest -q
 ```
-
-Coding standards, the layering rules, and the gotchas to avoid are in [AGENTS.md](AGENTS.md); the
-module map is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## License
 
