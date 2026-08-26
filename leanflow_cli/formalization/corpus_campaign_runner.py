@@ -1657,10 +1657,11 @@ def recover_agent_verified_proof(
                 matches.append((str(record.get("timestamp", "") or ""), payload, evidence))
     before = target.read_bytes()
     source = before.decode("utf-8")
+    indexed_declarations = _declaration_line_index_from_text(source)
     target_declaration = next(
         (
             (str(item.get("name", "") or ""), str(item.get("text", "") or ""))
-            for item in _declaration_line_index_from_text(source)
+            for item in indexed_declarations
             if str(item.get("name", "") or "")
             in {str(value) for value in batch.get("declarations", []) or []}
             or (
@@ -1670,6 +1671,21 @@ def recover_agent_verified_proof(
         ),
         ("", ""),
     )
+    # A crash/finalization race may occur after the successful check_target
+    # candidate was already CAS-committed.  Older campaign batches do not
+    # carry a declaration list, so recover the only theorem/lemma in that
+    # file and authenticate it against the durable tool-result evidence below.
+    if not target_declaration[0]:
+        proof_declarations = [
+            item
+            for item in indexed_declarations
+            if str(item.get("kind", "") or "") in {"theorem", "lemma"}
+        ]
+        if len(proof_declarations) == 1:
+            target_declaration = (
+                str(proof_declarations[0].get("name", "") or ""),
+                str(proof_declarations[0].get("text", "") or ""),
+            )
     declaration_name, old_declaration = target_declaration
     activity_matches: list[tuple[str, str, Path]] = []
     activity_roots = [root / ".leanflow" / "workflow-state" / "activity" / "agents"]

@@ -863,10 +863,20 @@ def test_recover_agent_verified_proof_commits_durable_candidate(tmp_path, monkey
     assert persisted["batches"][0]["agent_status"] == "proofs_completed"
 
 
-def test_recover_agent_verified_proof_from_checked_target_activity(tmp_path, monkeypatch):
+@pytest.mark.parametrize("already_committed", [False, True])
+def test_recover_agent_verified_proof_from_checked_target_activity(
+    tmp_path, monkeypatch, already_committed
+):
     target = tmp_path / "Book" / "Main.lean"
     target.parent.mkdir(parents=True)
-    target.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
+    target.write_text(
+        (
+            "theorem demo : True := by\n  trivial\n"
+            if already_committed
+            else "theorem demo : True := by sorry\n"
+        ),
+        encoding="utf-8",
+    )
     campaign_path = tmp_path / "campaign.json"
     campaign_path.write_text(
         json.dumps(

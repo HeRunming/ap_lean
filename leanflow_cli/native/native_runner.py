@@ -5848,7 +5848,12 @@ def _auto_commit_campaign_checked_target(
         with contextlib.suppress(Exception):
             agent._managed_pending_theorem_feedback = None
             agent._managed_step_boundary_closed = True
-            _request_step_boundary_interrupt(agent)
+            # Do not interrupt from inside the post-tool callback.  The
+            # callback still has to run the authoritative manager/file gate;
+            # signalling here can let that gate pass and then poison the
+            # post-quiescence recheck with ``Command interrupted``.  Closing
+            # the managed boundary is sufficient to prevent more theorem work
+            # while the normal callback/outer-loop finalization completes.
     return committed
 
 

@@ -14546,7 +14546,9 @@ def test_campaign_auto_commits_exact_checked_target(monkeypatch, tmp_path):
 
     assert committed is True
     assert active.read_text(encoding="utf-8") == replacement + "\n"
-    assert interrupts == [runner.WORKFLOW_STEP_BOUNDARY_INTERRUPT]
+    # The manager/file gate runs later in the same post-tool callback.  An
+    # immediate signal here would race that authoritative verification.
+    assert interrupts == []
     assert agent._managed_step_boundary_closed is True
 
 
