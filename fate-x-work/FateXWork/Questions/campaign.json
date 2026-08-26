@@ -3,20 +3,20 @@
   "source": "HDP/source/full/qa/questions.json",
   "status": "active",
   "batch_count": 367,
-  "completed_batch_count": 7,
-  "agent_e2e_completed_batch_count": 7,
+  "completed_batch_count": 8,
+  "agent_e2e_completed_batch_count": 8,
   "manual_gold_completed_batch_count": 0,
   "agent_e2e_statement_completed_batch_count": 27,
   "failure_class_counts": {
-    "budget_limit": 66,
+    "budget_limit": 67,
     "statement_generation_incomplete": 38,
     "infrastructure": 15,
-    "proof_incomplete": 6
+    "proof_incomplete": 7
   },
   "statement_completed_batch_count": 27,
   "item_count": 366,
   "batch_item_limit": 1,
-  "spent_usd": 179.41158,
+  "spent_usd": 180.38327,
   "budget_usd": 379.43448,
   "cost_policy": {
     "full_run_requires_explicit_budget": true,
@@ -2793,22 +2793,41 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-26T07:20:57+00:00",
+          "target_file": "FateXWork/Questions/Items066BBAC934/Main.lean",
+          "proof_obligations": 5,
+          "reason": "Per-action USD cost limit reached before the next provider request",
+          "usage": {
+            "prompt_tokens": 73133,
+            "completion_tokens": 2899,
+            "total_tokens": 76032
+          },
+          "cost_usd": 0.8183,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "budget_limit"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
         "success": false,
         "exit_code": 2,
-        "recorded_at": "2026-08-24T07:36:19+00:00",
+        "recorded_at": "2026-08-26T07:20:57+00:00",
         "target_file": "FateXWork/Questions/Items066BBAC934/Main.lean",
         "proof_obligations": 5,
         "reason": "Per-action USD cost limit reached before the next provider request",
         "usage": {
-          "prompt_tokens": 35685,
-          "completion_tokens": 819,
-          "total_tokens": 36504
+          "prompt_tokens": 73133,
+          "completion_tokens": 2899,
+          "total_tokens": 76032
         },
-        "cost_usd": 0.38142,
+        "cost_usd": 0.8183,
         "cost_source": "estimated",
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
@@ -3298,9 +3317,9 @@
       "source_complexity_score": 0,
       "source_complexity_tier": "routine",
       "source_subpart_count": 0,
-      "status": "statements_completed",
-      "agent_status": "statements_completed",
-      "completion_provenance": "mixed_or_partial",
+      "status": "proofs_completed",
+      "agent_status": "proofs_completed",
+      "completion_provenance": "agent_e2e",
       "attempts": [
         {
           "stage": "statements",
@@ -3360,26 +3379,66 @@
           "cost_scope": "primary_agent_only",
           "provenance": "agent",
           "failure_class": "budget_limit"
+        },
+        {
+          "stage": "proofs",
+          "success": false,
+          "exit_code": 2,
+          "recorded_at": "2026-08-26T07:19:46+00:00",
+          "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
+          "proof_obligations": 0,
+          "reason": "requested Lean scope no longer verifies after owned writers quiesced",
+          "usage": {
+            "prompt_tokens": 12723,
+            "completion_tokens": 872,
+            "total_tokens": 13595
+          },
+          "cost_usd": 0.15339,
+          "cost_source": "estimated",
+          "cost_scope": "primary_agent_only",
+          "provenance": "agent",
+          "failure_class": "proof_incomplete"
+        },
+        {
+          "stage": "proofs",
+          "success": true,
+          "exit_code": 0,
+          "reason": "recovered durable agent LeanProbe proof candidate",
+          "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
+          "proof_obligations": 0,
+          "cost_usd": 0.0,
+          "cost_source": "durable_agent_evidence",
+          "cost_scope": "no_additional_provider_call",
+          "provenance": "agent",
+          "recovery_evidence": ".leanflow/workflow-state/workers/campaign-a2ccfe73a6d0466eaceef552d02f0f94/activity/agents/prove-62663.jsonl",
+          "recovered_tactic": "exact target replacement recovered from successful LeanProbe check_target",
+          "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+          },
+          "recorded_at": "2026-08-26T07:33:07+00:00"
         }
       ],
       "last_outcome": {
         "stage": "proofs",
-        "success": false,
-        "exit_code": 2,
-        "recorded_at": "2026-08-24T09:36:56+00:00",
+        "success": true,
+        "exit_code": 0,
+        "reason": "recovered durable agent LeanProbe proof candidate",
         "target_file": "FateXWork/Questions/Items1261D0ADA8/Main.lean",
-        "proof_obligations": 1,
-        "reason": "Per-action USD cost limit reached before the next provider request",
-        "usage": {
-          "prompt_tokens": 52243,
-          "completion_tokens": 1794,
-          "total_tokens": 54037
-        },
-        "cost_usd": 0.57625,
-        "cost_source": "estimated",
-        "cost_scope": "primary_agent_only",
+        "proof_obligations": 0,
+        "cost_usd": 0.0,
+        "cost_source": "durable_agent_evidence",
+        "cost_scope": "no_additional_provider_call",
         "provenance": "agent",
-        "failure_class": "budget_limit"
+        "recovery_evidence": ".leanflow/workflow-state/workers/campaign-a2ccfe73a6d0466eaceef552d02f0f94/activity/agents/prove-62663.jsonl",
+        "recovered_tactic": "exact target replacement recovered from successful LeanProbe check_target",
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "recorded_at": "2026-08-26T07:33:07+00:00"
       }
     },
     {
