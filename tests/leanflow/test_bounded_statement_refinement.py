@@ -74,6 +74,23 @@ def test_statement_draft_handles_let_bindings_multiple_theorems_and_lambda_name(
     assert draft.declarations == ("helper", "first", "second", "limit")
 
 
+def test_statement_draft_ignores_forbidden_words_and_declarations_in_comments():
+    payload = json.dumps(
+        {
+            "lean_code": """import Mathlib
+/- The source calls this an axiom.
+lemma prose_only : False := by admit
+-/
+-- theorem prose_only_too : False := by admit
+theorem demo : True := by sorry
+""",
+            "declarations": ["demo"],
+        }
+    )
+
+    assert bounded.parse_statement_draft(payload).declarations == ("demo",)
+
+
 def test_retrieval_queries_ignore_fence_language_marker():
     assert bounded.parse_retrieval_queries("```lean\nconvexHull Euclidean norm\n```") == (
         "convexHull Euclidean norm",

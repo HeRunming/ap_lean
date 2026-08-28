@@ -1438,6 +1438,7 @@ def test_campaign_wave_fills_spare_capacity_after_routine_frontier(tmp_path):
     leased["batches"][0].pop("lease", None)
     leased["batches"][0]["status"] = "skipped"
     leased["batches"][0]["agent_status"] = "skipped"
+    leased["batches"][1].pop("lease", None)
     campaign_path.write_text(json.dumps(leased), encoding="utf-8")
 
     claims = lease_next_campaign_actions(

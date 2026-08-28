@@ -20,6 +20,7 @@ from typing import Any
 
 from leanflow_cli.formalization.campaign_store import read_campaign, update_campaign_file
 from leanflow_cli.formalization.corpus_campaign import record_campaign_outcome
+from leanflow_cli.lean.lean_parsing import _strip_lean_comments_and_strings
 from leanflow_cli.lean.lean_services import lean_search
 from leanflow_cli.workflows.verification_providers import (
     AUTOFORMALIZER_VERIFICATION_TASK,
@@ -286,7 +287,10 @@ def parse_statement_draft(text: str) -> StatementDraft:
         raise BoundedStatementRefinementError(
             "draft must contain Lean code with a sorry placeholder"
         )
-    forbidden = re.search(r"\b(?:admit|axiom|set_option\s+maxRecDepth|unsafe)\b", lean_code)
+    sanitized_code = _strip_lean_comments_and_strings(lean_code)
+    forbidden = re.search(
+        r"\b(?:admit|axiom|set_option\s+maxRecDepth|unsafe)\b", sanitized_code
+    )
     if forbidden:
         raise BoundedStatementRefinementError(
             f"draft contains forbidden statement-lane token: {forbidden.group(0)}"
@@ -294,7 +298,7 @@ def parse_statement_draft(text: str) -> StatementDraft:
     declaration_starts = list(
         re.finditer(
             r"(?m)^\s*(?:private\s+)?(?:theorem|lemma|def|abbrev|structure|class)\b",
-            lean_code,
+            sanitized_code,
         )
     )
     theorem_bodies: list[str] = []
@@ -304,15 +308,14 @@ def parse_statement_draft(text: str) -> StatementDraft:
         end = (
             declaration_starts[index + 1].start()
             if index + 1 < len(declaration_starts)
-            else len(lean_code)
+            else len(sanitized_code)
         )
-        block = lean_code[declaration.start() : end]
+        block = sanitized_code[declaration.start() : end]
         proof_markers = list(re.finditer(r":=\s*by\b", block))
         if not proof_markers:
             theorem_bodies.append("")
             continue
         body = block[proof_markers[-1].start() + 2 :]
-        body = re.sub(r"/-(?:.|\n)*?-/|--[^\n]*", "", body)
         theorem_bodies.append(re.sub(r"\s+", " ", body).strip())
     if not theorem_bodies or any(body != "by sorry" for body in theorem_bodies):
         raise BoundedStatementRefinementError(

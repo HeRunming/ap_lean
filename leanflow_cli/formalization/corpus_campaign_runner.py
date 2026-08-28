@@ -1979,6 +1979,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     campaign_path = Path(args.campaign).expanduser().resolve()
     project_root = Path(args.project_root).expanduser().resolve()
+    lake_path = Path(args.lake_executable).expanduser()
+    if not lake_path.is_absolute():
+        cwd_lake = lake_path.resolve()
+        project_lake = (project_root / lake_path).resolve()
+        if cwd_lake.is_file():
+            args.lake_executable = str(cwd_lake)
+        elif project_lake.is_file():
+            args.lake_executable = str(project_lake)
     refresh_campaign_source_complexity(campaign_path, project_root=project_root)
     if args.refine_statement_bounded:
         if args.reserve_usd is None or args.reserve_usd <= 0:
