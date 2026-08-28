@@ -31861,14 +31861,25 @@ def _consume_research_helper_parent_recheck_boundary(
     candidate state handles integration, rejection, and operational retries.
     """
     candidate_id = str(autonomy_state.get(_RESEARCH_HELPER_RECHECK_BOUNDARY_KEY, "") or "").strip()
-    if not candidate_id:
-        return ""
     target_symbol, active_file = _research_helper_assignment(autonomy_state, live_state)
     candidate = research_helper_candidate_priority.matching(
         autonomy_state,
         target_symbol=target_symbol,
         active_file=active_file,
     )
+    # The boundary marker is ephemeral autonomy state, while the candidate is
+    # durable plan state.  A provider-turn rollover or campaign-worker restart
+    # can therefore preserve ``awaiting_parent_recheck`` while losing only the
+    # marker.  Treat that durable state itself as the promised boundary so a
+    # requested route cannot suppress the parent check forever.
+    if (
+        not candidate_id
+        and candidate is not None
+        and candidate.state == research_helper_candidate_priority.AWAITING_RECHECK
+    ):
+        candidate_id = candidate.candidate_id
+    if not candidate_id:
+        return ""
     if (
         candidate is None
         or candidate.candidate_id != candidate_id

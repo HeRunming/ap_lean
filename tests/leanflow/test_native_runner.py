@@ -13856,6 +13856,10 @@ def test_parent_rechecks_checked_helper_before_orchestrator_and_fences_broad_sea
         "active_file": str(active),
         "reason": "existing requested route must survive the promised parent check",
     }
+    # Provider-turn rollover and campaign-worker restart preserve the durable
+    # candidate but not this ephemeral boundary marker.  The durable
+    # awaiting-recheck state must still force the promised parent check.
+    state.pop(runner._RESEARCH_HELPER_RECHECK_BOUNDARY_KEY, None)
     prompt = runner._consume_research_helper_parent_recheck_boundary(
         state,
         {"target_symbol": "demo", "active_file": str(active)},

@@ -58,6 +58,7 @@ LEAN_INCREMENTAL_TIMEOUT_DEFAULT_S: Final[int] = 60
 DISPATCH_WORKER_INCREMENTAL_TIMEOUT_FLOOR_S: Final[int] = 900
 RESEARCH_INCREMENTAL_TIMEOUT_FLOOR_S: Final[int] = 900
 PROFILED_HELPER_TIMEOUT_FLOOR_S: Final[int] = 900
+PROFILED_TARGET_TIMEOUT_FLOOR_S: Final[int] = 180
 _ADMISSION_DEADLINE_CHARGE_THRESHOLD_S: Final[float] = 0.05
 
 _PROBE: Any | None = None
@@ -595,6 +596,7 @@ def _effective_incremental_timeout_s(
     *,
     timeout_ceiling_s: int | None = None,
     profiled_helper: bool = False,
+    profiled_target: bool = False,
 ) -> tuple[int, bool, str, int | None]:
     """Return the effective timeout, adjustment policy, and normalized ceiling.
 
@@ -620,6 +622,9 @@ def _effective_incremental_timeout_s(
     elif profiled_helper and requested < PROFILED_HELPER_TIMEOUT_FLOOR_S:
         effective = PROFILED_HELPER_TIMEOUT_FLOOR_S
         policy = "profiled_helper_cold_start_floor"
+    elif profiled_target and requested < PROFILED_TARGET_TIMEOUT_FLOOR_S:
+        effective = PROFILED_TARGET_TIMEOUT_FLOOR_S
+        policy = "profiled_target_cold_start_floor"
 
     normalized_ceiling = None if timeout_ceiling_s is None else max(1, int(timeout_ceiling_s))
     hard_ceiling = configured_hard_timeout_s()
@@ -1750,6 +1755,11 @@ def lean_incremental_check(
     ephemeral_helper_check = leanflow_action == "check_helper" and (
         dispatch_worker_enabled() or include_axiom_profile
     )
+    profiled_target_check = (
+        leanflow_action == "check_target"
+        and bool(replacement.strip())
+        and include_axiom_profile
+    )
     (
         effective_timeout_s,
         timeout_adjusted,
@@ -1759,6 +1769,7 @@ def lean_incremental_check(
         requested_timeout_s,
         timeout_ceiling_s=timeout_ceiling_s,
         profiled_helper=ephemeral_helper_check,
+        profiled_target=profiled_target_check,
     )
     if low_memory_mode_enabled() and not ephemeral_helper_check:
         return _error_payload(

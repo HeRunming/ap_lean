@@ -1844,6 +1844,33 @@ def test_foreground_profiled_check_helper_uses_exact_ephemeral_backend(monkeypat
     assert observed["theorem_id"] == "demo"
 
 
+def test_profiled_target_candidate_has_bounded_cold_start_floor(monkeypatch):
+    monkeypatch.delenv("LEANFLOW_DISPATCH_WORKER", raising=False)
+    monkeypatch.delenv("LEANFLOW_RESEARCH_MODE", raising=False)
+    monkeypatch.setattr(li, "_PROBE", None)
+
+    effective, adjusted, policy, ceiling = li._effective_incremental_timeout_s(
+        60,
+        profiled_target=True,
+    )
+
+    assert effective == li.PROFILED_TARGET_TIMEOUT_FLOOR_S
+    assert adjusted is True
+    assert policy == "profiled_target_cold_start_floor"
+    assert ceiling is None
+
+    effective, adjusted, policy, ceiling = li._effective_incremental_timeout_s(
+        60,
+        timeout_ceiling_s=90,
+        profiled_target=True,
+    )
+
+    assert effective == 90
+    assert adjusted is True
+    assert policy == "profiled_target_cold_start_floor_capped_by_deadline"
+    assert ceiling == 90
+
+
 @pytest.mark.parametrize("output_truncated", [False, True])
 def test_profiled_check_helper_preserves_elaboration_diagnostics(
     monkeypatch,
