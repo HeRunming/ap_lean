@@ -31901,6 +31901,7 @@ def _consume_research_helper_parent_recheck_boundary(
         autonomy_state,
         live_state,
         agent=agent,
+        promised_boundary=True,
     )
 
 
@@ -32153,6 +32154,7 @@ def _recheck_pending_research_helper_if_due(
     live_state: Mapping[str, Any] | None,
     *,
     agent: Any = None,
+    promised_boundary: bool = False,
 ) -> str:
     """Parent-check one staged exact helper before broad routing or search."""
     target_symbol, active_file = _research_helper_assignment(autonomy_state, live_state)
@@ -32226,7 +32228,12 @@ def _recheck_pending_research_helper_if_due(
                 active_file=active_file,
             )
         return ""
-    if consumption_pending:
+    # Once apply_verified_patch has explicitly yielded a provider boundary,
+    # the manager owes this exact candidate an accept/reject verdict.  A
+    # durable consumption marker from an earlier helper may still constrain
+    # ordinary candidate delivery, but must not turn the promised check into
+    # a silent no-op and make the model request the same boundary forever.
+    if consumption_pending and not promised_boundary:
         with contextlib.suppress(Exception):
             _sync_research_helper_integration_admission(
                 agent,
@@ -32564,6 +32571,8 @@ def _recheck_pending_research_helper_if_due(
             elapsed_s=round(max(0.0, time.monotonic() - started), 3),
             campaign_progress=False,
         )
+        if consumption_pending:
+            return _research_helper_consumption_prompt(autonomy_state, ready)
         return _research_helper_priority_prompt(ready)
     if _research_helper_check_operationally_unavailable(check):
         detail = _single_line(
