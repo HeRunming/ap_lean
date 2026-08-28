@@ -132,6 +132,12 @@ private lemma sum_pi_apply_weight
           rw [hrest]
           ring
 
+private lemma pi_weight_nonneg
+    {ι : Type} {k : ℕ} (w : ι → ℝ)
+    (hw : ∀ i, 0 ≤ w i) (s : Fin k → ι) :
+    0 ≤ ∏ j : Fin k, w (s j) := by
+  exact Finset.prod_nonneg fun j _ => hw (s j)
+
 theorem approximate_caratheodory_equal_weights
     (n : ℕ) (T : Set (EuclideanSpace ℝ (Fin n)))
     (hT : ∀ y ∈ T, ‖y‖ ≤ 1) :
@@ -144,4 +150,14 @@ theorem approximate_caratheodory_equal_weights
   intro x hx k hk
   obtain ⟨ι, hι, z, w, hw, hsum, hz, hxw⟩ :=
     finite_barycentric_of_mem_convexHull hx
+  have h_sum_pi_apply_weight_ref :
+      ∀ (q : Fin n) (j : Fin k),
+        (∑ s : Fin k → ι, (∏ l : Fin k, w (s l)) * (z (s j) q)) =
+          ∑ i : ι, w i * (z i q) := by
+    intro q j
+    exact sum_pi_apply_weight (κ := Fin k) w (fun i => z i q) hsum j
+  have h_pi_weight_nonneg_ref :
+      ∀ s : Fin k → ι, 0 ≤ ∏ j : Fin k, w (s j) := by
+    intro s
+    exact pi_weight_nonneg w hw s
   sorry

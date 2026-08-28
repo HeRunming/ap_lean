@@ -101,14 +101,67 @@ Prover notes: show that `k ∈ Finset.range (k + 1)` and use nonnegativity of th
 remaining natural binomial summands. -/
 lemma choose_le_binomialPartialSum (n k : ℕ) :
     (n.choose k : ℝ) ≤ binomialPartialSum n k := by
-  sorry
+  unfold binomialPartialSum; apply Finset.single_le_sum (fun i hi => ?_) (Finset.mem_range.2 (Nat.lt_succ_self k)); positivity
+
+private lemma binomialPartialSum_sum_bound (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) :
+    (∑ j ∈ Finset.range (k + 1), (n.choose j : ℝ)) ≤
+      ((n : ℝ) / (k : ℝ)) ^ k * Real.exp (k : ℝ) := by
+  have hkR : (0 : ℝ) < k := by
+    exact_mod_cast (Nat.zero_lt_of_lt hk)
+  have hqone : (1 : ℝ) ≤ (n : ℝ) / (k : ℝ) := by
+    rw [one_le_div hkR]
+    exact_mod_cast hkn
+  have hsumexp := Real.sum_le_exp_of_nonneg (show (0 : ℝ) ≤ k by positivity) (k + 1)
+  calc
+    ∑ j ∈ Finset.range (k + 1), (n.choose j : ℝ) ≤
+        ∑ j ∈ Finset.range (k + 1), ((n : ℝ) ^ j / (j.factorial : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro j hj
+      exact Nat.choose_le_pow_div j n
+    _ ≤ ∑ j ∈ Finset.range (k + 1),
+        ((n : ℝ) / (k : ℝ)) ^ k * ((k : ℝ) ^ j / (j.factorial : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro j hj
+      have hjk : j ≤ k := Nat.le_of_lt_succ (Finset.mem_range.mp hj)
+      have hpow : ((n : ℝ) / (k : ℝ)) ^ j ≤ ((n : ℝ) / (k : ℝ)) ^ k := by
+        exact pow_le_pow_right₀ hqone hjk
+      calc
+        (n : ℝ) ^ j / (j.factorial : ℝ) =
+            ((n : ℝ) / (k : ℝ)) ^ j * ((k : ℝ) ^ j / (j.factorial : ℝ)) := by
+              rw [div_pow]
+              field_simp [hkR.ne']
+        _ ≤ ((n : ℝ) / (k : ℝ)) ^ k * ((k : ℝ) ^ j / (j.factorial : ℝ)) := by
+              exact mul_le_mul_of_nonneg_right hpow (by positivity)
+    _ = ((n : ℝ) / (k : ℝ)) ^ k *
+        (∑ j ∈ Finset.range (k + 1), ((k : ℝ) ^ j / (j.factorial : ℝ))) := by
+      rw [Finset.mul_sum]
+    _ ≤ ((n : ℝ) / (k : ℝ)) ^ k * Real.exp (k : ℝ) := by
+      exact mul_le_mul_of_nonneg_left hsumexp (by positivity)
+
+private lemma binomialPartialSum_scale_exp_eq (n k : ℕ) (hk : 1 ≤ k) :
+    ((n : ℝ) / (k : ℝ)) ^ k * Real.exp (k : ℝ) =
+      ((Real.exp 1 * (n : ℝ)) / (k : ℝ)) ^ k := by
+  have hkR : (k : ℝ) ≠ 0 := by
+    positivity
+  have hexp : Real.exp (k : ℝ) = (Real.exp 1) ^ k := by
+    rw [← Real.exp_nat_mul]
+    simp
+  rw [hexp, ← mul_pow]
+  congr 1
+  field_simp [hkR]
 
 /-- Source proof: multiply the sum by `(k / n)^k`, replace this on the `j`th summand
 by `(k / n)^j`, and use the binomial theorem. Prover notes: derive the standard
 exponential estimate to obtain the factor `Real.exp 1`. -/
 lemma binomialPartialSum_upper_bound (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) :
     binomialPartialSum n k ≤ ((Real.exp 1 * (n : ℝ)) / (k : ℝ)) ^ k := by
-  sorry
+  have hsum := binomialPartialSum_sum_bound n k hk hkn
+  unfold binomialPartialSum
+  calc
+    ∑ j ∈ Finset.range (k + 1), (n.choose j : ℝ) ≤
+        ((n : ℝ) / (k : ℝ)) ^ k * Real.exp (k : ℝ) := hsum
+    _ = ((Real.exp 1 * (n : ℝ)) / (k : ℝ)) ^ k :=
+      binomialPartialSum_scale_exp_eq n k hk
 
 /-- Source proof: combine the product lower bound, the inclusion of the `k`th
 summand, and the binomial-theorem upper bound. Prover notes: apply the three
