@@ -170,7 +170,11 @@ theorem binomial_coefficient_bounds (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) :
     ((n : ℝ) / (k : ℝ)) ^ k ≤ (n.choose k : ℝ) ∧
       (n.choose k : ℝ) ≤ binomialPartialSum n k ∧
         binomialPartialSum n k ≤ ((Real.exp 1 * (n : ℝ)) / (k : ℝ)) ^ k := by
-  sorry
+  constructor
+  · exact binomial_lower_bound n k hk hkn
+  · constructor
+    · exact choose_le_binomialPartialSum n k
+    · exact binomialPartialSum_upper_bound n k hk hkn
 
 /-- Source proof: the source states the result for integers `1 ≤ k ≤ n`; use the
 explicit `Int.toNat` representation bridge and the native natural-number chain.
