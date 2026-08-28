@@ -176,6 +176,10 @@ theorem binomial_coefficient_bounds (n k : ℕ) (hk : 1 ≤ k) (hkn : k ≤ n) :
     · exact choose_le_binomialPartialSum n k
     · exact binomialPartialSum_upper_bound n k hk hkn
 
+private lemma int_toNat_cast_real (z : ℤ) (hz : 0 ≤ z) :
+    ((z.toNat : ℕ) : ℝ) = (z : ℝ) := by
+  exact_mod_cast (Int.toNat_of_nonneg hz)
+
 /-- Source proof: the source states the result for integers `1 ≤ k ≤ n`; use the
 explicit `Int.toNat` representation bridge and the native natural-number chain.
 Prover notes: simplify `Int.toNat` and real casts using positivity, then apply
@@ -184,6 +188,14 @@ theorem integer_binomial_coefficient_bounds (n k : ℤ) (hk : 1 ≤ k) (hkn : k 
     ((n : ℝ) / (k : ℝ)) ^ k.toNat ≤ (intBinomial n k : ℝ) ∧
       (intBinomial n k : ℝ) ≤ intBinomialPartialSum n k ∧
         intBinomialPartialSum n k ≤ ((Real.exp 1 * (n : ℝ)) / (k : ℝ)) ^ k.toNat := by
-  sorry
+  have hk_nonneg : 0 ≤ k := by linarith
+  have hn_nonneg : 0 ≤ n := by linarith
+  have hkNat : 1 ≤ k.toNat := by
+    exact Int.toNat_le_toNat hk
+  have hknNat : k.toNat ≤ n.toNat := by
+    exact Int.toNat_le_toNat hkn
+  have h := binomial_coefficient_bounds n.toNat k.toNat hkNat hknNat
+  simpa [intBinomial, intBinomialPartialSum,
+    int_toNat_cast_real n hn_nonneg, int_toNat_cast_real k hk_nonneg] using h
 
 end FateXWork.Questions.Items066BBAC934
