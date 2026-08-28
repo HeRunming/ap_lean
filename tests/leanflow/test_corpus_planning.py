@@ -1396,7 +1396,7 @@ def test_fresh_proofs_prefer_fewer_obligations():
     assert next_campaign_batch(campaign, stage="proofs")["id"] == "one"
 
 
-def test_campaign_wave_does_not_mix_complex_statements_into_routine_frontier(tmp_path):
+def test_campaign_wave_fills_spare_capacity_after_routine_frontier(tmp_path):
     campaign_path = tmp_path / "campaign.json"
     campaign_path.write_text(
         json.dumps(
@@ -1432,7 +1432,7 @@ def test_campaign_wave_does_not_mix_complex_statements_into_routine_frontier(tmp
         reserve_usd=1.0,
     )
 
-    assert [action.batch_id for _worker, action in claims] == ["routine"]
+    assert [action.batch_id for _worker, action in claims] == ["routine", "complex"]
 
     leased = json.loads(campaign_path.read_text(encoding="utf-8"))
     leased["batches"][0].pop("lease", None)
@@ -1449,7 +1449,7 @@ def test_campaign_wave_does_not_mix_complex_statements_into_routine_frontier(tmp
     assert [action.batch_id for _worker, action in claims] == ["complex"]
 
 
-def test_campaign_defers_fresh_complex_proof_behind_routine_statement(tmp_path):
+def test_campaign_fills_spare_capacity_with_complex_proof_after_routine_statement(tmp_path):
     campaign = {
         "source": "book.json",
         "budget_usd": 10.0,
@@ -1487,7 +1487,8 @@ def test_campaign_defers_fresh_complex_proof_behind_routine_statement(tmp_path):
         reserve_usd=1.0,
     )
     assert [(item.batch_id, item.stage) for _worker, item in claims] == [
-        ("routine-statement", "statements")
+        ("routine-statement", "statements"),
+        ("deep-proof", "proofs"),
     ]
 
 

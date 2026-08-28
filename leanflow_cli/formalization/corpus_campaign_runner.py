@@ -592,30 +592,16 @@ def lease_next_campaign_actions(
             )
         working: Mapping[str, Any] = current
         claimed: list[tuple[str, CampaignAction]] = []
-        noncomplex_proof_ready = (
-            next_campaign_batch(
-                current,
-                stage="proofs",
-                allowed_complexity_tiers=("routine", "moderate"),
-            )
-            is not None
-        )
-        noncomplex_statement_ready = (
-            next_campaign_batch(
-                current,
-                stage="statements",
-                allowed_complexity_tiers=("routine", "moderate"),
-            )
-            is not None
-        )
         lanes: list[tuple[str, int | None, tuple[str, ...] | None]] = [
             ("proofs", 0, ("routine", "moderate")),
             ("statements", None, ("routine", "moderate")),
+            # Preserve the cheap-first ordering, but do not leave paid worker
+            # capacity idle merely because one non-complex action exists.
+            # Complex work may fill only the slots left by the two lanes above.
+            ("proofs", 0, ("complex",)),
+            ("statements", None, ("complex",)),
+            ("proofs", None, ("complex",)),
         ]
-        if not noncomplex_statement_ready and not noncomplex_proof_ready:
-            lanes.append(("proofs", 0, ("complex",)))
-            lanes.append(("statements", None, ("complex",)))
-            lanes.append(("proofs", None, ("complex",)))
         lanes.append(("proofs", None, ("routine", "moderate")))
         for stage, max_stage_attempts, allowed_complexity_tiers in lanes:
             open_slots = capacity - len(claimed)
