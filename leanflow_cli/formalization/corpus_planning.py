@@ -237,7 +237,6 @@ def _library_architecture(items: list[dict[str, Any]], *, shared_module: str) ->
         )
         if len(set(labels)) < 2:
             continue
-        assigned_concepts.update(concepts)
         modules.append(
             {
                 "domain": domain,
@@ -397,6 +396,18 @@ def build_corpus_plan(
             )
 
     execution_plan = _dependency_schedule(items, edges)
+    # Surface scheduling signals without treating inferred edges as proof
+    # dependencies.  Consumers can use these metrics to prioritize shared
+    # foundations while the Lean checker remains authoritative.
+    downstream = Counter(str(edge.get("to", "")) for edge in edges if edge.get("status") == "declared_unverified")
+    indegree = Counter(str(edge.get("from", "")) for edge in edges if edge.get("status") == "declared_unverified")
+    for item in items:
+        label = str(item["label"])
+        item["dag_metrics"] = {
+            "declared_downstream_consumers": int(downstream.get(label, 0)),
+            "declared_prerequisite_count": int(indegree.get(label, 0)),
+            "reuse_priority": int(downstream.get(label, 0)) * 2 + len(item.get("concepts", [])),
+        }
     library_architecture = _library_architecture(items, shared_module=shared_module)
     return {
         "schema_version": "1",
