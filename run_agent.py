@@ -3773,9 +3773,16 @@ class AIAgent:
                         # Check for x-openrouter-provider or similar metadata
                         if provider_name == "Unknown" and response:
                             # Log all response attributes for debugging
+                            try:
+                                raw_attrs = vars(response)
+                            except TypeError:
+                                raw_attrs = {
+                                    key: getattr(response, key, None)
+                                    for key in ("status", "model", "usage", "output")
+                                }
                             resp_attrs = {
                                 k: str(v)[:100]
-                                for k, v in vars(response).items()
+                                for k, v in raw_attrs.items()
                                 if not k.startswith("_")
                             }
                             if self.verbose_logging:
