@@ -5,7 +5,9 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from typing import Any, Literal
 
 PLANNER_TERMINAL_OBSTACLE_STATE_KEY = "planner_terminal_obstacle"

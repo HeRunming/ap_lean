@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timezone, timedelta
+
+UTC = timezone.utc
 from typing import Any
 
 _TERMINAL_BATCH_STATUSES = {"proofs_completed", "completed", "skipped"}

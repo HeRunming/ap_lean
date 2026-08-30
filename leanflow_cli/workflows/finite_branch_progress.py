@@ -15,7 +15,9 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from itertools import groupby
 from pathlib import Path
 from typing import Any

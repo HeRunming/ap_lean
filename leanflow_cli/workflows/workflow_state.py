@@ -14,7 +14,9 @@ import uuid
 from collections import OrderedDict, deque
 from collections.abc import Iterator, Mapping
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 

@@ -17,7 +17,9 @@ import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 
@@ -578,7 +580,9 @@ def run_negation_probe(
     file and is never an acceptance authority.
     """
     import uuid
-    from datetime import UTC, datetime
+    from datetime import datetime, timezone
+
+    UTC = timezone.utc
 
     from leanflow_cli.workflows.plan_state import node_id_for
     from leanflow_cli.workflows.queue_models import TheoremKey

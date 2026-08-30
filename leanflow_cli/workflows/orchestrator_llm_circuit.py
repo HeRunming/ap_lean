@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timezone, timedelta
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any
 

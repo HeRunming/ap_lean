@@ -9,7 +9,9 @@ import os
 import threading
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timezone, timedelta
+
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any, TextIO
 
