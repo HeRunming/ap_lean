@@ -91,6 +91,17 @@ theorem demo : True := by sorry
     assert bounded.parse_statement_draft(payload).declarations == ("demo",)
 
 
+def test_statement_draft_rejects_opaque_placeholders():
+    payload = json.dumps(
+        {
+            "lean_code": "import Mathlib\nopaque standardNormalLaw : Nat → Nat\ntheorem demo : True := by sorry",
+            "declarations": ["demo"],
+        }
+    )
+    with pytest.raises(bounded.BoundedStatementRefinementError, match="opaque"):
+        bounded.parse_statement_draft(payload)
+
+
 def test_retrieval_queries_ignore_fence_language_marker():
     assert bounded.parse_retrieval_queries("```lean\nconvexHull Euclidean norm\n```") == (
         "convexHull Euclidean norm",

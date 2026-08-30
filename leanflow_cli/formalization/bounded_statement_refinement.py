@@ -289,7 +289,7 @@ def parse_statement_draft(text: str) -> StatementDraft:
         )
     sanitized_code = _strip_lean_comments_and_strings(lean_code)
     forbidden = re.search(
-        r"\b(?:admit|axiom|set_option\s+maxRecDepth|unsafe)\b", sanitized_code
+        r"\b(?:admit|axiom|opaque|set_option\s+maxRecDepth|unsafe)\b", sanitized_code
     )
     if forbidden:
         raise BoundedStatementRefinementError(
