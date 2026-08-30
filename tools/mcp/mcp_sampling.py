@@ -17,7 +17,9 @@ import json
 import logging
 import math
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from pathlib import Path
 
 from core.home import leanflow_home
