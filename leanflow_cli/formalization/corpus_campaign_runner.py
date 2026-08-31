@@ -1163,7 +1163,25 @@ def _execute_campaign_action(
         start_new_session=(os.name == "posix"),
     )
     try:
-        return_code = process.wait()
+        # Prevent a wedged provider/Lean child from occupying the campaign
+        # lease forever.  Keep the generous default for normal long proofs,
+        # while allowing operators to tune it per campaign.
+        child_timeout = float(os.getenv("LEANFLOW_CAMPAIGN_CHILD_TIMEOUT_S", "1800"))
+        return_code = process.wait(timeout=max(30.0, child_timeout))
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.terminate()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=10)
+        if process.poll() is None:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            process.wait()
+        return_code = 124
     except BaseException:
         if process.poll() is None:
             if os.name == "posix":
