@@ -1,154 +1,136 @@
 ```json
 {
   "verdict": "needs_approval",
-  "decision_reason": "任务风险等级medium，PipelineBuilder已闭合FieldMapper标记的critical映射缺口（新增solve_synthetic_question，self_consistency k=3），代码层未发现eval/exec/shell注入等critical安全模式，且实现了成本硬上限、断点续跑、dead-letter与原子写。但不满足自动批准条件：(1) FieldMapper mapping_blocked=true、confidence=0.58，target_schema与源answer形态仍未确认，属high severity的正确性风险；(2) 存在两项high severity数据质量风险（LLM判题作为唯一过滤依据、合成题answer无独立ground truth），产出物若用于模型训练会被放大；(3) 源数据集许可与LLM输出条款未确认，合规问题未闭环；(4) 输入规模与预算未提供，代码默认max_usd=50无法证明覆盖全量成本。以上需数据负责人与法务确认后方可发布。",
+  "decision_reason": "任务风险等级 medium，Validator verdict=pass_with_warnings、quality_score=0.85，安全隔离与合规面无 critical 问题，但存在两项 high severity 风险不满足自动批准条件：(1) 成本上限风险——validate_synth 已成为最大成本项（3200 条 × K=3 = 9600 次 opus 级调用），其单价来自 PRICES 中未经真实账单核实的估算常量 ('claude-opus-4-5', (5.0, 25.0))；若真实单价接近 opus-4-1 档（15/75），该阶段单独约 $290，全流程将逼近或触发 $500 硬上限（>预算 80%，按审批规则必须人工审批）。(2) 发布就绪度风险——Validator 静态推演指出 case_dedup 用例数据与断言自相矛盾（5-gram Jaccard≈17/27≈0.63 < 阈值 0.8），`--selftest` 会以 exit 1 结束，唯一的免费门禁当前是红灯；且全流程运行时行为零实测，成本/产出量/SLA 结论全为解析式估算。另外题目与答案文本会出网发送至 Anthropic API，数据授权与无 PII 目前仅为 ResearchPlanner 的假设，需数据归属方确认。代码质量本身评价积极：round-1 的 15 条 hints 已逐条真修复，隔离边界、原子导出、fail-closed 定价、指纹化 checkpoint 均到位，风险集中在“未验证”而非“已知缺陷”。",
   "risks": [
     {
-      "type": "security",
-      "severity": "low",
-      "description": "未发现eval()/exec()/os.system()/subprocess调用，无SQL拼接；LLM响应经extract_json+required_keys严格校验；ANTHROPIC_API_KEY仅从环境变量读取，日志与run_report未回显密钥。",
-      "mitigation": "现有实现已足够；建议CI中加静态扫描（bandit/semgrep）固化该约束。",
-      "residual_risk": "low"
+      "type": "cost",
+      "severity": "high",
+      "description": "预估 $200（最坏 $280）在 $500 内，但最大单项 validate_synth（9600 次 opus 级调用）的单价为未核实的估算常量。若真实单价为 15/75 档，该阶段约 $290，总花费逼近或撞上 $500 硬上限，并可能在最贵的 reasoning 阶段中途 halt，浪费一次接近满额的花费。",
+      "mitigation": "1) 用真实账单校准 PRICES 中 opus 条目（fail-closed 仅防未知模型，登记错的值仍会低估）；2) 更经济的等效方案：MODEL_VALIDATOR_SYNTH 改用 claude-haiku-4-5，同样是异族模型，K=3 增量从约 $290 降到 $10-20，交叉验证的偏差缓解效果基本保留；3) 在 preflight 增加基于 dataset_size 的预算投影，超过预算 70% 即拒绝启动，把“跑到一半撞上限”提前为“启动即拒绝”；4) 先跑 SAMPLE_SIZE=200（<$10）用 cost_report.by_stage_usd 反推真实单价。",
+      "residual_risk": "medium（校准或换模型后降为 low；硬上限 + checkpoint 保证后果可续跑，不会丢失已完成工作）"
+    },
+    {
+      "type": "release_readiness",
+      "severity": "high",
+      "description": "13 个离线用例中 case_dedup 的测试数据与断言互相矛盾（单词级改写的 5-gram Jaccard≈0.63 低于默认阈值 0.8，代码不会判为近重复，kept 实际为 2 而断言要求 1），`--selftest` 无法全绿，等于当前没有可用的免费门禁；同时 LLM 可解析率、trace 拒绝率、dedup 丢弃率、reasoning token 分布、实际单价均为零实测。",
+      "mitigation": "按序执行：修 case_dedup（改为真近重复数据，或显式传 dedup_threshold=0.55 表达“阈值决定行为”，并补一条负向用例断言默认阈值下单词级改写会存活）→ `--selftest` 全绿（离线免费）→ SAMPleSIZE=200 试跑（<$10）核对 pass_rate/error_rate/trace 拒绝率/dedup_drop_rate/每 seed 存活直方图/by_stage_usd → 再放量。顺手修正 docstring 的 '12 offline cases' 为 13。",
+      "residual_risk": "medium（三步完成后降为 low，成本与产出量从估算转为事实）"
     },
     {
       "type": "security",
       "severity": "medium",
-      "description": "数据集中的question/answer原文被直接拼入validate/synthesize/solve/reasoning的user prompt，属不可信输入进入LLM上下文，存在prompt injection风险（例如题干中嵌入指令诱导判定is_answer_correct=true，从而绕过质量闸门）。",
-      "mitigation": "system prompt已固定输出schema且强制STRICT JSON、required_keys校验，可限制结构性逃逸但不能防语义诱导。建议：在prompt中用显式分隔标记包裹不可信文本并声明其为data-not-instruction；对含'ignore previous/system prompt/you are now'等模式的条目在prefilter阶段标记送人工抽检。",
-      "residual_risk": "medium"
-    },
-    {
-      "type": "security",
-      "severity": "low",
-      "description": "state/<run_id>/*.jsonl 与 rejects 分区会落盘全部原始题干与LLM响应，本地明文存储。",
-      "mitigation": "数学题文本本身无PII；但若输入含用户提交内容需确认。建议对state/out目录设置0700权限并纳入.gitignore，避免checkpoint被误提交。",
-      "residual_risk": "low"
-    },
-    {
-      "type": "compliance",
-      "severity": "high",
-      "description": "源数据集许可是否允许生成衍生/合成数据、以及所用LLM服务条款是否允许其输出用于训练他方模型，均未确认。ResearchPlanner将其列为low，但产出物明确定位为training-grade数据集，实际暴露等级更高。",
-      "mitigation": "发布前需法务/数据负责人书面确认源许可与模型ToS，并将结论写入run元数据。未确认前不应执行全量。",
-      "residual_risk": "high"
+      "description": "Pipeline 将全部 question/answer 文本发送至第三方 Anthropic API（唯一出网目标）。ResearchPlanner 假设数据集为公开或已授权的数学题、不含 PII，但该假设未经数据归属方确认。checkpoints/ 下会持久保存全部 LLM 输入输出副本。",
+      "mitigation": "由数据归属方确认数据集授权范围允许第三方模型推理；若含任何客户提供或受限授权内容，需改为自托管模型或获取书面许可。对 checkpoints 目录设定访问控制与清理策略。代码层面隔离已到位：只读 INPUT_PATH、只写 OUTPUT_DIR、无生产访问、API key 仅从环境变量读取且不入日志、run_report 的 asdict(cfg) 只含路径与模型名。",
+      "residual_risk": "low（确认授权后）；未确认前为 medium"
     },
     {
       "type": "compliance",
       "severity": "medium",
-      "description": "未设置数据保留期限：state checkpoint、rejects、dead_letter分区无TTL，长期保留被判为错误的原始条目及LLM理由。",
-      "mitigation": "为state/与rejects/设置保留期（建议90天）与清理任务；在Config中显式声明data_retention_days并写入run_report。",
+      "description": "未设置产物数据保留期限。OUTPUT_DIR 下的 final_dataset.jsonl、reject_log.jsonl 与 checkpoints/<config_fp>/ 会无限期保留原始题目、拒绝原因与完整 LLM 响应，无自动清理。task 中亦无 data_retention_days 声明。",
+      "mitigation": "为 OUTPUT_DIR 设定保留策略（建议 checkpoints 90 天、reject_log 与最终数据集按数据集本身的授权期限），或在 run_report 中显式记录保留决策。受监管字段（health/financial/minor）在本任务的 input_contract（id/question/answer）中不存在，无同意与目的限制问题。",
       "residual_risk": "low"
-    },
-    {
-      "type": "cost",
-      "severity": "high",
-      "description": "输入规模与预算均未在task中提供。ResearchPlanner估算约7k次LLM调用/千seed、$8-20/千seed；引入solve阶段后合成题额外约2k-6k次调用/千seed，成本进一步上升。10万seed量级可达$5k-15k。代码默认max_usd=50远低于全量需求，若运维直接调高上限则无预算依据。",
-      "mitigation": "已实现调用数与金额双重硬上限、超限graceful stop并保留已完成分区，配合--dry-run-sample可先做小样本标定。要求：先跑300-500条采样得到单位成本与过滤率，由预算Owner核定max_usd后再全量，并配置实际花费告警。",
-      "residual_risk": "medium"
-    },
-    {
-      "type": "cost",
-      "severity": "medium",
-      "description": "reasoning、solve、synthesize默认均使用sonnet级模型，validate低置信度还会触发arbiter二次调用，成本对配置极敏感（可差5-10倍），且模型选择在clarifications中仍未确认。",
-      "mitigation": "确认各阶段模型分配（validate小模型初筛+强模型仲裁已实现）；在run_report中输出按阶段拆分的token与金额，便于事后核对。",
-      "residual_risk": "medium"
     },
     {
       "type": "correctness",
-      "severity": "high",
-      "description": "FieldMapper mapping_blocked=true、confidence=0.58：target_schema缺失（目标字段名由DAG反推，若下游训练格式为problem/solution/messages则映射需整体重做）；源answer形态未知，直接影响reasoning是GENERATE还是REFORMAT以及validate判正逻辑。PipelineBuilder以answer_form='unknown'默认值运行，属带未决假设发布。",
-      "mitigation": "需求方提供20-50条样例数据与下游target_schema后重跑FieldMapper；在此之前answer_form须显式指定而非沿用unknown。",
-      "residual_risk": "high"
+      "severity": "medium",
+      "description": "两处静默数据损失路径：(1) math_equal_local 的 symbolic_numeric 分支用绝对容差 abs(diff)<1e-9（与 numeric 分支的相对容差 1e-6 不一致），'3.14' vs '\\pi'、'0.33' vs '1/3' 这类人工标注常见的舍入差异会被直接判 False 并丢弃，不进 judge；(2) error_rate 门控只覆盖 validate_seed，synthesize 与 reasoning 的错误率只写进 funnel 不停机，而 reasoning 是最贵节点，模型行为漂移导致标签解析大面积失败时要等钱花完才在报告里看到。",
+      "mitigation": "(1) 改为相对容差，并把“接近但不相等”降级为 undecided（返回 None）交给 judge 而非直接判死；(2) 把 error_rate 检查抽成可复用函数，在 synthesize 后与 reasoning 分批（建议 5 批）过程中复用，配合已有 checkpoint 天然支持中断续跑。两项均为 Validator 已给出 code_example 的 medium hint。",
+      "residual_risk": "medium（不修复不阻断发布，但会静默压低产出量并削弱成本熔断能力，建议在 SAMPLE_SIZE=200 试跑前一并修掉，试跑数据才可信）"
     },
     {
-      "type": "data_quality",
-      "severity": "high",
-      "description": "质量闸门完全依赖LLM判题：假阴会丢弃合法数据，假阳会放过错题；合成题answer由solve多数投票产出，无外部ground truth，错误答案可能被reasoning生成的连贯轨迹掩盖，形成高置信度的错误训练数据。",
-      "mitigation": "已实现solve自一致性k=3（unsolvable多数或无答案多数即丢弃）、validate_synth二次闸门、trace_consistent标记与低置信分区能力。仍建议：对最终数据集做人工抽检（建议≥200条，分seed/synthetic分层）并将抽检准确率作为发布门槛。",
-      "residual_risk": "medium"
+      "type": "contract_deviation",
+      "severity": "medium",
+      "description": "task.constraints.synthesis_count_per_seed=2 为硬约束写法，实现为 best-effort：validate_synth + filter_synth + dedup 会使部分 seed 存活合成数 <2。补齐逻辑已实现但 ENABLE_SYNTH_TOPUP 默认关闭。这是唯一与 task.constraints 字面不符之处。",
+      "mitigation": "需用户拍板而非代码修复。按重算成本余量（约 $200/$500），开启 topup 的 +20-30% 可承受，直接 ENABLE_SYNTH_TOPUP=1 即可；保持默认关闭 + run_report.known_deviations 声明亦为可接受处理方式。",
+      "residual_risk": "low（已显式披露，不会静默偏离）"
     },
     {
       "type": "change_risk",
       "severity": "low",
-      "description": "新建pipeline，无既有版本被修改或删除，无算子移除，下游无现存消费方依赖。变更本身blast radius限于本run的输出目录与state目录。",
-      "mitigation": "首次执行以dry-run-sample模式进行，确认留存率与成本后再全量。",
+      "description": "新建 pipeline，无历史版本、无下游消费者依赖，v2 相对 v1 无算子删除（removed_operators 为空），DAG 与输出 schema 未变，新增均为审计/防护性代码。影响范围限于本 run 的 OUTPUT_DIR。",
+      "mitigation": "原子导出（tmp + os.replace）保证不会留下半截数据集；halt/failure 路径 write_dataset=False，不会截断已有 final_dataset.jsonl；异常路径均先落 run_report 再抛出，审计线索完整。",
       "residual_risk": "low"
     },
     {
-      "type": "change_risk",
-      "severity": "medium",
-      "description": "契约不可保证项：constraints.synthesis_count_per_seed=2 在validate_synth/solve/dedup三处均会掉行，PipelineBuilder已按'上限目标'（D5）实现且无补合成回路。若下游按固定3倍率消费会出错。",
-      "mitigation": "需求方需确认2为上限目标而非硬保证；run_report输出per-seed留存直方图供下游校验。",
-      "residual_risk": "medium"
+      "type": "reliability",
+      "severity": "low",
+      "description": "边界情形：stage_specs 未包含 input_path，同一 OUTPUT_DIR 复用于不同数据集且 id 重叠时 checkpoint 会误命中；call_with_parse 的 1.5^attempt 放大可能超过模型输出上限，llm.call 会把这种永久性 4xx 当瞬时错误退避重试 3 次（白等约 7 秒）；重度限流下失败项转为丢弃并计入 error_rate 而非拖长 SLA。",
+      "mitigation": "为放大后的预算加 min(MAX_OUTPUT[model]) 上限并在 llm.call 中区分 4xx（立即抛出）与 429/5xx（重试）；运维约定为每个数据集使用独立 OUTPUT_DIR。SLA 估算 120-200 分钟 vs 240 分钟，缓冲 17-50%，可接受。",
+      "residual_risk": "low"
     }
   ],
   "approval_required": true,
   "approval_context": {
     "required_roles": [
-      "data_owner",
-      "legal_or_compliance",
-      "budget_owner"
+      "budget_owner（成本上限与模型选择）",
+      "data_owner（数据集出网授权与保留策略）"
     ],
-    "reason": "存在3项high severity风险（源数据许可与模型ToS未确认、target_schema/answer形态未决导致映射未闭合、全量成本无预算依据），任一未闭环都不满足自动批准条件。",
-    "checklist": [
-      "确认源数据集许可允许生成衍生与合成数据，并确认LLM服务条款允许其输出用于训练用途，结论写入run元数据",
-      "提供下游target_schema或确认当前反推字段集（id/seed_id/origin/question/answer/reasoning_trace/trace_consistent）即为最终契约",
-      "提供20-50条样例数据并显式设置Config.answer_form，禁止以unknown跑全量",
-      "提供输入数据集规模，先执行 --dry-run-sample 300 --max-usd 5 标定单位成本与过滤率",
-      "基于采样结果由预算Owner核定 max_usd 与 max_llm_calls，并配置实际花费告警阈值",
-      "确认 synthesis_count_per_seed=2 为上限目标而非硬保证，下游不按固定倍率消费",
-      "确认 rejects / dead_letter / state 分区的保留期限（建议90天）与清理责任人",
-      "确认 dedup 参数（n=5, jaccard 0.8, 仅question）与 dedup_protect_seeds=true 的取舍",
-      "确认 trace_consistent=false 记录的处置方式（过滤 vs 低置信分区导出）",
-      "对最终数据集完成分层人工抽检（≥200条），准确率达标后方可交付下游训练"
+    "reason": "存在 2 项 high severity 风险（成本可能触及 $500 硬上限、离线门禁当前红灯且运行时零实测），且数据出网授权仅为假设未经确认。按审批规则，high severity 风险与预算占用可能超 80% 两项均要求人工审批。",
+    "blocking_checklist": [
+      "确认数据集授权允许将 question/answer 全文发送至 Anthropic API，且不含 PII",
+      "校准 PRICES 中 opus 条目为真实账单单价，或将 MODEL_VALIDATOR_SYNTH 改为 claude-haiku-4-5（推荐，K=3 增量降至 $10-20 且仍为异族交叉验证）",
+      "修复 case_dedup 用例，`python pipeline.py --selftest` 全绿（离线免费）",
+      "完成 SAMPLE_SIZE=200 试跑（<$10），核对 seed pass_rate/error_rate、filter_trace 拒绝率、dedup_drop_rate、每 seed 存活直方图、cost_report.by_stage_usd",
+      "就 synthesis_count_per_seed=2 是硬约束还是 best-effort 给出决定（决定 ENABLE_SYNTH_TOPUP 取值）"
     ],
-    "blocking_items": [
-      "源数据许可与LLM输出使用条款确认",
-      "target_schema 与 answer_form 确认（FieldMapper mapping_blocked=true）",
-      "全量预算核定"
-    ]
+    "recommended_but_not_blocking": [
+      "math_equal_local 改相对容差并把近似答案降级为 undecided 交给 judge",
+      "error_rate 门控扩展到 synthesize 与 reasoning（reasoning 分 5 批检查）",
+      "preflight 增加预算投影，超预算 70% 要求显式确认",
+      "为 OUTPUT_DIR 设定保留期限（建议 checkpoints 90 天）",
+      "parallel_map 结尾把长度不变量改为显式 raise，去掉过滤式返回",
+      "PipelineBuilder 交付元数据中的 idempotency_key 占位串替换为 idempotency_key(Config()) 的实际值"
+    ],
+    "auto_approve_condition": "上述 blocking_checklist 全部完成、试跑实测成本外推 <$350 且 --selftest 全绿后，本变更可按 low risk 自动批准放量，无需再次人工审批。"
   },
   "rollback_plan": {
     "method": "no_previous_version",
-    "description": "首次发布，无历史版本可回退。回滚等价于停止执行并清理本run产物。",
     "previous_version": null,
-    "rollback_command": "dataflow disable pipeline_math_qa && dataflow purge --run-id f88ee4b3-2f50-425a-99aa-753dd0574e50 --keep-state",
-    "steps": [
-      "1. 停止执行：中断进程即可，代码在每阶段record级checkpoint并fsync，无部分计费结果丢失",
-      "2. 隔离产物：将 out/final_dataset.jsonl 标记为 quarantined，通知下游停止消费",
-      "3. 保留证据：state/f88ee4b3-.../ 与 dead_letter.jsonl 保留用于问题定位，勿在RCA完成前删除",
-      "4. 如需彻底清理：确认无审计需求后删除 out/ 与 state/<run_id>/（不可逆，需二次确认）"
+    "description": "新建 pipeline（v2），task.previous_version 为空，无版本回滚目标，亦无下游消费者依赖需要考虑。",
+    "abort_procedure": [
+      "运行中止：进程终止即停止计费；halt/failure 路径 write_dataset=False，不会写出或截断 final_dataset.jsonl",
+      "产物废弃：删除 artifacts/02fd98bc-ff7c-45d5-83aa-2fe80a16773f/（含 final_dataset.jsonl、reject_log.jsonl、run_report.json、checkpoints/）",
+      "断点续跑：保留 checkpoints/<config_fp>/ 并以相同配置重跑，已完成的 LLM 调用不重复计费；配置变更会因 stage 指纹变化自然使缓存失效，不会静默复用旧结果"
     ],
-    "estimated_downtime": "无停机影响（离线批处理，无线上流量）",
-    "data_impact": "仅影响本run输出的数据集文件；源数据集为只读输入，不受影响。已发生的LLM调用费用不可回收。",
-    "reversibility": "high（产物为本地文件，可隔离或删除）；成本部分不可逆"
+    "rollback_command": "rm -rf artifacts/02fd98bc-ff7c-45d5-83aa-2fe80a16773f",
+    "estimated_downtime": "无（离线批处理，不影响任何在线服务）",
+    "data_impact": "仅影响本 run 的输出产物；输入数据集只读，不会被修改。已产生的 LLM 花费不可回收。",
+    "cost_impact_on_abort": "已花费不可退，但 checkpoint 使续跑不重复计费；最坏情形是在接近 $500 上限处 halt，浪费一次接近满额花费——这正是 blocking_checklist 中价格校准与 200 条试跑要前置的原因。"
   },
   "audit_log": {
-    "run_id": "f88ee4b3-2f50-425a-99aa-753dd0574e50",
+    "run_id": "02fd98bc-ff7c-45d5-83aa-2fe80a16773f",
     "reviewer": "Reviewer Agent",
-    "timestamp": "2026-09-02T10:30:00Z",
+    "timestamp": "2026-09-03T05:56:00Z",
     "decision": "needs_approval",
     "task_risk": "medium",
-    "validator_verdict": "not_available_in_context",
-    "quality_score": null,
+    "validator_verdict": "pass_with_warnings",
+    "quality_score": 0.85,
+    "repair_round": 1,
     "identified_risk_counts": {
       "critical": 0,
-      "high": 3,
-      "medium": 5,
-      "low": 3
+      "high": 2,
+      "medium": 4,
+      "low": 2
     },
-    "justification": "无critical级安全或合规风险，代码层未发现不安全执行模式，成本与容错控制齐备，故不予拒绝。但存在3项high severity风险（合规许可未确认、字段映射未闭合、全量预算无依据），按审批规则任一high severity即需人工审批。另需说明：本次审查上下文中未包含Validator的verdict与quality_score字段（task.status=validated但输出被截断），无法据其判定，已按缺省保守处理并在approval_context中要求补充。",
-    "approver": "pending_human",
+    "highest_severity": "high",
+    "budget_usd": 500.0,
+    "estimated_cost_usd": "200 (worst case 280; up to ~500 if opus pricing constant is understated)",
+    "budget_utilization_estimate": "40% (worst case up to 100%)",
+    "sla_minutes": 240,
+    "estimated_duration_minutes": "120-200",
+    "justification": "代码质量与安全隔离达标，round-1 的 15 条 hints 已全部真修复，无 critical 安全或合规问题，change_risk 为 low。但成本上限风险（最大成本项单价未核实，最坏触及预算 100%）与发布就绪度风险（--selftest 门禁红灯 + 运行时零实测）均为 high severity，且数据出网授权未获确认，不满足自动批准条件。故判定 needs_approval，并给出 5 项阻断性检查项与自动批准的量化条件，避免二次人工审批。",
+    "approver": "pending: budget_owner + data_owner",
+    "next_steps": "完成 approval_context.blocking_checklist 后重新提交审查；若仅完成校准与试跑且实测成本外推 <$350、--selftest 全绿，可按 auto_approve_condition 直接放量。",
     "evidence_ids": [
-      "task.constraints",
-      "ResearchPlanner.risks",
-      "ResearchPlanner.clarifications_needed",
-      "FieldMapper.mapping_blocked",
-      "FieldMapper.conflicts",
-      "PipelineBuilder.pipeline_code#solve_synthetic_question",
-      "PipelineBuilder.pipeline_code#Config.max_usd",
-      "PipelineBuilder.pipeline_code#LLMClient._charge"
+      "review_02fd98bc_round1",
+      "validation_static_review_v2_02fd98bc",
+      "test_suite_static_trace_case_dedup_jaccard_17_over_27",
+      "cost_recompute_v2_18000_calls_02fd98bc",
+      "sla_estimate_v2_120_200min",
+      "release_gate_conditions_v2",
+      "security_isolation_review_02fd98bc"
     ]
-  },
-  "next_steps": "补齐approval_context.blocking_items三项后重新提交审查；建议先以 --dry-run-sample 300 --max-usd 5 执行采样以提供成本与过滤率证据。"
+  }
 }
 ```

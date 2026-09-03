@@ -9,7 +9,7 @@
   },
   "expected_operators": [
     "validate_math_question",
-    "filter_invalid", 
+    "filter_invalid",
     "llm_synthesize_questions_n2",
     "llm_generate_reasoning_trace",
     "ngram_deduplicate"
@@ -19,6 +19,10 @@
     "preserve_seed_id": true,
     "synthesis_count_per_seed": 2,
     "dedup_method": "ngram",
-    "require_reasoning_trace": true
-  }
+    "require_reasoning_trace": true,
+    "assumptions_note": "dataset_size / budget / sla_minutes 由 harness 补入，非用户给定。按 Validator 估算的 $0.18-0.22/seed，2000 条约 $360-440，落在 $500 内。"
+  },
+  "dataset_size": 2000,
+  "budget": 500.0,
+  "sla_minutes": 240
 }

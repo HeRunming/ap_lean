@@ -5,255 +5,223 @@
       "nodes": [
         {
           "id": "ingest",
-          "operator": "load_dataset",
-          "description": "读取输入数据集，校验 input_contract 字段存在性与类型（question/answer/id 均为 string），统计总量、空值率、id 唯一性。",
-          "inputs": ["raw_dataset"],
-          "outputs": ["records", "ingest_stats"],
-          "parallelizable": false,
-          "params": {"required_fields": ["question", "answer", "id"], "fail_on_missing_field": true}
-        },
-        {
-          "id": "normalize",
-          "operator": "text_normalize",
-          "description": "轻量规范化：去首尾空白、统一空白符、统一 LaTeX 定界符、剔除控制字符。不改写数学语义。",
-          "inputs": ["records"],
-          "outputs": ["normalized_records"],
+          "operator": "load_and_check_schema",
+          "description": "读取数据集，校验 question/answer/id 三字段存在且非空，去除完全重复的 id 与精确重复文本，统一 LaTeX/空白归一化。非 LLM 算子，成本近似为零。",
+          "inputs": ["question", "answer", "id"],
+          "outputs": ["question_norm", "answer_norm", "id", "schema_ok"],
           "parallelizable": true,
-          "params": {"strip": true, "collapse_whitespace": true, "unify_latex_delimiters": true}
+          "params": {"drop_null": true, "exact_dedup_on": ["question_norm"], "normalize_latex": true}
         },
         {
-          "id": "prefilter",
-          "operator": "rule_based_prefilter",
-          "description": "规则前置过滤（省 LLM 成本）：question 或 answer 为空、长度低于阈值、无任何数学符号/数字、明显截断的条目直接标记。",
-          "inputs": ["normalized_records"],
-          "outputs": ["prefiltered_records", "prefilter_rejects"],
-          "parallelizable": true,
-          "params": {"min_question_len": 10, "min_answer_len": 1, "require_math_signal": true}
-        },
-        {
-          "id": "validate",
+          "id": "validate_seed",
           "operator": "validate_math_question",
-          "description": "LLM 判定两件事：(a) 是否为合理、自洽、可解的数学问题（题干完整、无歧义、条件不矛盾）；(b) 给定 answer 是否正确。输出布尔标记 + 结构化理由 + 置信度。",
-          "inputs": ["question", "answer"],
-          "outputs": ["is_well_formed", "is_answer_correct", "validation_reason", "confidence"],
+          "description": "LLM 判定两件事：(a) 该条目是否构成一个合理、自洽、可解的数学问题；(b) 给定 answer 是否正确。输出布尔标记与理由，便于审计过滤原因分布。",
+          "inputs": ["question_norm", "answer_norm"],
+          "outputs": ["is_valid_question", "is_answer_correct", "validation_reason"],
           "parallelizable": true,
-          "params": {
-            "batch_size": 64,
-            "model": "<待确认：建议强推理模型，正确性判定质量直接决定全链路数据质量>",
-            "temperature": 0,
-            "self_consistency_k": 1,
-            "output_schema": "strict_json",
-            "max_retries": 3
-          }
+          "params": {"model": "strong-reasoning-model", "batch_size": 50, "concurrency": 20, "self_consistency_k": 1, "temperature": 0.0}
         },
         {
-          "id": "filter",
+          "id": "filter_seed",
           "operator": "filter_invalid",
-          "description": "保留 is_well_formed=true AND is_answer_correct=true 的条目。被拒条目连同 validation_reason 落盘到 rejects 分区，便于审计与过滤率复核。",
-          "inputs": ["is_well_formed", "is_answer_correct", "confidence"],
-          "outputs": ["valid_seeds", "rejects"],
+          "description": "仅保留 is_valid_question=true 且 is_answer_correct=true 的 seed。记录过滤率与原因直方图作为质量门控指标。",
+          "inputs": ["is_valid_question", "is_answer_correct"],
+          "outputs": ["valid_seeds"],
           "parallelizable": false,
-          "params": {"predicate": "is_well_formed AND is_answer_correct", "min_confidence": "<待确认>", "persist_rejects": true}
+          "params": {"predicate": "is_valid_question AND is_answer_correct", "emit_reject_log": true}
         },
         {
-          "id": "checkpoint_seeds",
-          "operator": "materialize_checkpoint",
-          "description": "落盘 valid_seeds 作为断点。合成与推理阶段成本最高，必须可从此处恢复而不重跑 validate。",
+          "id": "gate_filter_rate",
+          "operator": "quality_gate",
+          "description": "门控：若 seed 通过率 < 40%，暂停并上报（说明输入质量或 validator 判据存在问题），避免下游 LLM 成本浪费。",
           "inputs": ["valid_seeds"],
-          "outputs": ["valid_seeds_ckpt"],
+          "outputs": ["gate_status", "pass_rate"],
           "parallelizable": false,
-          "params": {"format": "parquet", "partition_by": "shard"}
+          "params": {"min_pass_rate": 0.4, "on_fail": "halt_and_report"}
         },
         {
           "id": "synthesize",
           "operator": "llm_synthesize_questions_n2",
-          "description": "以每个 valid seed 为种子合成 2 个新问题。每条输出携带 seed_id（血缘）、自身 new_id、origin='synthetic'；seed 条目保留 origin='seed'。要求合成题在难度/结构上有变化而非改写复述。",
-          "inputs": ["valid_seeds_ckpt"],
-          "outputs": ["synthesized_questions"],
+          "description": "以每条 valid seed 为种子合成 2 道新题，要求同题型/同难度带±1难度扰动，禁止照抄原题。输出新 question 与 LLM 给出的 answer，并写入 seed_id=原 id、新 id、provenance=synthetic。",
+          "inputs": ["valid_seeds.question_norm", "valid_seeds.answer_norm", "valid_seeds.id"],
+          "outputs": ["synth_question", "synth_answer", "id", "seed_id", "provenance"],
           "parallelizable": true,
-          "params": {
-            "n_per_seed": 2,
-            "preserve_seed_id": true,
-            "id_scheme": "{seed_id}::syn{k}",
-            "emit_answer": "<待确认：合成题的 answer 由谁产出，见 clarifications>",
-            "batch_size": 32,
-            "temperature": 0.8,
-            "max_retries": 3,
-            "on_partial_failure": "keep_valid_subset_and_log"
-          }
+          "params": {"n_per_seed": 2, "preserve_seed_id": true, "temperature": 0.9, "concurrency": 20, "retry_on_parse_error": 2}
         },
         {
           "id": "validate_synth",
           "operator": "validate_math_question",
-          "description": "对合成题复用同一验证算子做质量闸门（合成题的自洽性与 answer 正确性无先验保证）。可选但强烈建议；若跳过，脏数据会被下游推理轨迹放大。",
-          "inputs": ["synthesized_questions"],
-          "outputs": ["validated_synthetic"],
+          "description": "对合成题复用同一 validator：合成题的 answer 无 ground truth，必须验证后才能进入训练集。不通过的合成题直接丢弃（不重试补齐，避免成本失控）。",
+          "inputs": ["synth_question", "synth_answer"],
+          "outputs": ["is_valid_question", "is_answer_correct", "validation_reason"],
           "parallelizable": true,
-          "optional": true,
-          "params": {"temperature": 0, "reuse_config_from": "validate"}
+          "params": {"model": "strong-reasoning-model", "temperature": 0.0, "concurrency": 20}
+        },
+        {
+          "id": "filter_synth",
+          "operator": "filter_invalid",
+          "description": "过滤无效合成题，保留 seed_id 关联。此处实际产出可能低于 2×seed，属预期行为。",
+          "inputs": ["is_valid_question", "is_answer_correct"],
+          "outputs": ["valid_synth"],
+          "parallelizable": false,
+          "params": {"predicate": "is_valid_question AND is_answer_correct", "emit_reject_log": true}
         },
         {
           "id": "merge",
-          "operator": "union_records",
-          "description": "合并 valid_seeds 与通过校验的合成题，形成统一问题池。校验 id 全局唯一，保留 origin 与 seed_id 字段。",
-          "inputs": ["valid_seeds_ckpt", "validated_synthetic"],
-          "outputs": ["question_pool"],
+          "operator": "union_datasets",
+          "description": "合并 valid seeds 与 valid synth 为统一 QA 集，字段对齐（id, seed_id, question, answer, provenance）。seed 条目 seed_id 等于自身 id。",
+          "inputs": ["valid_seeds", "valid_synth"],
+          "outputs": ["merged_qa"],
           "parallelizable": false,
-          "params": {"assert_unique_id": true, "keep_fields": ["id", "seed_id", "origin", "question", "answer"]}
+          "params": {"schema": ["id", "seed_id", "question", "answer", "provenance"]}
         },
         {
           "id": "reasoning",
           "operator": "llm_generate_reasoning_trace",
-          "description": "为问题池中每条 QA 生成分步推理轨迹，要求轨迹结论与 answer 一致；不一致则标记 trace_consistent=false 供下游处理。全链路最大的 token 消耗点。",
-          "inputs": ["question_pool"],
-          "outputs": ["qa_with_reasoning", "trace_consistent"],
+          "description": "为每条 QA 生成分步推理轨迹，条件在已知 answer 上（answer-conditioned CoT），并做一致性检查：轨迹末端结论必须与 answer 一致，否则重试一次后标记 trace_ok=false。此节点是成本主项。",
+          "inputs": ["merged_qa.question", "merged_qa.answer"],
+          "outputs": ["reasoning_trace", "trace_final_answer", "trace_ok"],
           "parallelizable": true,
-          "params": {
-            "batch_size": 32,
-            "temperature": 0.3,
-            "require_final_answer_match": true,
-            "max_retries": 2,
-            "checkpoint_every_n": 1000
-          }
+          "params": {"model": "strong-reasoning-model", "max_tokens": 2048, "concurrency": 25, "consistency_check": true, "max_retry": 1}
+        },
+        {
+          "id": "filter_trace",
+          "operator": "filter_invalid",
+          "description": "丢弃 trace_ok=false 的条目（推理轨迹与答案矛盾的样本对下游训练有害）。",
+          "inputs": ["trace_ok"],
+          "outputs": ["qa_with_trace"],
+          "parallelizable": false,
+          "params": {"predicate": "trace_ok == true"}
         },
         {
           "id": "dedup",
           "operator": "ngram_deduplicate",
-          "description": "对 question（可选拼接 answer）做 n-gram 相似度去重，跨 seed 与 synthetic 全局执行。冲突时优先保留 origin='seed'，其次保留 trace_consistent=true 且更长推理轨迹的条目。",
-          "inputs": ["qa_with_reasoning"],
-          "outputs": ["deduplicated_qa"],
+          "description": "在 question 文本上做 5-gram 近似去重（Jaccard 阈值 0.8）。冲突时优先保留 provenance=seed 的条目，其次保留 seed_id 分布更均衡的一条，避免某些 seed 的两个合成题互相高度重复而双双保留。",
+          "inputs": ["qa_with_trace.question"],
+          "outputs": ["unique_qa"],
           "parallelizable": true,
-          "params": {
-            "n": 5,
-            "similarity": "jaccard",
-            "threshold": 0.8,
-            "dedup_field": "question",
-            "keep_priority": ["origin=seed", "trace_consistent=true", "longest_trace"],
-            "acceleration": "minhash_lsh_if_n_records>100k"
-          }
+          "params": {"n": 5, "threshold": 0.8, "field": "question", "tie_breaker": "prefer_provenance_seed", "backend": "minhash_lsh"}
         },
         {
-          "id": "export",
-          "operator": "export_dataset",
-          "description": "输出最终数据集 + run 级报告（各阶段留存率、过滤原因分布、seed→synthetic 血缘完整性、去重移除量、实际 LLM 成本）。",
-          "inputs": ["deduplicated_qa"],
-          "outputs": ["final_dataset", "run_report"],
+          "id": "report",
+          "operator": "export_and_report",
+          "description": "导出最终数据集（含 id/seed_id/question/answer/reasoning_trace/provenance），同时输出漏斗报告：各阶段留存数、过滤原因分布、实际 LLM 花费、每 seed 有效合成数。",
+          "inputs": ["unique_qa"],
+          "outputs": ["final_dataset", "funnel_report", "cost_report"],
           "parallelizable": false,
-          "params": {"format": "jsonl", "include_lineage": true}
+          "params": {"format": "jsonl"}
         }
       ],
       "edges": [
-        {"from": "ingest", "to": "normalize"},
-        {"from": "normalize", "to": "prefilter"},
-        {"from": "prefilter", "to": "validate"},
-        {"from": "validate", "to": "filter"},
-        {"from": "filter", "to": "checkpoint_seeds"},
-        {"from": "checkpoint_seeds", "to": "synthesize"},
+        {"from": "ingest", "to": "validate_seed"},
+        {"from": "validate_seed", "to": "filter_seed"},
+        {"from": "filter_seed", "to": "gate_filter_rate"},
+        {"from": "gate_filter_rate", "to": "synthesize"},
         {"from": "synthesize", "to": "validate_synth"},
-        {"from": "validate_synth", "to": "merge"},
-        {"from": "checkpoint_seeds", "to": "merge"},
+        {"from": "validate_synth", "to": "filter_synth"},
+        {"from": "gate_filter_rate", "to": "merge"},
+        {"from": "filter_synth", "to": "merge"},
         {"from": "merge", "to": "reasoning"},
-        {"from": "reasoning", "to": "dedup"},
-        {"from": "dedup", "to": "export"}
+        {"from": "reasoning", "to": "filter_trace"},
+        {"from": "filter_trace", "to": "dedup"},
+        {"from": "dedup", "to": "report"}
       ]
     },
-    "estimated_duration": "无法给出绝对值——输入数据规模未提供。按每 1,000 seed 估算：validate ~1k 次调用、synthesize ~1k 次、validate_synth ~2k 次、reasoning ~3k 次，合计约 7k 次 LLM 调用。在 32 并发、单次 ~3s 的假设下约 12-15 分钟/千 seed；10 万 seed 约 20-26 小时（受 API 限流主导，非计算瓶颈）。ngram 去重在 30 万条量级下精确两两比较不可行，需走 MinHash-LSH，约 10-20 分钟。",
-    "estimated_cost": "同样按规模线性外推。每 1,000 seed 约 7k 次调用；按中档模型、平均 input 600 tok / output 800 tok 估，约 $8-20 / 千 seed（推理轨迹占 60%+）。若 validate 与 reasoning 使用顶级推理模型，单价可上升 5-10 倍，10 万 seed 量级可达 $5k-15k。建议：先跑 500 条采样确认单位成本与过滤率，再设硬性预算上限分批执行。"
+    "estimated_duration": "约 110-160 分钟（并发 20-25，含重试余量），在 240 分钟 SLA 内。分段：validate_seed ~15min，synthesize ~30min，validate_synth ~25min，reasoning ~50-80min，dedup+导出 ~5min。",
+    "estimated_cost": "约 $370-440。分解：validate_seed 2000 次 ≈ $20；synthesize 1600 seed × 2 ≈ $50-65；validate_synth ~3200 次 ≈ $35；reasoning ~4300 条长 CoT ≈ $260-320。落在 $500 预算内但余量仅约 15%，建议设硬性成本上限。",
+    "volume_funnel": {
+      "input_seeds": 2000,
+      "valid_seeds_est": "1500-1700 (假设 75-85% 通过)",
+      "synthesized_raw_est": "3000-3400",
+      "valid_synth_est": "2400-3000 (假设 80-90% 通过)",
+      "after_reasoning_filter_est": "3900-4500",
+      "final_after_dedup_est": "3600-4300"
+    },
+    "parallelism": {
+      "validate_seed": "行级无状态，batch_size=50，concurrency=20",
+      "synthesize": "按 seed 分片并行，concurrency=20",
+      "validate_synth": "同 validate_seed 配置，可与 synthesize 流式衔接",
+      "reasoning": "成本与耗时主项，concurrency=25，建议分 5 批 checkpoint 落盘以支持断点续跑",
+      "dedup": "MinHash 分桶并行；全局 LSH 合并阶段串行"
+    }
   },
   "assumptions": [
-    "输入为单一数据集，id 全局唯一且非空；若 id 重复需先做 seed 级去重，否则血缘 {seed_id}::syn{k} 会冲突。",
-    "question/answer 为自然语言或 LaTeX 文本，answer 是最终答案而非包含解题过程（若已含过程，reasoning 阶段需改为规范化而非从零生成）。",
-    "存在可用的 LLM 判题能力，且其正确性判定的准确率足以作为 filter 依据；LLM 判题本身有假阴/假阳，会直接损失合法数据或放过错题。",
-    "合成阶段的 LLM 能同时产出 question 与可验证的 answer；若只产出 question，则需在 synthesize 与 reasoning 之间补一个 solve 算子。",
-    "LLM API 配额与并发额度充足，具备重试与限流退避；长时任务允许断点续跑。",
-    "去重范围为 seed + synthetic 全局，且允许 n-gram 去重删除 seed 原始条目（keep_priority 已优先保 seed，但完全同题时仍会去掉重复者）。",
-    "无 PII 顾虑（数学题文本），但输入若含用户提交题目仍需确认。"
+    "dataset_size=2000、budget=$500、sla_minutes=240 由 harness 补入，非用户原始给定；若真实规模远大于 2000，成本与 SLA 结论需重算。",
+    "seed 的 answer 视为待验证而非 ground truth：用户要求“检查每个问题的正确性”，我据此让 validator 同时判定题目合理性与答案正确性。",
+    "合成题的 answer 由合成 LLM 一并给出，并强制经 validate_synth 校验后才入库（用户未明说，但无验证的合成答案不可用）。",
+    "preserve_seed_id 的实现为：新增 seed_id 字段指向原始 seed 的 id，合成条目自身分配新 id；seed 条目 seed_id = 自身 id。",
+    "“每个 seed 合成两个新问题”按尽力而为（best-effort）理解：合成后校验会丢弃部分条目，最终每 seed 有效合成数可能 <2。",
+    "ngram 去重默认 n=5、Jaccard 阈值 0.8，仅在 question 字段上执行（不含 answer/reasoning）。",
+    "LLM API 配额与速率上限支持 20-25 并发；无外部速率限制导致的长时间退避。",
+    "数据集为公开或已授权的数学题，不含 PII，无跨境/合规限制。"
   ],
   "risks": [
     {
       "type": "data_quality",
-      "severity": "high",
-      "description": "过滤率未知。公开数学数据集的答案错误率常在 5%-30%，若输入质量差，valid_seeds 可能不足预期一半，直接导致最终产出量远低于 3x 输入。",
-      "mitigation": "先对 300-500 条采样跑 validate，得到 well_formed 率与 answer_correct 率，据此校准全量预期与预算，再决定是否放宽阈值。"
+      "description": "seed 通过率未知。若输入含大量错答或非数学条目，过滤率可能超 50%，最终产出显著低于预期。",
+      "mitigation": "先跑 200 条采样（成本 <$5）确认通过率与拒绝原因分布，再全量执行；已在 DAG 中加入 gate_filter_rate 门控（<40% 即停）。"
     },
     {
       "type": "data_quality",
-      "severity": "high",
-      "description": "合成题无 ground truth。LLM 合成的题目可能条件矛盾、无解，或自带的 answer 是错的；这些错误会被 reasoning 阶段生成一条看似合理的轨迹掩盖，产出高置信度的错误训练数据。",
-      "mitigation": "保留 validate_synth 闸门；对合成题额外做独立多次求解的自一致性校验（k>=3 多数投票），不一致者丢弃或标记为低置信分区。"
+      "description": "合成题答案无 ground truth，单次 LLM 自评可能放过错误答案，污染最终数据集。",
+      "mitigation": "对合成题的答案校验采用 self-consistency（k=3 投票）或换用与合成模型不同的 validator 模型，避免同模型自我确认偏差。成本增量约 $50-70，需确认是否在预算内取舍。"
     },
     {
       "type": "data_quality",
-      "severity": "medium",
-      "description": "合成同质化。以单题为种子、固定 n=2，容易产出仅换数字的近似复述，n-gram 去重会大量删除，实际留存远低于 2x/seed。",
-      "mitigation": "在合成提示中显式要求变换维度（改变条件结构、提升难度、换问法）；采样统计合成题与 seed 的 n-gram 相似度分布；必要时超额合成（如 n=3）再靠去重收敛到 2。"
+      "description": "同一 seed 生成的 2 道题可能高度相似，或合成题与 seed 近似复制，导致 ngram 去重后有效增量远低于 2×。",
+      "mitigation": "合成阶段一次性生成 2 题并在 prompt 中要求彼此差异化；去重时优先保留 seed 条目；在 funnel_report 中监控每 seed 的实际存活合成数。"
     },
     {
       "type": "cost",
-      "severity": "high",
-      "description": "推理轨迹生成对全池（seed + 2x synthetic = 3x）执行，是成本主导项；规模未知情况下存在预算失控风险。",
-      "mitigation": "设置 run 级 token/金额硬上限并在超限时优雅停止（保留已完成分区）；分 shard 执行；对 validate 用小模型初筛、大模型仲裁边界样本。"
+      "description": "reasoning 节点占总成本约 70%，长 CoT 的 token 长度方差大；若平均输出超出预估 2 倍，总成本将突破 $500。",
+      "mitigation": "设置硬性预算上限并分批 checkpoint；对 reasoning 设 max_tokens=2048；先用 100 条测量实际 token 分布再放量。"
+    },
+    {
+      "type": "cost",
+      "description": "预算余量仅约 15%，重试、失败与解析错误会直接侵蚀余量。",
+      "mitigation": "限制 max_retry=1；失败条目记录后丢弃而非无限重试；实时累计花费，达 90% 预算时暂停并上报。"
     },
     {
       "type": "performance",
-      "severity": "medium",
-      "description": "精确 n-gram 两两比较是 O(n^2)，30 万条量级下不可接受；同时全量 MinHash 索引有内存压力。",
-      "mitigation": "n_records>100k 时切换 MinHash-LSH（阈值对齐 0.8）；分块建索引，必要时先按题型/长度分桶再桶内去重。"
+      "description": "ngram 精确两两比较在 4000+ 条上尚可，但若规模上升到十万级会成为瓶颈。",
+      "mitigation": "直接采用 MinHash + LSH 近似方案，保持规模可扩展。"
     },
     {
-      "type": "performance",
-      "severity": "medium",
-      "description": "长时 LLM 任务的部分失败（限流、超时、JSON 解析失败）会造成中间状态不一致与重复计费。",
-      "mitigation": "每阶段落盘 checkpoint + 幂等键（记录级 id + 阶段名）；严格 JSON schema 校验 + 有限重试；失败记录进 dead-letter 分区而非中断整条 pipeline。"
+      "type": "reliability",
+      "description": "LLM 结构化输出解析失败、限流退避可能导致长尾拖慢，威胁 240 分钟 SLA。",
+      "mitigation": "每阶段分批落盘支持断点续跑；解析失败重试 1 次后进入死信队列；预留 80 分钟 SLA 缓冲。"
     },
     {
       "type": "correctness",
-      "severity": "medium",
-      "description": "血缘约束 preserve_seed_id 与去重存在张力：若某 seed 的两个合成题都被去重删除，该 seed 的 2:1 合成契约无法满足，下游若按固定倍率消费会出错。",
-      "mitigation": "在 run_report 中输出每 seed 的实际合成留存数；明确约定 synthesis_count_per_seed=2 为上限目标而非硬保证，或对不足的 seed 触发补合成回路（需确认是否需要）。"
-    },
-    {
-      "type": "compliance",
-      "severity": "low",
-      "description": "若最终数据用于模型训练，需确认源数据集许可是否允许衍生与合成，以及所用 LLM 的输出使用条款。",
-      "mitigation": "在执行前确认数据来源许可与模型服务条款，记录到 run 元数据。"
+      "description": "推理轨迹可能与答案不一致（答案对但推理错，或反向套答案），削弱数据集训练价值。",
+      "mitigation": "已加入 trace 一致性检查与 filter_trace 节点；建议对最终数据集人工抽检 50 条评估轨迹质量。"
     }
   ],
   "evidence_ids": [],
   "clarifications_needed": [
     {
-      "question": "合成问题的 answer 从哪里来？",
-      "context": "reasoning 算子需要 (question, answer) 对才能校验轨迹结论一致性。这是当前设计中最关键的缺口，会决定是否需要新增 solve 算子。",
-      "options": ["合成 LLM 同时产出 question+answer", "新增独立 solve 算子求解", "不要求合成题有 answer，reasoning 自行推导出答案作为 answer"]
+      "question": "seed 数据中的 answer 应视为可信 ground truth，还是需要 LLM 校验其正确性？",
+      "context": "决定 validate_seed 是否判定答案正确性，直接影响过滤率与成本。当前计划按“需校验”执行。",
+      "options": ["视为 ground truth，仅校验题目合理性", "同时校验答案正确性（当前默认）"]
     },
     {
-      "question": "输入数据集规模大概是多少条？是否有预算上限和 SLA？",
-      "context": "duration 与 cost 估算目前只能按每千条单位外推，无法给出绝对值；也影响去重是否必须走 MinHash。"
+      "question": "合成题的答案由谁产出并如何验证？",
+      "context": "影响 validate_synth 的严格程度与成本。当前默认由合成 LLM 给出答案并做单次校验（k=1）。",
+      "options": ["合成 LLM 一并给出，单次校验（当前默认）", "独立求解模型给出，self-consistency k=3 校验（+$50-70）", "不校验，直接采信"]
     },
     {
-      "question": "answer 字段的具体形态是什么？",
-      "context": "决定 validate 的判正方式（数值/符号等价比较 vs LLM 语义判定）以及 reasoning 的结论匹配逻辑。",
-      "options": ["纯数值", "LaTeX 表达式", "自然语言短句", "含完整解题过程"]
+      "question": "“每个 seed 合成两个”是硬约束还是尽力而为？",
+      "context": "若为硬约束，需对被过滤掉的合成题补充重试，成本上浮约 20-30% 且可能突破预算。当前按尽力而为处理。",
+      "options": ["尽力而为（当前默认）", "硬约束，允许重试补齐"]
     },
     {
-      "question": "validate 与 reasoning 分别指定用哪个模型？是否允许两级（小模型初筛 + 强模型仲裁）？",
-      "context": "直接决定成本量级（可差 5-10 倍）与判正准确率。"
+      "question": "ngram 去重的作用范围与粒度？",
+      "context": "仅对 question 去重会保留同题不同解法；对 question+answer 去重更宽松。当前默认仅 question、n=5、阈值 0.8。",
+      "options": ["仅 question（当前默认）", "question+answer 拼接", "包含 reasoning_trace"]
     },
     {
-      "question": "ngram 去重的具体参数：n 取几、相似度阈值多少、只比 question 还是 question+answer？",
-      "context": "约束只给了 dedup_method='ngram'。当前默认 n=5 / jaccard 0.8 / 仅 question，需确认。"
-    },
-    {
-      "question": "去重是否允许删除原始 seed 条目，还是 seed 必须全部保留、只在 synthetic 内部去重？",
-      "context": "影响 keep_priority 策略与最终数据集构成。"
-    },
-    {
-      "question": "被 filter 掉的错题和被去重移除的条目需要保留输出吗？",
-      "context": "当前设计默认落盘到 rejects 分区用于审计，若不需要可省存储。"
-    },
-    {
-      "question": "若某 seed 的合成题全部被去重或校验失败，是否需要补合成以保证每 seed 满 2 条？",
-      "context": "constraints 中 synthesis_count_per_seed=2 是硬保证还是目标上限，决定是否需要一个重试回路（会引入非 DAG 的循环与额外成本）。"
+      "question": "最终数据集需要保留被过滤条目及其拒绝原因吗？",
+      "context": "影响导出格式与存储；保留有利于审计和后续 validator 调优。当前默认单独输出 reject_log。"
     }
   ]
 }

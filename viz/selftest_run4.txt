@@ -1,0 +1,62 @@
+[14:00:25] ingest: 2 kept, 3 rejected
+[14:00:25] dedup(minhash_lsh): 2 kept, 0 dropped, 0 answer conflicts
+{
+  "cases": [
+    {
+      "case": "ingest_schema_and_exact_dedup",
+      "status": "pass"
+    },
+    {
+      "case": "validator_good_item_fenced_json",
+      "status": "pass"
+    },
+    {
+      "case": "validator_non_math_item",
+      "status": "pass"
+    },
+    {
+      "case": "validator_wrong_answer",
+      "status": "pass"
+    },
+    {
+      "case": "validator_truncation_is_retried_not_rejected",
+      "status": "pass"
+    },
+    {
+      "case": "synthesize_two_parse_errors_then_success",
+      "status": "pass"
+    },
+    {
+      "case": "reasoning_multiline_cot_via_tags",
+      "status": "pass"
+    },
+    {
+      "case": "math_equal_percent_vs_decimal",
+      "status": "pass"
+    },
+    {
+      "case": "math_equal_latex_fraction_vs_decimal",
+      "status": "pass"
+    },
+    {
+      "case": "dedup_prefers_seed_and_flags_answer_conflict",
+      "status": "fail",
+      "error": "AssertionError: seed row not preferred: ['s9', 'n1']"
+    },
+    {
+      "case": "gate_metrics_exclude_infra_errors",
+      "status": "pass"
+    },
+    {
+      "case": "export_atomic_and_halt_does_not_truncate",
+      "status": "pass"
+    },
+    {
+      "case": "price_lookup_prefix_match_and_fail_closed",
+      "status": "pass"
+    }
+  ],
+  "passed": 12,
+  "failed": 1,
+  "workdir": "/var/folders/2j/l445sp3j1w7dqbdymh3gr66r0000gn/T/mathqa_selftest_793o83hg"
+}

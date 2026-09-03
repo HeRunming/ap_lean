@@ -132,6 +132,11 @@ class AgentOrchestrator:
                 })
                 return result
 
+            # A rejected body is the evidence for why it was rejected — keep it
+            # on disk. Run 3 lost three 40-55k responses to metadata-only logging.
+            dump = self._dump_failed_body(state, agent_name, attempt, response.content)
+            attempts[-1]["body_saved_to"] = str(dump) if dump else None
+
             print(f"  ⟳ attempt {attempt}: {reason}", flush=True)
             if response.stop_reason == "max_tokens":
                 max_tokens = min(max_tokens * 2, 32000)
@@ -145,6 +150,16 @@ class AgentOrchestrator:
         })
         state.set_agent_status(agent_name, "failed")
         raise RuntimeError(f"{agent_name}: {detail}")
+
+    def _dump_failed_body(self, state: RunState, agent_name: str, attempt: int, body: str):
+        """Persist a rejected response body next to the run's evidence."""
+        if not body:
+            return None
+        d = pathlib.Path(self.config.evidence_dir) / f"{state.run_id}_rejected"
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / f"{agent_name}_attempt{attempt}.txt"
+        p.write_text(body)
+        return p
 
     def _evaluate_response(self, agent_name: str, response) -> tuple[bool, Dict[str, Any], str]:
         """Decide whether a response is usable; return (ok, parsed, reason)."""
@@ -194,22 +209,116 @@ class AgentOrchestrator:
             '"audit_log": {...}}',
     }
 
-    def _build_agent_prompt(self, agent_name: str, context: Dict[str, Any]) -> str:
-        """Build prompt for an agent."""
-        ctx = json.dumps(context, ensure_ascii=False, indent=2)
-        limit = self.config.max_context_chars
-        if len(ctx) > limit:
-            ctx = ctx[:limit] + f"\n… [context truncated at {limit} chars]"
+    # Injected in this order, and a later field is dropped before an earlier
+    # one. `repair_hints` outranks everything an agent could re-derive: a
+    # tail-first cut silently starved the repair loop of the very hints it
+    # existed to deliver.
+    CONTEXT_PRIORITY = (
+        "run_id",
+        "status",
+        "validator_verdict",
+        "repair_hints",
+        "validator_checks_failed",
+        "task",
+        "outputs",
+        "agent_states",
+        "evidence_ids",
+        "recent_events",
+    )
 
+    # Source longer than this is excerpted head+tail with an explicit marker,
+    # so a reader can tell a truncated artifact from a genuinely broken one.
+    CODE_EXCERPT_CHARS = 90000
+
+    def _fit_code(self, code: str) -> str:
+        """Keep a long source readable and honestly labelled when excerpted."""
+        cap = self.CODE_EXCERPT_CHARS
+        if len(code) <= cap:
+            return code
+        lines = code.splitlines()
+        head = code[: int(cap * 0.7)]
+        tail = code[-int(cap * 0.3):]
+        head_lines = head.count("\n") + 1
+        tail_lines = tail.count("\n") + 1
+        omitted = len(lines) - head_lines - tail_lines
+        return (
+            head
+            + f"\n\n# … [EXCERPT: {omitted} of {len(lines)} lines omitted here. "
+            f"The file is complete on disk — do NOT report it as truncated. "
+            f"The final {tail_lines} lines follow.] …\n\n"
+            + tail
+        )
+
+    def _render_context(self, context: Dict[str, Any]) -> str:
+        """Serialize context, dropping lowest-priority fields to fit the budget.
+
+        Whole fields are dropped and named, rather than slicing the JSON tail:
+        a mid-string cut makes a complete artifact look broken to the next
+        agent, which is exactly how the repair loop lost its hints.
+        """
+        limit = self.config.max_context_chars
+        ctx = dict(context)
+
+        # Excerpt any long source before measuring — code dominates the budget.
+        outputs = ctx.get("outputs")
+        if isinstance(outputs, dict):
+            trimmed = {}
+            for name, out in outputs.items():
+                if isinstance(out, dict) and isinstance(out.get("pipeline_code"), str):
+                    out = dict(out)
+                    out["pipeline_code"] = self._fit_code(out["pipeline_code"])
+                trimmed[name] = out
+            ctx["outputs"] = trimmed
+
+        ordered = [k for k in self.CONTEXT_PRIORITY if k in ctx]
+        ordered += [k for k in ctx if k not in self.CONTEXT_PRIORITY]
+
+        dropped: list[str] = []
+        while True:
+            payload = {k: ctx[k] for k in ordered if k not in dropped}
+            body = json.dumps(payload, ensure_ascii=False, indent=2)
+            if len(body) <= limit:
+                break
+            droppable = [k for k in reversed(ordered) if k not in dropped]
+            # Never drop the top three — without them the turn is meaningless.
+            if len(droppable) <= 3:
+                break
+            dropped.append(droppable[0])
+
+        if dropped:
+            body += (
+                f"\n\n… [context budget {limit} chars: omitted field(s) "
+                f"{', '.join(reversed(dropped))}]"
+            )
+        return body
+
+    def _build_agent_prompt(self, agent_name: str, context: Dict[str, Any]) -> str:
+        """Build prompt for an agent, fitting the context to its char budget."""
+        ctx = self._render_context(context)
         shape = self.OUTPUT_SHAPES.get(agent_name, "{...}")
+
+        task = (
+            f"Based on the above context, perform your designated role as "
+            f"{agent_name}, following your contract."
+        )
+        if context.get("repair_hints"):
+            task = (
+                "This is a REPAIR round. `repair_hints` and "
+                "`validator_checks_failed` above are the Validator's findings on "
+                "your previous draft — they are the work of this turn, not "
+                "background.\n\n"
+                "Address every `critical` and `high` hint. For each one, either "
+                "fix it in the code, or state in `notes_for_validator` why you "
+                "are not fixing it. Do not substitute your own findings for the "
+                "Validator's list. Keep the rest of the pipeline intact."
+            )
         return f"""## Context
 
 {ctx}
 
 ## Task
 
-Based on the above context, perform your designated role as {agent_name},
-following your contract.
+{task}
 
 ## Output Format
 
@@ -222,18 +331,63 @@ descriptive text — never truncate the structure. Inside string values, escape
 newlines as \\n so the block stays parseable.
 """
 
+    @staticmethod
+    def _json_candidates(response: str) -> list:
+        """Yield plausible JSON payloads from a response, best first.
+
+        A non-greedy ```json fence match ends at the FIRST ``` in the body, and
+        generated Python routinely carries a nested ```python example inside a
+        docstring — so that first fence lands mid-string and every candidate
+        comes out truncated. Brace matching is what survives nested fences.
+        """
+        text = response.strip()
+        out, seen = [], set()
+
+        def add(chunk):
+            chunk = chunk.strip()
+            if chunk and chunk not in seen:
+                seen.add(chunk)
+                out.append(chunk)
+
+        # 1. Brace-matched objects, longest first — immune to nested fences.
+        matched = []
+        for start in [i for i, ch in enumerate(text) if ch == "{"][:40]:
+            depth, in_str, esc = 0, False, False
+            for i in range(start, len(text)):
+                ch = text[i]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                    continue
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        matched.append(text[start:i + 1])
+                        break
+        for chunk in sorted(matched, key=len, reverse=True):
+            add(chunk)
+
+        # 2. Fenced bodies, then the whole response, as fallbacks.
+        for body in re.findall(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL):
+            add(body)
+        add(text)
+        return out
+
     def _parse_agent_response(self, agent_name: str, response: str) -> Dict[str, Any]:
         """Parse agent response, extracting JSON.
 
-        Prefers the last fenced ```json block (a retry may quote the failed one
-        first). Falls back to strict=False, which tolerates the raw newlines a
-        model emits inside long code strings.
+        Candidates come from brace matching, each tried strict then
+        strict=False, which tolerates raw newlines inside long code strings.
         """
-        blocks = re.findall(r"```json\s*(.*?)\s*```", response, re.DOTALL)
-        candidates = [blocks[-1]] if blocks else []
-        candidates.append(response.strip())
-
-        for candidate in candidates:
+        for candidate in self._json_candidates(response):
             for strict in (True, False):
                 try:
                     result = json.loads(candidate, strict=strict)
@@ -275,6 +429,11 @@ newlines as \\n so the block stays parseable.
                 context = state.get_context_for_agent("PipelineBuilder")
                 context["repair_hints"] = hints
                 context["validator_verdict"] = verdict_result.get("verdict")
+                context["validator_checks_failed"] = [
+                    {"name": c.get("name"), "message": c.get("message")}
+                    for c in verdict_result.get("checks", [])
+                    if c.get("status") == "fail"
+                ]
                 rebuilt = self.execute_agent("PipelineBuilder", context, state)
                 state.outputs["PipelineBuilder"] = rebuilt
                 print("  ✓ PipelineBuilder re-drafted", flush=True)

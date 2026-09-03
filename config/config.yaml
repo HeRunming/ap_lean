@@ -33,7 +33,10 @@ execution:
   max_retries: 3
   retry_delay: 2.0     # seconds between attempts
   timeout: 900         # HTTP read timeout per agent call（长代码生成需要）
-  max_context_chars: 60000  # 注入 prompt 的上游上下文上限
+  # 注入 prompt 的上游上下文上限。60000 曾导致 Validator 只看到 77% 代码
+  # 并把完整文件报成截断，同时把 repair_hints 整段砍掉；1M 窗口下这个自我
+  # 设限没有意义。超限时按 CONTEXT_PRIORITY 整字段丢弃，不再切 JSON 尾部。
+  max_context_chars: 400000
   max_repair_rounds: 2      # Validator fail → PipelineBuilder 修复轮数
 
 # 证据存储

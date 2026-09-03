@@ -1,258 +1,324 @@
 ```json
 {
   "mapping": {
-    "_meta": {
-      "target_schema_source": "未提供 target_schema，以下目标字段由 ResearchPlanner DAG 的 export.include_lineage 与 merge.keep_fields 反推：id, seed_id, origin, question, answer, reasoning_trace, trace_consistent",
-      "cardinality": "1 source row -> 1..3 target rows（1 seed + 最多 2 synthetic），非 1:1 字段映射；下列每个字段按 origin 分支给出映射",
-      "sample_data": "未提供样例数据，answer 字段的实际形态无法验证（见 conflicts.answer_form_unknown）"
-    },
     "id": {
-      "seed_path": {
-        "source": "id",
-        "transform": "IDENTITY",
-        "type_conversion": "string -> string",
-        "nullable_check": "source non-null, target non-null, safe"
+      "source": "id",
+      "transform": "CONDITIONAL_BY_PROVENANCE",
+      "type_conversion": "string -> string",
+      "branches": {
+        "provenance=seed": {
+          "source": "ingest.id",
+          "transform": "IDENTITY",
+          "note": "原始 seed id 原样保留，满足 constraints.preserve_seed_id"
+        },
+        "provenance=synthetic": {
+          "source": null,
+          "transform": "GENERATE_UPSTREAM",
+          "generated_by": "llm_synthesize_questions_n2",
+          "expression": "CONCAT(seed_id, '#s', synth_index)  -- synth_index in {1,2}",
+          "note": "计划未定义新 id 的生成规则，此处给出建议式确定性方案以保证幂等与可追溯"
+        }
       },
-      "synthetic_path": {
-        "source": "id",
-        "transform": "TEMPLATE",
-        "expression": "CONCAT(id, '::syn', k)  // k in {1,2}",
-        "type_conversion": "string -> string",
-        "nullable_check": "source non-null, target non-null, safe",
-        "validation": "ASSERT(NOT CONTAINS(id, '::')) AND ASSERT_UNIQUE(id) on ingest"
-      }
+      "nullable_check": "source non-null (ingest.drop_null=true), target non-null, safe",
+      "constraint": "UNIQUE across merged_qa"
     },
     "seed_id": {
-      "seed_path": {
-        "source": "id",
-        "transform": "IDENTITY",
-        "type_conversion": "string -> string",
-        "nullable_check": "target non-null；决策：seed 行 seed_id 自指（seed_id = id），使血缘字段全表非空、可直接 GROUP BY 统计每 seed 留存数",
-        "note": "备选方案为 seed 行 seed_id = null，会让 export 的血缘完整性校验需要特例分支，故不采用"
+      "source": "id",
+      "transform": "CONDITIONAL_BY_PROVENANCE",
+      "type_conversion": "string -> string",
+      "branches": {
+        "provenance=seed": {
+          "source": "ingest.id",
+          "transform": "IDENTITY",
+          "note": "seed 条目 seed_id = 自身 id（与 ResearchPlanner assumption 一致）"
+        },
+        "provenance=synthetic": {
+          "source": "valid_seeds.id",
+          "transform": "IDENTITY_FROM_PARENT",
+          "note": "由 synthesize 节点透传父 seed 的 id"
+        }
       },
-      "synthetic_path": {
-        "source": "id",
-        "transform": "IDENTITY",
-        "type_conversion": "string -> string",
-        "nullable_check": "source non-null, target non-null, safe",
-        "note": "满足 constraints.preserve_seed_id"
-      }
-    },
-    "origin": {
-      "seed_path": {
-        "source": null,
-        "transform": "CONSTANT",
-        "value": "seed",
-        "type_conversion": "N/A -> string(enum['seed','synthetic'])"
-      },
-      "synthetic_path": {
-        "source": null,
-        "transform": "CONSTANT",
-        "value": "synthetic",
-        "type_conversion": "N/A -> string(enum['seed','synthetic'])"
-      }
+      "nullable_check": "target non-null, safe",
+      "constraint": "FOREIGN_KEY -> 原始输入 id 集合（synthetic 行必须可追溯到已通过 filter_seed 的 seed）"
     },
     "question": {
-      "seed_path": {
-        "source": "question",
-        "transform": "NORMALIZE",
-        "expression": "unify_latex_delimiters(collapse_whitespace(strip(strip_control_chars(question))))",
-        "type_conversion": "string -> string",
-        "nullable_check": "source non-null, target non-null；但 normalize 后可能为空串，需在 prefilter 断言 len >= 10",
-        "lossy": true,
-        "note": "非 IDENTITY：normalize 节点改写文本。建议同时保留 question_raw 供审计"
+      "source": "question",
+      "transform": "CONDITIONAL_BY_PROVENANCE",
+      "type_conversion": "string -> string",
+      "branches": {
+        "provenance=seed": {
+          "source": "question",
+          "transform": "NORMALIZE",
+          "expression": "normalize_latex(collapse_whitespace(trim(question)))",
+          "intermediate_field": "question_norm",
+          "note": "ingest 节点产出 question_norm；merge 节点 schema 使用名称 question，需显式重命名"
+        },
+        "provenance=synthetic": {
+          "source": null,
+          "transform": "GENERATE_UPSTREAM",
+          "generated_by": "llm_synthesize_questions_n2",
+          "intermediate_field": "synth_question"
+        }
       },
-      "synthetic_path": {
-        "source": "question",
-        "transform": "GENERATE_DOWNSTREAM",
-        "generated_by": "llm_synthesize_questions_n2",
-        "type_conversion": "string -> string（seed question 仅作 prompt 输入，非字段级映射）",
-        "nullable_check": "target non-null，由 validate_synth 闸门保证"
-      }
+      "nullable_check": "source non-null，且 ingest 过滤空值；target non-null，safe",
+      "note": "此字段同时是 ngram_deduplicate 的去重键（n=5, Jaccard 0.8）"
     },
     "answer": {
-      "seed_path": {
-        "source": "answer",
-        "transform": "NORMALIZE",
-        "expression": "unify_latex_delimiters(collapse_whitespace(strip(answer)))",
-        "type_conversion": "string -> string",
-        "nullable_check": "source non-null, target non-null, safe",
-        "lossy": true
+      "source": "answer",
+      "transform": "CONDITIONAL_BY_PROVENANCE",
+      "type_conversion": "string -> string",
+      "branches": {
+        "provenance=seed": {
+          "source": "answer",
+          "transform": "NORMALIZE",
+          "expression": "normalize_latex(collapse_whitespace(trim(answer)))",
+          "intermediate_field": "answer_norm",
+          "validation": "validate_seed.is_answer_correct == true"
+        },
+        "provenance=synthetic": {
+          "source": null,
+          "transform": "GENERATE_UPSTREAM",
+          "generated_by": "llm_synthesize_questions_n2",
+          "intermediate_field": "synth_answer",
+          "validation": "validate_synth.is_answer_correct == true"
+        }
       },
-      "synthetic_path": {
-        "source": null,
-        "transform": "UNRESOLVED",
-        "type_conversion": "UNKNOWN",
-        "nullable_check": "target non-null（reasoning.require_final_answer_match 依赖此字段），但当前无任何确定的产出方案",
-        "blocking": true,
-        "candidate_sources": [
-          "llm_synthesize_questions_n2 同时产出 answer（synthesize.params.emit_answer 当前为待确认）",
-          "新增 solve 算子（DAG 中不存在该节点）",
-          "由 llm_generate_reasoning_trace 反推答案（则 require_final_answer_match 失去意义，退化为无校验）"
-        ]
-      }
+      "nullable_check": "source non-null, target non-null, safe",
+      "note": "两个分支的可信度来源不同（人工标注 vs LLM 生成后校验），语义上不完全等价，建议下游可区分"
     },
     "reasoning_trace": {
       "source": null,
       "transform": "GENERATE_DOWNSTREAM",
       "generated_by": "llm_generate_reasoning_trace",
-      "type_conversion": "N/A -> string",
-      "nullable_check": "target nullable 建议为 true：生成失败/重试耗尽的记录应进 dead-letter 而非阻断",
-      "note": "若源 answer 实际已含完整解题过程，此字段应改为 EXTRACT/REFORMAT 而非从零生成，见 conflicts.answer_form_unknown"
+      "type_conversion": "N/A",
+      "nullable_check": "由 filter_trace(trace_ok==true) 保证导出时非空",
+      "depends_on": [
+        "question",
+        "answer"
+      ],
+      "note": "answer-conditioned CoT；trace_final_answer 与 answer 的一致性判定方式未定义，见 conflicts"
     },
-    "trace_consistent": {
+    "provenance": {
       "source": null,
-      "transform": "GENERATE_DOWNSTREAM",
-      "generated_by": "llm_generate_reasoning_trace",
-      "type_conversion": "N/A -> boolean",
-      "nullable_check": "target nullable（reasoning_trace 缺失时为 null）"
-    },
-    "_intermediate_fields": {
-      "is_well_formed": {
-        "source": ["question"],
-        "transform": "GENERATE_DOWNSTREAM",
-        "generated_by": "validate_math_question",
-        "type_conversion": "N/A -> boolean",
-        "note": "中间字段，filter 后落 rejects 分区，不进 final_dataset"
+      "transform": "CONSTANT",
+      "type_conversion": "N/A -> string (enum)",
+      "value": {
+        "from_ingest_branch": "seed",
+        "from_synthesize_branch": "synthetic"
       },
-      "is_answer_correct": {
-        "source": ["question", "answer"],
-        "transform": "GENERATE_DOWNSTREAM",
-        "generated_by": "validate_math_question",
-        "type_conversion": "N/A -> boolean",
-        "note": "中间字段"
-      },
-      "validation_reason": {
-        "source": null,
-        "transform": "GENERATE_DOWNSTREAM",
-        "generated_by": "validate_math_question",
-        "type_conversion": "N/A -> string",
-        "note": "中间字段，仅落 rejects"
-      },
-      "confidence": {
-        "source": null,
-        "transform": "GENERATE_DOWNSTREAM",
-        "generated_by": "validate_math_question",
-        "type_conversion": "N/A -> float[0,1]",
-        "note": "中间字段；与 final_dataset 不应重名，建议改名 validation_confidence"
-      }
+      "allowed_values": [
+        "seed",
+        "synthetic"
+      ],
+      "nullable_check": "target non-null, safe",
+      "note": "dedup.tie_breaker=prefer_provenance_seed 依赖此字段，必须在 merge 之前写入而非导出时补"
     }
   },
-  "confidence": 0.58,
-  "mapping_blocked": true,
-  "block_reason": "critical: 目标必需字段 answer 在 synthetic 分支无确定来源；且源 answer 形态未知，会改变 reasoning_trace 的映射语义（生成 vs 抽取）",
-  "conflicts": [
+  "derived_target_schema": {
+    "source_of_truth": "ResearchPlanner.plan.dag.nodes[report].description + nodes[merge].params.schema",
+    "reason": "输入 context 未提供显式 target_schema，字段集合由计划反推",
+    "fields": [
+      {
+        "name": "id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "seed_id",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "question",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "answer",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "reasoning_trace",
+        "type": "string",
+        "nullable": false
+      },
+      {
+        "name": "provenance",
+        "type": "string",
+        "nullable": false
+      }
+    ]
+  },
+  "stage_contracts": [
     {
-      "type": "missing_source",
-      "severity": "critical",
-      "source_field": null,
-      "target_field": "answer (origin=synthetic)",
-      "message": "合成题的 answer 无源、无确定生成算子。reasoning 节点的 require_final_answer_match=true 需要 (question, answer) 对；DAG 中 synthesize.params.emit_answer 标记为待确认，且无 solve 节点。约 2/3 的输出记录（每 seed 2 条合成）落在此分支。",
-      "resolution": "三选一并落到 DAG：(a) synthesize 输出 schema 增加 answer 字段（成本最低，但答案与题目同源，正确性无独立保证）；(b) 在 synthesize 与 merge 之间新增 solve 算子（推荐，可配 self_consistency_k>=3 多数投票）；(c) 放弃 answer 非空约束，answer 由 reasoning 反推 —— 此时必须把 target.answer 改为 nullable 并关闭 require_final_answer_match。"
+      "node": "ingest",
+      "in": [
+        "question",
+        "answer",
+        "id"
+      ],
+      "out": [
+        "question_norm",
+        "answer_norm",
+        "id",
+        "schema_ok"
+      ],
+      "rename": {
+        "question": "question_norm",
+        "answer": "answer_norm"
+      }
     },
     {
-      "type": "semantic_ambiguity",
+      "node": "synthesize",
+      "in": [
+        "valid_seeds.question_norm",
+        "valid_seeds.answer_norm",
+        "valid_seeds.id"
+      ],
+      "out": [
+        "synth_question",
+        "synth_answer",
+        "id",
+        "seed_id",
+        "provenance"
+      ]
+    },
+    {
+      "node": "merge",
+      "left_rename": {
+        "question_norm": "question",
+        "answer_norm": "answer",
+        "id": "id",
+        "id_copy": "seed_id",
+        "const": "provenance='seed'"
+      },
+      "right_rename": {
+        "synth_question": "question",
+        "synth_answer": "answer",
+        "id": "id",
+        "seed_id": "seed_id",
+        "provenance": "provenance"
+      },
+      "note": "union_datasets 必须显式做上述列重命名与常量补齐，否则两侧列名不一致导致 union 失败"
+    },
+    {
+      "node": "report",
+      "drop": [
+        "is_valid_question",
+        "is_answer_correct",
+        "validation_reason",
+        "trace_final_answer",
+        "trace_ok",
+        "schema_ok"
+      ],
+      "note": "中间审计字段不进最终数据集，仅进 reject_log / funnel_report"
+    }
+  ],
+  "confidence": 0.82,
+  "conflicts": [
+    {
+      "type": "schema_alignment_missing",
       "severity": "high",
-      "source_field": "answer",
-      "target_field": "answer / reasoning_trace",
-      "message": "input_contract 只声明 answer: string，未提供样例数据，无法判定其是纯数值、LaTeX 表达式、自然语言短句，还是已含完整解题过程。若已含解题过程：(1) target.answer 需先 EXTRACT 最终答案，(2) reasoning_trace 应为 REFORMAT 现有过程而非 GENERATE，(3) validate 的判正逻辑与 ngram 去重的 dedup_field 语义也随之变化。",
-      "resolution": "提供 20-50 条样例数据做形态分布统计，或明确指定 answer 形态；据此确定 answer 是 IDENTITY 还是 EXTRACT，reasoning_trace 是 GENERATE 还是 REFORMAT。"
+      "node": "merge",
+      "source_field": [
+        "question_norm",
+        "answer_norm",
+        "synth_question",
+        "synth_answer"
+      ],
+      "target_field": [
+        "question",
+        "answer"
+      ],
+      "message": "merge 节点声明 schema 为 [id, seed_id, question, answer, provenance]，但上游两条分支实际输出列名分别为 question_norm/answer_norm 与 synth_question/synth_answer，且 ingest 分支不产出 seed_id 与 provenance。",
+      "resolution": "在 union 前插入显式 SELECT-AS 重命名与常量列补齐（见 stage_contracts.merge）。已给出映射，无需澄清。"
+    },
+    {
+      "type": "comparison_semantics_undefined",
+      "severity": "high",
+      "source_field": "trace_final_answer",
+      "target_field": "answer",
+      "message": "filter_trace 依赖 trace_final_answer 与 answer 的一致性，但数学答案的字符串相等无法表达语义等价（如 0.5 vs 1/2、\\frac{1}{2} vs 1/2、含单位或前缀 'x=' 的形式），直接字符串比较会误杀大量正确轨迹。",
+      "resolution": "定义 math_equal(a, b)：先做 LaTeX 规范化 + 数值解析，失败时回退 sympy 符号等价，再回退 LLM 判等。建议在 100 条样本上先测量误杀率。"
     },
     {
       "type": "id_collision_risk",
       "severity": "medium",
       "source_field": "id",
-      "target_field": "id (origin=synthetic)",
-      "message": "id_scheme '{seed_id}::syn{k}' 依赖两个未经验证的前提：源 id 全局唯一、且源 id 内不含分隔符 '::'。任一不成立都会在 merge.assert_unique_id 处炸掉，或更糟——静默产生歧义血缘。",
-      "resolution": "在 ingest 增加两条硬断言：ASSERT_UNIQUE(id) 与 ASSERT(NOT CONTAINS(id, '::'))；若源 id 含 '::'，改用不可能出现的分隔符或对 seed_id 做 hex 编码。"
+      "target_field": "id",
+      "message": "计划要求 preserve_seed_id 且合成条目分配新 id，但未定义新 id 的命名空间；若合成 id 随机生成或与 seed id 空间重叠，会破坏 id 唯一性与 seed_id 外键关系。",
+      "resolution": "采用确定性方案 CONCAT(seed_id, '#s', index)，并在 merge 后加 UNIQUE(id) 断言。若已有全局 id 规范请以其为准。"
     },
     {
-      "type": "nullable_violation",
+      "type": "semantic_mismatch",
       "severity": "medium",
-      "source_field": "question / answer",
-      "target_field": "question / answer",
-      "message": "input_contract 未声明 nullable。若源允许 null 或空串，normalize 后仍为空，而目标 question/answer 为非空必需字段。",
-      "resolution": "prefilter 已按 min_question_len=10 / min_answer_len=1 过滤，可覆盖此风险；但需确认 prefilter 位于任何非空断言之前（当前 DAG 顺序正确）。同时确认 input_contract 各字段的 nullable 语义。"
-    },
-    {
-      "type": "cardinality_mismatch",
-      "severity": "info",
-      "message": "本映射不是 1:1 行映射。1 条源记录扇出为 1 条 seed + 最多 2 条 synthetic，再经 validate_synth 与 dedup 收缩。PipelineBuilder 不能按逐行 projection 实现，必须显式处理 fan-out 与 origin 分支。",
-      "resolution": "在 builder 中把 synthesize 建模为 flat_map 而非 map；merge 后按 origin 分支应用不同映射规则。"
+      "source_field": "answer / synth_answer",
+      "target_field": "answer",
+      "message": "同一目标字段承载两种可信度来源：seed 的人工答案（经校验）与合成题的 LLM 自产答案（经单次 k=1 自评）。合并后下游无法区分置信度，同模型自评偏差会被静默带入训练集。",
+      "resolution": "provenance 字段已可部分区分；建议额外保留 answer_verified_by / verification_k 字段。是否引入取决于 ResearchPlanner 未决澄清项 2。"
     }
   ],
   "warnings": [
     {
-      "type": "lossy_transform",
-      "field": "question, answer",
-      "message": "normalize 的 unify_latex_delimiters 会改写文本。数学文本中 $...$ 与 \\(...\\) 的机械替换在含转义 \\$、代码块或货币符号时可能破坏语义。",
-      "severity": "medium",
-      "suggestion": "保留 question_raw / answer_raw 原文字段用于审计与回溯；对替换规则先在样例上跑 validate_transform。"
-    },
-    {
-      "type": "contract_not_guaranteed",
-      "field": "seed_id",
-      "message": "constraints.synthesis_count_per_seed=2 在字段层面无法保证：validate_synth 与 dedup 都会删行，某 seed 可能最终 0 条合成题。preserve_seed_id 只保证血缘字段被携带，不保证倍率。",
-      "severity": "medium",
-      "suggestion": "run_report 输出 per-seed 实际留存数；明确 2 为上限目标而非硬保证，或确认是否需要补合成回路。"
-    },
-    {
-      "type": "field_name_collision",
-      "field": "confidence",
-      "message": "validate 输出的 confidence 与 run 级/其他阶段的置信度字段同名，merge 后易被覆盖。",
-      "severity": "low",
-      "suggestion": "重命名为 validation_confidence；合成题的对应字段为 synth_validation_confidence。"
-    },
-    {
       "type": "missing_target_schema",
-      "message": "输入未提供 target_schema 与 sample_data。上述目标字段集由 DAG 的 merge.keep_fields 与 export 反推，未经 schema registry 校验。若存在真实的下游训练格式契约（如字段名为 problem/solution/messages），本映射需整体重做。",
-      "severity": "high",
-      "suggestion": "提供 target_schema 或下游消费方的格式契约后重跑本 agent。"
+      "field": "*",
+      "message": "输入未提供 target_schema，本次映射的目标字段集合由 plan 的 report/merge 节点反推。若真实目标 schema 不同（如需要 difficulty、topic、source 等字段），映射需重算。",
+      "severity": "medium"
     },
     {
-      "type": "unmapped_target_field",
-      "field": "trace_consistent",
-      "message": "trace_consistent 是质量标记而非内容字段。若最终数据集用于训练，需确认 trace_consistent=false 的记录是过滤掉、还是导出到低置信度分区。",
-      "severity": "low",
-      "suggestion": "在 export 前增加分区规则，或在 dedup.keep_priority 之外补一条硬过滤。"
-    }
-  ],
-  "clarifications_needed": [
-    {
-      "question": "合成题的 answer 由谁产出？",
-      "source_field": null,
-      "target_field": "answer (origin=synthetic)",
-      "options": ["synthesize 同时输出 answer", "新增 solve 算子（推荐）", "answer 改为 nullable 并由 reasoning 反推"]
+      "type": "lossy_normalization",
+      "field": "question / answer",
+      "message": "normalize_latex + 空白折叠为不可逆转换，原始文本未保留。若后续需回溯原文或复现标注，建议 ingest 阶段同时保留 question_raw / answer_raw。",
+      "severity": "low"
     },
     {
-      "question": "源 answer 的实际形态是什么？能否提供 20-50 条样例？",
-      "source_field": "answer",
-      "target_field": "answer, reasoning_trace",
-      "options": ["纯数值", "LaTeX 表达式", "自然语言短句", "含完整解题过程"]
+      "type": "audit_fields_dropped",
+      "field": "validation_reason / trace_final_answer / is_answer_correct",
+      "message": "审计字段不进最终数据集，仅落 reject_log。ResearchPlanner 澄清项 5 尚未确认是否需随主数据集导出。",
+      "severity": "info"
     },
     {
-      "question": "是否存在下游训练格式的 target_schema？当前目标字段名由 DAG 反推。",
-      "source_field": null,
-      "target_field": "ALL"
+      "type": "cardinality_not_guaranteed",
+      "field": "seed_id",
+      "message": "constraints.synthesis_count_per_seed=2 为硬约束写法，但 validate_synth + filter_synth + dedup 会使部分 seed 的存活合成数 <2。若下游对 GROUP BY seed_id 的计数有假设，会不成立。",
+      "severity": "medium"
     },
     {
-      "question": "seed 行的 seed_id 取 id 自指还是 null？当前决策为自指。",
-      "source_field": "id",
-      "target_field": "seed_id"
+      "type": "dedup_key_scope",
+      "field": "question",
+      "message": "去重仅在 question 上进行，同题不同解法/不同答案的条目会各自保留，可能产生同一 question 下 answer 冲突的样本对。建议在 dedup 后加一次 GROUP BY question 的答案一致性检查。",
+      "severity": "medium"
     },
     {
-      "question": "源 id 是否全局唯一、是否可能含 '::'？影响合成 id 方案可用性。",
-      "source_field": "id",
-      "target_field": "id"
+      "type": "nullable_handling",
+      "field": "reasoning_trace",
+      "message": "目标字段导出时要求非空，依赖 filter_trace 生效。若后续放宽 filter_trace（如保留 trace_ok=false 供审计），需将 reasoning_trace 改为 nullable 并新增 trace_ok 列。",
+      "severity": "low"
     }
   ],
   "evidence_ids": [
     "task.input_contract",
     "task.constraints",
-    "ResearchPlanner.plan.dag.merge.keep_fields",
-    "ResearchPlanner.plan.dag.synthesize.params.id_scheme",
-    "ResearchPlanner.clarifications_needed[0]",
-    "ResearchPlanner.assumptions[1]"
+    "ResearchPlanner.plan.dag.nodes[ingest,synthesize,merge,reasoning,filter_trace,dedup,report]",
+    "ResearchPlanner.assumptions[preserve_seed_id, best_effort_synthesis]"
+  ],
+  "clarifications_needed": [
+    {
+      "question": "最终 target_schema 是否就是 [id, seed_id, question, answer, reasoning_trace, provenance]？是否需要 difficulty / topic / source 等附加字段？",
+      "source_field": "N/A",
+      "target_field": "*"
+    },
+    {
+      "question": "合成条目的 id 命名规则是否可采用 '{seed_id}#s{1,2}'？还是需对接既有 id 生成服务？",
+      "source_field": "id",
+      "target_field": "id"
+    },
+    {
+      "question": "trace 一致性判定采用哪种等价标准（字符串规范化 / 符号等价 / LLM 判等）？此项直接决定 filter_trace 的留存率。",
+      "source_field": "trace_final_answer",
+      "target_field": "answer"
+    }
   ]
 }
 ```
