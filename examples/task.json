@@ -1,0 +1,1 @@
+{"kind":"工单","title":"订单宽表延迟并新增 customer_tier","source":"kafka.orders.v2","target":"dws_order_customer","risk":"high","constraints":{"sla_minutes":15,"pii":true}}

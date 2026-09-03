@@ -1,0 +1,134 @@
+{
+  "run_id": "53beecc1-f340-4b1d-8e16-32c34094ab0e",
+  "task": {
+    "kind": "数学问题数据集清洗与合成",
+    "title": "Math QA clean → synthesize → rationale → ngram dedup",
+    "prompt": "请你帮我搭建一条数据清洗和合成的 pipeline。pipeline 的输入是一个数学问题数据集，我希望pipeline首先检查每个问题的正确性，filter掉错误的问题，以及不是一个合理的数学问题的条目；随后基于这些问题作为seed，提示llm合成一些新的、高质量的合成问题，每个seed question合成两个新的数学问题；随后调用llm给每个问题合成推理轨迹；最后给这些qa对做ngram去重。",
+    "input_contract": {
+      "question": "string",
+      "answer": "string",
+      "id": "string"
+    },
+    "operators": [
+      "validate_math_question",
+      "filter_invalid",
+      "llm_synthesize_n=2",
+      "llm_generate_reasoning_trace",
+      "ngram_deduplicate",
+      "quality_gate"
+    ],
+    "risk": "medium",
+    "constraints": {
+      "preserve_seed_id": true,
+      "dedup_ngram": 5,
+      "require_trace": true
+    }
+  },
+  "status": "completed",
+  "outputs": {
+    "ResearchPlanner": {
+      "agent": "ResearchPlanner",
+      "mode": "dry-run",
+      "summary": "ResearchPlanner completed with shared context"
+    },
+    "FieldMapper": {
+      "agent": "FieldMapper",
+      "mode": "dry-run",
+      "summary": "FieldMapper completed with shared context"
+    },
+    "PipelineBuilder": {
+      "agent": "PipelineBuilder",
+      "mode": "dry-run",
+      "summary": "PipelineBuilder completed with shared context"
+    },
+    "Validator": {
+      "agent": "Validator",
+      "mode": "dry-run",
+      "summary": "Validator completed with shared context"
+    },
+    "Reviewer": {
+      "agent": "Reviewer",
+      "mode": "dry-run",
+      "summary": "Reviewer completed with shared context"
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-09-02T14:14:38.381095+00:00",
+      "actor": "Orchestrator",
+      "action": "task_received",
+      "payload": {
+        "kind": "数学问题数据集清洗与合成"
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381327+00:00",
+      "actor": "ResearchPlanner",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381329+00:00",
+      "actor": "FieldMapper",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381330+00:00",
+      "actor": "PipelineBuilder",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381332+00:00",
+      "actor": "Validator",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381333+00:00",
+      "actor": "Reviewer",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:14:38.381334+00:00",
+      "actor": "Orchestrator",
+      "action": "evidence_sealed",
+      "payload": {
+        "rollback": "pipeline previous version"
+      }
+    }
+  ],
+  "pending_approval": null
+}

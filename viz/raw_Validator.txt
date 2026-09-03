@@ -1,0 +1,239 @@
+```json
+{
+  "checks": [
+    {
+      "name": "artifact_completeness",
+      "status": "fail",
+      "message": "第三轮仍然截断。v3 的 pipeline_code 在 ngram_deduplicate 倒排分支处断开（最后可见 `for j, _shared in candidates.most_c`）。倒排分支剩余逻辑、EXPORT_FIELDS、write_jsonl、export_dataset、run_pipeline 全体、run_report 组装、argparse/__main__ 均不可见。三轮截断点分别为 reasoning 阶段(v1)、out_dir 赋值(v2)、dedup 倒排分支(v3)，位置在移动但问题未解决。上一轮已明确建议改为落盘传路径，该建议未被采纳。",
+      "details": {
+        "last_visible": "for j, _shared in candidates.most_c",
+        "missing": ["dedup 倒排分支尾部", "export_dataset", "run_pipeline", "run_report", "argparse/__main__"],
+        "recurrence": 3
+      }
+    },
+    {
+      "name": "syntax_check",
+      "status": "warning",
+      "message": "撤回上一轮结论：我在 v2 报告中把 `from datasketch import MinHash as minhash_cls` 判为 SyntaxError，这是错误的。函数内 import-as 对已赋值的局部名重新绑定在 CPython 中合法，v2 该处并非语法错误。PipelineBuilder 依据我的误判做了 G1 改动。不过 G1 的结果（模块级 _load_minhash 返回元组或 None）在可读性与可测性上确实优于原写法，改动本身无害。v3 可见部分未发现语法问题，但因 artifact 截断仍无法对完整文件运行 ast.parse。",
+      "details": {
+        "correction": "v2 syntax_check 的 SyntaxError 判定为误报",
+        "impact_on_builder": "G1 基于误判但结果无害",
+        "ast_parse_executed": false
+      }
+    },
+    {
+      "name": "v3_repair_verification",
+      "status": "pass",
+      "message": "v3 声明的 G1-G4 四项在可见代码中全部确认落地。G1: 模块级 _load_minhash() 返回 (MinHash, MinHashLSH) 或 None，调用点用 `minhash = _load_minhash() if len>threshold else None` 收敛。G2: LSH 分支新增 sig_by_id 表，每个 LSH 命中都用新增的 jaccard() 函数对精确阈值二次确认后才移除，duplicate_of 为真实 record id——这是实质性正确性修复，弥补了 LSH 近似性带来的假阳删除。G3: StateStore.put 增加 os.fsync。G4: reasoning 的 prompt 提到循环外构建一次，check_match 提取为局部变量，重试不再重建提示。",
+      "details": {"confirmed": ["G1", "G2", "G3", "G4"], "most_valuable": "G2 LSH 命中的精确 jaccard 二次确认"}
+    },
+    {
+      "name": "critical_hints_unaddressed",
+      "status": "fail",
+      "message": "上一轮 3 项 critical 与 4 项 high 在 v3 中依旧全部未处理，这是连续第二轮未响应。(1) budget_guard: json_call 仍无前置额度门，_charge 仍在 API 返回后计费，parallel_stage 捕获 BudgetExceeded 仍只置 stopped=True 不 cancel_futures，IN_PRICE/OUT_PRICE 仍为跨四档模型的单一价格。(2) require_reasoning_trace: 仍是 `out['reasoning_trace'] = trace or None`，无非空门。(3) max_usd 默认仍 50.0。(4) parallel_stage 对 value is None 仍不落 checkpoint。(5) 仍用 as_completed，_keep_rank 仍是三元组无 id tie-break。(6) answer_form 仍为 'unknown'。(7) 依赖仍开区间。v3 的改动集（G1-G4）与 Validator 的 critical 列表零交集，三轮下来改动全部来自 Builder 自查。",
+      "details": {
+        "rounds_unaddressed": 2,
+        "overlap_with_validator_criticals": 0,
+        "builder_self_found_vs_validator_found": "7 self / 0 validator"
+      }
+    },
+    {
+      "name": "schema_contract_check",
+      "status": "fail",
+      "message": "constraints.require_reasoning_trace=true 三轮未强制。llm_generate_reasoning_trace 仍可返回 reasoning_trace=None；EXPORT_FIELDS 与 export_dataset 不可见但 v2 版本包含该字段且无过滤，无理由认为 v3 改变。final_dataset 存在必需字段为 null 的路径。",
+      "details": {"field": "reasoning_trace", "declared": "required", "actual": "nullable, ungated", "rounds_unfixed": 3}
+    },
+    {
+      "name": "budget_guard_check",
+      "status": "fail",
+      "message": "护栏三轮未改。超支上限仍约等于中断阶段剩余条数 × 1 次调用；reasoning 阶段 10 万条量级即数千美元越界。单一 token 价格覆盖 haiku(validate) 与 sonnet(arbiter/synthesize/solve/reasoning)，est_usd 与真实账单可能差数倍，导致 max_usd 阈值本身不可信。G3 的 fsync 只降低了已付费结果丢失的风险，与超支无关。",
+      "details": {"defects": ["post-hoc charging", "no cancel_futures", "flat price across tiers"], "rounds_unfixed": 3}
+    },
+    {
+      "name": "cost_check",
+      "status": "fail",
+      "message": "调用模型不变：每 seed 基线约 13 次（validate 1 + synthesize 1 + solve 3×2 + validate_synth 2 + reasoning 3），叠加 F6/G4 的 reasoning 重试最坏约 16 次，约 $0.18-0.22/seed。默认 max_usd=50 仅覆盖约 230-280 seed。规模、预算、SLA 三项输入三轮均未提供，无法判定是否在预算内。G2 的精确 jaccard 二次确认不增加 LLM 调用，成本中性。",
+      "details": {
+        "calls_per_seed": "13-16",
+        "usd_per_seed": "0.18-0.22",
+        "default_max_usd": 50.0,
+        "budget_from_task": "not provided"
+      }
+    },
+    {
+      "name": "sample_replay",
+      "status": "skipped",
+      "message": "连续第三轮不可执行：无 test_cases、无 sample_data、无 API 凭据与出网、artifact 截断无法 import。0/0 用例。三轮验证全部为纯静态审查，本项目至今没有任何运行时正确性证据。上一轮建议的 LLMClient 可注入接口 + FakeLLMClient 未实现。",
+      "details": {"total": 0, "passed": 0, "failed": 0, "rounds_skipped": 3}
+    },
+    {
+      "name": "data_quality_check",
+      "status": "skipped",
+      "message": "需真实输出，不可测。静态：export 前无 null 率检查、无 schema 一致性复核；trace_consistent=false 既不过滤也不分区，drop_inconsistent_traces 默认 False 仍未与用户确认。",
+      "details": {"static_findings": ["no completeness assertion", "trace_consistent=false 未分区"]}
+    },
+    {
+      "name": "dedup_correctness_check",
+      "status": "warning",
+      "message": "G2 使 LSH 分支从近似删除升级为 LSH 候选 + 精确 jaccard 确认，正确性明显提升，两个分支的判定语义现已一致。剩余问题：sig_by_id 在 LSH 分支额外常驻一份全量 n-gram 集合（本意是为精确确认，代价是内存翻倍，恰好发生在 >100k 记录的大规模场景）；倒排分支尾部代码不可见无法确认；dedup_protect_seeds=True 时 seed 完全不被移除，若源数据本身含重复 seed（ingest 只断言 id 唯一，不查文本重复），这些重复会原样进入 final_dataset。",
+      "details": {"improved": "LSH exact confirmation", "new_cost": "sig_by_id memory at scale", "gap": "duplicate seed text not deduped"}
+    },
+    {
+      "name": "determinism_check",
+      "status": "warning",
+      "message": "未修。as_completed 决定 records 顺序，续跑时 cached 整体前置；_keep_rank 完全并列时由列表下标决定保留者。G2 让 LSH 分支的删除判定更严格，间接减少了因近似命中造成的随机差异，但排序不确定性这一根因未动。",
+      "details": {"root_cause": "as_completed ordering + index tie-break"}
+    },
+    {
+      "name": "idempotency_check",
+      "status": "warning",
+      "message": "主体正确，G3 的 fsync 进一步降低了崩溃丢失已付费结果的风险。但 value is None 不落 checkpoint 的缺陷三轮未修：solve_synthetic_question 返回 None 的合成题每次续跑重跑 k 次 solve。",
+      "details": {"improved_by_G3": "fsync on append", "unfixed": "None result not checkpointed"}
+    },
+    {
+      "name": "answer_semantics_check",
+      "status": "warning",
+      "message": "answer_form 仍为 'unknown'，而 reasoning_match_retries=1 默认开启：形态未确认时 trace 大面积不一致会让每条多烧一次调用后仍标记 false。answer_key 的 re.sub(r'[\\s$,]','') 仍去逗号，'(1,2)' 与 '(12)' 等价化，影响 solve 多数票与 trace 一致性判定。",
+      "details": {"answer_form": "unknown", "interaction": "unknown form × retry = wasted spend"}
+    },
+    {
+      "name": "prefilter_logic_check",
+      "status": "warning",
+      "message": "F3/F4 保留，风险不变：MATH_SIGNAL 要求数字/运算符/LaTeX 宏，纯文字算式（'seven minus three'）会被判 no_math_signal 静默丢弃；TRUNCATION_TAIL 含 is/for/to，少数合法问法会被判 likely_truncated。两类都落 prefilter_rejects 可审计，需采样确认误杀率。",
+      "details": {"risk": "silent false negatives", "auditable": true}
+    },
+    {
+      "name": "performance_check",
+      "status": "warning",
+      "message": "无法实测。静态风险未缓解且 G2 新增一项：sigs 全量常驻 + LSH 分支的 sig_by_id 第二份拷贝；倒排路径高频 gram 上接近 O(n²) 且每条执行 most_common() 全排序；solve 的 k=3 仍单 worker 串行；重试仍 3 次、SDK max_retries=0、无 Retry-After 解析；reasoning 重试加剧限流压力。",
+      "details": {"unmeasured": true, "new_from_G2": "sig_by_id memory"}
+    },
+    {
+      "name": "constraint_check",
+      "status": "warning",
+      "message": "preserve_seed_id 通过；dedup_method=ngram 通过（G2 后判定更严谨）；require_reasoning_trace 未通过；synthesis_count_per_seed=2 仍为上限目标，per-seed 直方图声明在 run_report 但该段不可见，三轮均无法验证。",
+      "details": {"pass": 2, "warning": 1, "fail": 1, "unverifiable": ["per-seed histogram"]}
+    },
+    {
+      "name": "security_check",
+      "status": "pass",
+      "message": "API key 仅读环境变量，未落盘未进日志；dead_letter 异常截断 500 字符；仅 Anthropic API 出网；无 shell 拼接与 eval；文件写入限于本地 out/ 与 state/。",
+      "details": {"secrets_in_logs": false}
+    },
+    {
+      "name": "dependency_check",
+      "status": "warning",
+      "message": "仍开区间（anthropic>=0.18.0、datasketch>=1.6.4）。G1 把可选依赖收敛到 _load_minhash 一处，缺失时告警更清晰（含记录数与慢速提示），但仍是静默降级到大规模下不可接受的精确路径而非报错退出。",
+      "details": {"pinned": false, "fallback": "warn + degrade, not abort"}
+    },
+    {
+      "name": "sla_check",
+      "status": "skipped",
+      "message": "未提供数据集规模与 SLA，性能不可实测。",
+      "details": {"sla_minutes": null, "dataset_size": null}
+    }
+  ],
+  "verdict": "fail",
+  "quality_score": 0.42,
+  "repair_hints": [
+    {
+      "check": "artifact_completeness",
+      "issue": "三轮连续截断，从未验证过完整文件；上一轮的落盘建议未被采纳",
+      "suggestion": "不要再内联传源码。把文件写到 out/math_qa_pipeline.py 并只传路径 + sha256 + 行数，Validator 直接读文件做 ast.parse。这是解除 fail 判定的前置条件——在拿不到完整文件之前，syntax/replay/export/run_report 四类检查永远无法通过。",
+      "priority": "critical"
+    },
+    {
+      "check": "critical_hints_unaddressed",
+      "issue": "Validator 的 critical 列表两轮零响应，v1-v3 所有改动均来自 Builder 自查",
+      "suggestion": "下一版必须先逐条应答上一轮 repair_hints（applied / rejected+理由 / deferred+条件），再做自查改动。当前的修改流程没有把 Validator 输出作为输入，继续迭代只会重复本轮结论。",
+      "priority": "critical"
+    },
+    {
+      "check": "budget_guard_check",
+      "issue": "预算护栏可被中断阶段的剩余队列整体突破；四档模型共用单价",
+      "suggestion": "json_call 首行加前置额度门；BudgetExceeded 后 cancel_futures 并 break；按模型分档计价。",
+      "code_example": "def _preflight(self):\n    with self._lock:\n        if self.calls >= self.cfg.max_llm_calls or self.est_usd >= self.cfg.max_usd:\n            raise BudgetExceeded('ceiling reached before request')\n\nPRICES = {'claude-3-5-haiku-latest': (0.0000008, 0.000004),\n          'claude-sonnet-4-5': (0.000003, 0.000015)}\n\n# parallel_stage:\n    except BudgetExceeded:\n        stopped = True\n        pool.shutdown(wait=False, cancel_futures=True)\n        break",
+      "priority": "critical"
+    },
+    {
+      "check": "schema_contract_check",
+      "issue": "reasoning_trace 可为 null 仍导出，三轮违反 require_reasoning_trace=true",
+      "suggestion": "空 trace 抛异常进 dead_letter，export 前加过滤与断言。",
+      "code_example": "if not trace:\n    raise RuntimeError('empty_reasoning_trace')\n\nrows = [r for r in kept if r.get('reasoning_trace')]\nassert all(r['reasoning_trace'] for r in rows), 'require_reasoning_trace violated'",
+      "priority": "critical"
+    },
+    {
+      "check": "cost_check",
+      "issue": "13-16 次调用/seed，默认 max_usd=50 仅覆盖约 250 seed",
+      "suggestion": "去掉低默认值改为 CLI 必填；先跑 300-500 条采样固化单位成本与过滤率。降本：solve k=2 并仅对分歧升 3；solve 与 validate_synth 合并为一次调用；seed 行走 REFORMAT 复用已有 answer；answer_form 未确认时关闭 reasoning_match_retries。",
+      "priority": "critical"
+    },
+    {
+      "check": "sample_replay",
+      "issue": "三轮零运行时证据",
+      "suggestion": "把 LLMClient 抽为可注入依赖（构造参数或 Protocol），提供返回固定 JSON 的 FakeLLMClient，并附 10-20 条 test_cases。没有这一步，后续验证仍只能是静态审查。",
+      "priority": "high"
+    },
+    {
+      "check": "answer_semantics_check",
+      "issue": "answer_form=unknown 与默认开启的重试叠加，纯浪费；answer_key 去逗号",
+      "suggestion": "先用 20-50 条样例定形态并显式设置 answer_form，再启用 reasoning_match_retries；answer_key 保留逗号与括号结构，只做数值与空白归一。",
+      "priority": "high"
+    },
+    {
+      "check": "idempotency_check",
+      "issue": "None 结果不落 checkpoint，续跑重复付费",
+      "suggestion": "写哨兵值并在 load 后过滤。",
+      "code_example": "if value is None:\n    store.put(stage, key, {'__dropped__': True})\n    continue\n# results = [v for v in cached.values() if not (isinstance(v, dict) and v.get('__dropped__'))]",
+      "priority": "high"
+    },
+    {
+      "check": "determinism_check",
+      "issue": "as_completed 顺序 + 下标 tie-break 使 dedup 不可复现",
+      "suggestion": "dedup 前按 id 排序，_keep_rank 末位加 rec['id']。",
+      "code_example": "pool = sorted(with_reasoning, key=lambda r: r['id'])\n\ndef _keep_rank(rec):\n    return (0 if rec.get('origin') == 'seed' else 1,\n            0 if rec.get('trace_consistent') is not False else 1,\n            -len(rec.get('reasoning_trace') or ''),\n            rec['id'])",
+      "priority": "high"
+    },
+    {
+      "check": "dedup_correctness_check",
+      "issue": "G2 引入 sig_by_id 使大规模场景内存翻倍；重复 seed 文本永不去重",
+      "suggestion": "sig_by_id 改存哈希后的 gram 指纹（如 frozenset of 32-bit hash）或只对 LSH 命中方按需重算签名；另外把 dedup_protect_seeds 细化为「保护 seed 不被 synthetic 挤掉，但 seed 之间仍互相去重」，否则源数据重复题会原样进 final_dataset。",
+      "priority": "medium"
+    },
+    {
+      "check": "performance_check",
+      "issue": "dedup 内存与复杂度、solve 串行、重试预算薄",
+      "suggestion": "LSH 设为默认路径或先按题长分桶；精确路径给高频 gram 设 posting 上限；solve 的 k 次并发提交；重试提到 5-6 次并解析 429 Retry-After。",
+      "priority": "medium"
+    },
+    {
+      "check": "prefilter_logic_check",
+      "issue": "F4/F3 存在静默漏判",
+      "suggestion": "在 300 条采样上统计 reject_reason 分布并抽检 no_math_signal 与 likely_truncated；考虑把 require_math_signal 降级为打标而非丢弃。",
+      "priority": "medium"
+    },
+    {
+      "check": "dependency_check",
+      "issue": "依赖开区间；datasketch 缺失时静默降级",
+      "suggestion": "固定确切版本；记录数超阈值而 datasketch 不可用时直接报错退出。",
+      "priority": "medium"
+    }
+  ],
+  "evidence_ids": [
+    "static_review:pipeline_code_v3:f88ee4b3-2f50-425a-99aa-753dd0574e50",
+    "artifact_truncation:ngram_deduplicate:candidates.most_c",
+    "artifact_truncation_recurrence:v1_reasoning,v2_out_dir,v3_dedup",
+    "v3_fixes_confirmed:G1,G2,G3,G4",
+    "validator_correction:v2_syntax_check_false_positive_on_function_scoped_import_as",
+    "v1_v2_hints_unaddressed:budget_guard,require_reasoning_trace,default_max_usd,idempotency,determinism,answer_form,dependency_pinning",
+    "cost_model:13_to_16_llm_calls_per_seed",
+    "task.constraints.require_reasoning_trace",
+    "task.constraints.synthesis_count_per_seed",
+    "FieldMapper.conflicts[0]:resolved_by_solve_synthetic_question",
+    "FieldMapper.conflicts[1]:answer_form_unknown:unresolved",
+    "ResearchPlanner.clarifications_needed[1]:dataset_scale_budget_sla:unresolved",
+    "no_execution_evidence:sample_replay_skipped_three_rounds",
+    "no_execution_evidence:performance_metrics_unmeasured"
+  ]
+}
+```

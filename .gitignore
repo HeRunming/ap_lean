@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Secrets — never commit
+config/.env
+.env
+*.key
+
+# Runtime artifacts
+*.log
+cache/
+.pytest_cache/
+.mypy_cache/
+backup_*
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp

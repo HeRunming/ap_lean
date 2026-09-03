@@ -1,0 +1,16 @@
+{
+  "kind": "数学问题数据集清洗与合成",
+  "title": "Math QA clean → synthesize → rationale → ngram dedup",
+  "prompt": "请你帮我搭建一条数据清洗和合成的 pipeline。pipeline 的输入是一个数学问题数据集，我希望pipeline首先检查每个问题的正确性，filter掉错误的问题，以及不是一个合理的数学问题的条目；随后基于这些问题作为seed，提示llm合成一些新的、高质量的合成问题，每个seed question合成两个新的数学问题；随后调用llm给每个问题合成推理轨迹；最后给这些qa对做ngram去重。",
+  "input_contract": {"question": "string", "answer": "string", "id": "string"},
+  "operators": [
+    "validate_math_question",
+    "filter_invalid",
+    "llm_synthesize_n=2",
+    "llm_generate_reasoning_trace",
+    "ngram_deduplicate",
+    "quality_gate"
+  ],
+  "risk": "medium",
+  "constraints": {"preserve_seed_id": true, "dedup_ngram": 5, "require_trace": true}
+}

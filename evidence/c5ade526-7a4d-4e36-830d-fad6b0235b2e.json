@@ -1,0 +1,125 @@
+{
+  "run_id": "c5ade526-7a4d-4e36-830d-fad6b0235b2e",
+  "task": {
+    "kind": "工单",
+    "title": "订单宽表延迟并新增 customer_tier",
+    "source": "kafka.orders.v2",
+    "target": "dws_order_customer",
+    "risk": "high",
+    "constraints": {
+      "sla_minutes": 15,
+      "pii": true
+    }
+  },
+  "status": "approval_required",
+  "outputs": {
+    "ResearchPlanner": {
+      "agent": "ResearchPlanner",
+      "mode": "dry-run",
+      "summary": "ResearchPlanner completed with shared context"
+    },
+    "FieldMapper": {
+      "agent": "FieldMapper",
+      "mode": "dry-run",
+      "summary": "FieldMapper completed with shared context"
+    },
+    "PipelineBuilder": {
+      "agent": "PipelineBuilder",
+      "mode": "dry-run",
+      "summary": "PipelineBuilder completed with shared context"
+    },
+    "Validator": {
+      "agent": "Validator",
+      "mode": "dry-run",
+      "summary": "Validator completed with shared context"
+    },
+    "Reviewer": {
+      "agent": "Reviewer",
+      "mode": "dry-run",
+      "summary": "Reviewer completed with shared context"
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-09-02T14:12:54.121818+00:00",
+      "actor": "Orchestrator",
+      "action": "task_received",
+      "payload": {
+        "kind": "工单"
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121885+00:00",
+      "actor": "ResearchPlanner",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121887+00:00",
+      "actor": "FieldMapper",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121889+00:00",
+      "actor": "PipelineBuilder",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121890+00:00",
+      "actor": "Validator",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121892+00:00",
+      "actor": "Reviewer",
+      "action": "completed",
+      "payload": {
+        "keys": [
+          "agent",
+          "mode",
+          "summary"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-02T14:12:54.121893+00:00",
+      "actor": "Orchestrator",
+      "action": "approval_requested",
+      "payload": {
+        "reason": "high-risk deployment",
+        "required_role": "human_change_approver"
+      }
+    }
+  ],
+  "pending_approval": {
+    "reason": "high-risk deployment",
+    "required_role": "human_change_approver"
+  }
+}

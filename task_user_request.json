@@ -1,0 +1,24 @@
+{
+  "kind": "数据清洗与合成pipeline",
+  "title": "数学问题数据集清洗、合成、推理轨迹生成与去重",
+  "prompt": "请你帮我搭建一条数据清洗和合成的 pipeline。pipeline 的输入是一个数学问题数据集，我希望pipeline首先检查每个问题的正确性，filter掉其中错误的问题，以及不是一个合理的数学问题的条目，随后，基于这些问题作为seed，提示llm合成一些新的、高质量的合成问题，我希望每个seed question都能合成出两个新的数学问题，随后，调用llm给每个问题合成推理轨迹，并最后给这些qa对做ngram去重",
+  "input_contract": {
+    "question": "string",
+    "answer": "string",
+    "id": "string"
+  },
+  "expected_operators": [
+    "validate_math_question",
+    "filter_invalid", 
+    "llm_synthesize_questions_n2",
+    "llm_generate_reasoning_trace",
+    "ngram_deduplicate"
+  ],
+  "risk": "medium",
+  "constraints": {
+    "preserve_seed_id": true,
+    "synthesis_count_per_seed": 2,
+    "dedup_method": "ngram",
+    "require_reasoning_trace": true
+  }
+}

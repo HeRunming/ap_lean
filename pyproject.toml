@@ -1,0 +1,35 @@
+"""Package installation configuration."""
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dataflow-agent-teams"
+version = "0.1.0"
+description = "Multi-agent system for DataFlow pipeline development"
+authors = [
+    {name = "DataFlow Team"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "anthropic>=0.18.0",
+    "httpx>=0.24.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+dataflow-orchestrator = "runtime.orchestrator:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["runtime*", "agents*", "skills*"]
