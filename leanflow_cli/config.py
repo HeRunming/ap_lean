@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 LEANFLOW_HOME_ENV = HOME_ENV
 LEANFLOW_HOME_DEFAULT = DEFAULT_HOME
 _ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_WARNED_DUPLICATE_ENV_PATHS: set[str] = set()
 
 # Legacy config carried a large registry of optional env vars for removed
 # gateway/browser/voice surfaces. The Lean-first kernel no longer needs that
@@ -589,11 +590,31 @@ def set_config_value(key_path: str, value: Any) -> None:
 def load_env_file() -> dict[str, str]:
     ensure_leanflow_home()
     result: dict[str, str] = {}
+    duplicate_keys: set[str] = set()
     for line in get_env_path().read_text(encoding="utf-8").splitlines():
         if not line or line.lstrip().startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        result[key.strip()] = value
+        normalized_key = key.strip()
+        if not normalized_key:
+            continue
+        # A dotenv file is intended to be a set of assignments.  Treating a
+        # later duplicate as authoritative makes accidental endpoint/key
+        # leftovers silently redirect paid work (python-dotenv has the same
+        # last-value behavior).  Keep the first assignment deterministic and
+        # report only variable names, never their values.
+        if normalized_key in result:
+            duplicate_keys.add(normalized_key)
+            continue
+        result[normalized_key] = value
+    env_path = str(get_env_path())
+    if duplicate_keys and env_path not in _WARNED_DUPLICATE_ENV_PATHS:
+        _WARNED_DUPLICATE_ENV_PATHS.add(env_path)
+        logger.warning(
+            "Ignoring duplicate assignments in %s (first assignment wins): %s",
+            env_path,
+            ", ".join(sorted(duplicate_keys)),
+        )
     return result
 
 

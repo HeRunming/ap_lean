@@ -3,47 +3,82 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
+import math
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from core.project_lean_capacity import MAX_PROJECT_LEAN_CAPACITY
-from core.utils import atomic_json_write
 from leanflow_cli.formalization.bounded_statement_refinement import (
+    DEFAULT_BOUNDED_STATEMENT_MODEL,
+    campaign_statement_source_admission,
     refine_campaign_statement_bounded,
 )
-from leanflow_cli.formalization.campaign_store import read_campaign, update_campaign_file
+from leanflow_cli.formalization.campaign_store import (
+    read_campaign,
+    update_campaign_file,
+)
+
+# These predicates are deliberately reused for explicit operator selectors;
+# selection must have exactly the same eligibility and dependency semantics as
+# the normal scheduler.
 from leanflow_cli.formalization.corpus_campaign import (
+    ESCALATION_STATUS,
+    MAX_ESCALATION_ATTEMPTS,
+    MAX_ESCALATION_SEMANTIC_REPAIRS,
+    RETRY_CLASS_INFRASTRUCTURE,
+    RETRY_CLASS_SEMANTIC,
+    _batch_dependencies_ready,
+    _lease_is_active,
     build_campaign,
     classify_campaign_failure,
+    classify_campaign_retry_class,
     lease_campaign_batches,
     next_campaign_batch,
     record_campaign_outcome,
     release_campaign_lease,
+    statement_escalation_pending,
 )
 from leanflow_cli.formalization.corpus_planning import source_formalization_complexity
 from leanflow_cli.formalization.formalization_document_runner import (
     _approved_blueprint_statement_review_text,
 )
+from leanflow_cli.formalization.project_reachability import project_target_reachability
+from leanflow_cli.formalization.remote_warm_probe import (
+    WARM_PROBE_ENV,
+    WARMUP_WORKERS_MAX,
+)
+from leanflow_cli.formalization.statement_review_feedback import (
+    REVIEW_FEEDBACK_ENV,
+    latest_statement_verdict,
+    statement_review_feedback,
+)
 from leanflow_cli.lean.lean_attempt_location import _multi_attempt_replacement_candidate
-from leanflow_cli.lean.lean_parsing import _declaration_line_index_from_text
+from leanflow_cli.lean.lean_module_paths import _lean_imports_from_text
+from leanflow_cli.lean.lean_parsing import (
+    _declaration_line_index_from_text,
+    _text_has_sorry,
+)
+from leanflow_cli.runtime.toolchain_env import discover_lean_bin
 from leanflow_cli.workflows import decomposition_provenance
+from leanflow_cli.workflows.project import discover_leanflow_project
 from leanflow_cli.workflows.verification_providers import (
     BLUEPRINT_VERIFICATION_TASK,
     run_model_verification_review,
+    verification_review_timeout_s,
 )
 from leanflow_cli.workflows.verification_review import (
     _verification_review_decision,
@@ -54,6 +89,235 @@ from leanflow_cli.workflows.verification_review import (
 
 class CampaignExecutionBlocked(RuntimeError):
     """Report campaign state that cannot safely produce an executable action."""
+
+
+def _normalize_project_path(value: str, project_root: str | Path) -> str:
+    """Normalize a path argument relative to ``project_root``.
+
+    Campaigns created from the workspace root may persist paths prefixed with
+    the project directory name (for example ``HDP/source/environments.json``).
+    When resumed with ``--project-root .../HDP`` that prefix would otherwise be
+    joined again, producing ``.../HDP/HDP/...``.  Strip exactly one redundant
+    root-name component when the unprefixed candidate is the project-local path.
+    Absolute paths and paths for which both candidates are absent are preserved
+    for backwards compatibility and security validation still applies.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return raw
+    root = Path(project_root).expanduser().resolve()
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        return str(candidate)
+    prefix = root.name + "/"
+    prefixed = raw.startswith(prefix)
+    dot_prefixed = raw.startswith("./" + prefix)
+    if prefixed or dot_prefixed:
+        trimmed = raw[len(prefix) :] if prefixed else raw[len("./" + prefix) :]
+        raw_exists = (root / raw).exists()
+        # Prefer the unprefixed candidate when it exists, or when the prefixed
+        # path does not exist (generated targets are often recorded before the
+        # file is created).  Preserve an intentionally nested directory when it
+        # is already present under the project root.
+        if trimmed and not raw_exists:
+            return trimmed
+    return raw
+
+
+def _normalize_campaign_action(
+    action: CampaignAction, *, project_root: str | Path
+) -> CampaignAction:
+    """Return an action whose local source/target paths are root-relative."""
+    root = Path(project_root).expanduser().resolve()
+    argv = list(action.argv)
+    try:
+        index = argv.index("formalize")
+        if index + 1 < len(argv):
+            argv[index + 1] = _normalize_project_path(argv[index + 1], root)
+    except ValueError:
+        pass
+    target = _normalize_project_path(action.target_file, root)
+    if tuple(argv) == action.argv and target == action.target_file:
+        return action
+    return replace(action, argv=tuple(argv), target_file=target)
+
+
+MAX_CAMPAIGN_WORKERS = 4
+_ESCALATION_ACTION_RESERVE_FLOOR_USD = 12.0
+
+
+def _escalation_action_reserve_usd(reserve_usd: float) -> float:
+    """Return a larger reservation for an escalation-pending statement batch."""
+    return max(float(reserve_usd), _ESCALATION_ACTION_RESERVE_FLOOR_USD)
+
+
+def _campaign_has_escalation_pending(campaign: Mapping[str, Any]) -> bool:
+    """Return whether any statement batch is already in the escalation lane."""
+    return any(
+        isinstance(batch, Mapping) and statement_escalation_pending(batch)
+        for batch in campaign.get("batches", []) or []
+    )
+
+
+def reconcile_campaign_targets(
+    campaign: Mapping[str, Any],
+    *,
+    project_root: str | Path,
+    audit_report: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Downgrade stale proof receipts whose generated target is gone or unreachable.
+
+    Campaign JSON is an accounting artifact, not proof authority.  Before a
+    resumed scheduler trusts a historical ``proofs_completed`` row, re-check the
+    target file, its assigned declarations, and (when a project root module is
+    discoverable) reachability from that root.  Never run Lean here; the next
+    proof action performs the authoritative check.
+    """
+    root = Path(project_root).expanduser().resolve()
+    updated = {
+        **campaign,
+        "batches": [dict(item) for item in campaign.get("batches", []) or []],
+    }
+    stale: list[str] = []
+    # Lean projects commonly use an aggregator whose name is not the directory
+    # name (the HDP workspace uses ``FateXWork.lean`` at the project root).
+    # The old single ``<root-name>.lean`` guess silently disabled reachability
+    # checks for such projects and let an unimported proof receipt survive.
+    root_candidates = (
+        root / "FateXWork.lean",
+        root / "Main.lean",
+        root / "HDP.lean",
+        root / f"{root.name}.lean",
+    )
+    root_file = next((candidate for candidate in root_candidates if candidate.is_file()), None)
+
+    def module_name(path: Path) -> str:
+        try:
+            return ".".join(path.relative_to(root).with_suffix("").parts)
+        except ValueError:
+            return ""
+
+    root_imports: set[str] = set()
+    root_imports_available = root_file is not None
+    if root_file is not None:
+        try:
+            root_imports = set(_lean_imports_from_text(root_file.read_text(encoding="utf-8")))
+        except OSError:
+            root_imports = set()
+
+    # Resolve the complete local import closure, not just the target's parent
+    # module.  Aggregators often import a chapter module which imports an item
+    # module several levels below it.
+    local_imports: dict[str, set[str]] = {}
+    if root_imports_available:
+        for source_file in root.rglob("*.lean"):
+            if any(part in {".git", ".lake", "build"} for part in source_file.parts):
+                continue
+            try:
+                local_imports[module_name(source_file)] = set(
+                    _lean_imports_from_text(source_file.read_text(encoding="utf-8"))
+                )
+            except OSError:
+                continue
+
+    reachable_modules: set[str] = set()
+    pending_modules = list(root_imports)
+    while pending_modules:
+        imported = pending_modules.pop()
+        if imported in reachable_modules:
+            continue
+        reachable_modules.add(imported)
+        pending_modules.extend(local_imports.get(imported, set()) - reachable_modules)
+
+    scanned = 0
+    reason_counts: dict[str, int] = {}
+    for batch in updated["batches"]:
+        if str(batch.get("status", "") or "") not in {"proofs_completed", "completed"}:
+            continue
+        scanned += 1
+        outcome = dict(batch.get("last_outcome", {}) or {})
+        target_file = str(outcome.get("target_file", "") or "").strip()
+        invalid_reason = ""
+        if not target_file:
+            invalid_reason = "proof receipt has no target file"
+            target = root
+        else:
+            target = (root / target_file).resolve()
+        if not invalid_reason and (not target.is_relative_to(root) or not target.is_file()):
+            invalid_reason = "target file is missing"
+        elif not invalid_reason:
+            try:
+                entries = _declaration_line_index_from_text(target.read_text(encoding="utf-8"))
+            except OSError:
+                entries = []
+            expected = {
+                str(value).strip()
+                for value in batch.get("declarations", []) or []
+                if str(value).strip()
+            }
+            entry_names = {
+                str(entry.get("name", "") or "").strip()
+                for entry in entries
+                if str(entry.get("name", "") or "").strip()
+            }
+            relevant = [
+                entry for entry in entries if not expected or str(entry.get("name", "")) in expected
+            ]
+            # A partial declaration index must not validate a multi-declaration
+            # receipt.  Every expected declaration has to be present and each
+            # expected declaration must be sorry-free; unrelated declarations in
+            # the target file do not affect this batch's receipt.
+            if (
+                not relevant
+                or (expected and not expected.issubset(entry_names))
+                or any(bool(entry.get("has_sorry")) for entry in relevant)
+            ):
+                invalid_reason = "target content no longer matches a sorry-free declaration"
+            elif root_imports_available:
+                target_module = module_name(target)
+                reachable = target_module in reachable_modules
+                if not reachable:
+                    invalid_reason = "target module is not reachable from the project root imports"
+        if invalid_reason:
+            stale.append(str(batch.get("id", "")))
+            reason_counts[invalid_reason] = reason_counts.get(invalid_reason, 0) + 1
+            batch["status"] = "proof_retry"
+            batch["agent_status"] = "proof_retry"
+            batch["last_outcome"] = {
+                **outcome,
+                "reconciled_stale": True,
+                "reconciliation_reason": invalid_reason,
+            }
+            batch["stale_proof_receipt"] = {
+                "reconciled_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                "reason": invalid_reason,
+                "attempt_count": len(batch.get("attempts", []) or []),
+                "target_file": target_file,
+            }
+    if audit_report is not None:
+        audit_report.update(
+            {
+                "scanned_completed_proofs": scanned,
+                "stale_downgraded": len(stale),
+                "unchanged_completed_proofs": scanned - len(stale),
+                "stale_batch_ids": list(stale),
+                "reason_counts": dict(sorted(reason_counts.items())),
+                "project_root": str(root),
+                "source_files_preserved": True,
+            }
+        )
+    return updated, stale
+
+
+def reconcile_campaign_targets_report(
+    campaign: Mapping[str, Any], *, project_root: str | Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Reconcile stale proof receipts and return an operator audit report."""
+    report: dict[str, Any] = {}
+    updated, _stale = reconcile_campaign_targets(
+        campaign, project_root=project_root, audit_report=report
+    )
+    return updated, report
 
 
 def refresh_campaign_source_complexity(
@@ -96,7 +360,10 @@ def refresh_campaign_source_complexity(
 
     def commit(current: Mapping[str, Any]):
         nonlocal changed
-        updated = {**current, "batches": [dict(item) for item in current.get("batches", []) or []]}
+        updated = {
+            **current,
+            "batches": [dict(item) for item in current.get("batches", []) or []],
+        }
         for batch in updated["batches"]:
             batch_hints = [
                 hints[label] for label in batch.get("labels", []) or [] if label in hints
@@ -170,7 +437,11 @@ def select_campaign_model(
         and str(attempt.get("stage", "proofs") or "proofs") == action.stage
         and not bool(attempt.get("success", False))
         and classify_campaign_failure(attempt)
-        in {"statement_generation_incomplete", "proof_incomplete", "verification_timeout"}
+        in {
+            "statement_generation_incomplete",
+            "proof_incomplete",
+            "verification_timeout",
+        }
         and "signal interrupt" not in str(attempt.get("reason", "") or "").lower()
     )
     if policy.escalation_model and failures >= max(1, policy.escalate_after_failures):
@@ -181,8 +452,14 @@ def select_campaign_model(
 
 _STATEMENT_RISK_PATTERNS: tuple[tuple[str, str], ...] = (
     ("source_context_missing", r"source packet is incomplete|source_context"),
-    ("measurability_integrability", r"measurab|integrab|bochner integral|genuine expectation"),
-    ("extended_value_semantics", r"ennreal|ereal|extended[- ](?:real|value)|\binfinity\b"),
+    (
+        "measurability_integrability",
+        r"measurab|integrab|bochner integral|genuine expectation",
+    ),
+    (
+        "extended_value_semantics",
+        r"ennreal|ereal|extended[- ](?:real|value)|\binfinity\b",
+    ),
     (
         "source_domain_mismatch",
         r"not bidirectionally faithful|changes? the (?:data|domain|object)|source has",
@@ -191,7 +468,10 @@ _STATEMENT_RISK_PATTERNS: tuple[tuple[str, str], ...] = (
         "totalized_edge_case",
         r"division by zero|denominator zero|n\s*=\s*0|totalized|truncated natural",
     ),
-    ("meta_proof_repair", r"repair|fixing the proof|auxiliary .* lemma|actual .* theorem"),
+    (
+        "meta_proof_repair",
+        r"repair|fixing the proof|auxiliary .* lemma|actual .* theorem",
+    ),
     (
         "statement_format",
         r"statement lane|forbidden statement-lane token|body .* exactly `by sorry`",
@@ -376,7 +656,7 @@ def campaign_economics_report(campaign: Mapping[str, Any]) -> dict[str, Any]:
         **lanes,
         "completed_batches": completed,
         "spent_usd": spent,
-        "cost_per_completed_batch_usd": round(spent / completed, 6) if completed else None,
+        "cost_per_completed_batch_usd": (round(spent / completed, 6) if completed else None),
         "statement_risk_counts": dict(sorted(statement_risk_counts.items())),
         "marginal_cost": campaign_marginal_cost_report(campaign),
         "top_cost_batches": ranked_costs[:10],
@@ -393,8 +673,57 @@ def plan_next_campaign_action(
     campaign: Mapping[str, Any],
     *,
     python_executable: str,
+    stage: str | None = None,
+    batch_id: str | None = None,
 ) -> CampaignAction | None:
     """Plan proof-first continuation so each approved batch closes before drafting more."""
+    requested_stage = str(stage or "").strip()
+    requested_batch_id = str(batch_id or "").strip()
+    if requested_stage or requested_batch_id:
+        if requested_stage not in {"statements", "proofs"}:
+            raise CampaignExecutionBlocked("explicit campaign stage must be statements or proofs")
+        batches = [item for item in campaign.get("batches", []) or [] if isinstance(item, Mapping)]
+        id_counts: dict[str, int] = {}
+        for item in batches:
+            identifier = str(item.get("id", "") or "").strip()
+            if identifier:
+                id_counts[identifier] = id_counts.get(identifier, 0) + 1
+        duplicate_ids = {identifier for identifier, count in id_counts.items() if count > 1}
+        if requested_batch_id and requested_batch_id in duplicate_ids:
+            raise CampaignExecutionBlocked(f"campaign batch id is not unique: {requested_batch_id}")
+        label_statuses = {
+            str(label): str(batch.get("agent_status", batch.get("status", "pending")))
+            for batch in batches
+            for label in batch.get("labels", []) or []
+        }
+        eligible = (
+            {"pending", "retry", "statement_retry", ESCALATION_STATUS}
+            if requested_stage == "statements"
+            else {"statements_completed", "proof_retry"}
+        )
+        selected = next(
+            (
+                batch
+                for batch in batches
+                if (not requested_batch_id or str(batch.get("id", "")) == requested_batch_id)
+                and str(batch.get("id", "") or "").strip() not in duplicate_ids
+                and batch.get("agent_status", batch.get("status")) in eligible
+                and not _lease_is_active(batch)
+                and _batch_dependencies_ready(
+                    batch, stage=requested_stage, label_statuses=label_statuses
+                )
+            ),
+            None,
+        )
+        if selected is None:
+            suffix = f" batch {requested_batch_id}" if requested_batch_id else ""
+            raise CampaignExecutionBlocked(f"no eligible {requested_stage} campaign action{suffix}")
+        return plan_campaign_batch_action(
+            campaign,
+            selected,
+            stage=requested_stage,
+            python_executable=python_executable,
+        )
     noncomplex_statement = next_campaign_batch(
         campaign,
         stage="statements",
@@ -568,11 +897,17 @@ def lease_next_campaign_actions(
     worker_count: int,
     python_executable: str,
     reserve_usd: float,
+    stage: str | None = None,
     lease_ttl_seconds: int = 7200,
 ) -> list[tuple[str, CampaignAction]]:
     """Atomically reserve a proof-first wave while accounting for all reservations."""
-    if worker_count <= 0:
-        raise CampaignExecutionBlocked("worker count must be positive")
+    if not 1 <= worker_count <= MAX_CAMPAIGN_WORKERS:
+        raise CampaignExecutionBlocked(f"worker count must be between 1 and {MAX_CAMPAIGN_WORKERS}")
+    if not math.isfinite(float(reserve_usd)) or reserve_usd <= 0:
+        raise CampaignExecutionBlocked("action reservation must be positive")
+    requested_stage = str(stage or "").strip()
+    if requested_stage and requested_stage not in {"statements", "proofs"}:
+        raise CampaignExecutionBlocked("campaign stage must be statements or proofs")
 
     manifest_path = Path(campaign_path).expanduser().resolve().with_name("book-manifest.json")
     corpus_plan = read_campaign(manifest_path) if manifest_path.is_file() else None
@@ -583,10 +918,46 @@ def lease_next_campaign_actions(
         budget = current.get("budget_usd")
         if budget is None:
             raise CampaignExecutionBlocked("campaign has no explicit budget")
-        remaining = max(
-            0.0,
-            float(budget) - float(current.get("spent_usd", 0.0) or 0.0),
-        )
+        try:
+            budget_value = float(budget)
+        except (TypeError, ValueError) as exc:
+            raise CampaignExecutionBlocked("campaign budget must be numeric") from exc
+        if not math.isfinite(budget_value) or budget_value < 0:
+            raise CampaignExecutionBlocked("campaign budget must be finite and non-negative")
+        # Leases are durable reservations, not merely coordination markers.
+        # Subtract active reservations so concurrent campaign supervisors cannot
+        # both admit against the same spent total and overspend the campaign.
+        # Legacy leases without this field are charged the current ceiling
+        # conservatively rather than being treated as free capacity.
+        now = datetime.now(UTC)
+        reserved = 0.0
+        for batch in current.get("batches", []) or []:
+            lease = batch.get("lease") if isinstance(batch, Mapping) else None
+            if not isinstance(lease, Mapping):
+                continue
+            expires = str(lease.get("expires_at", "") or "").strip()
+            try:
+                expires_at = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+            except ValueError:
+                expires_at = None
+            if expires_at is None or expires_at <= now:
+                continue
+            try:
+                lease_reserve = float(lease.get("reserve_usd", reserve_usd) or reserve_usd)
+            except (TypeError, ValueError):
+                raise CampaignExecutionBlocked("active lease reservation must be numeric")
+            if not math.isfinite(lease_reserve) or lease_reserve < 0:
+                raise CampaignExecutionBlocked(
+                    "active lease reservation must be finite and non-negative"
+                )
+            reserved += max(0.0, lease_reserve)
+        try:
+            spent_value = float(current.get("spent_usd", 0.0) or 0.0)
+        except (TypeError, ValueError) as exc:
+            raise CampaignExecutionBlocked("campaign spent_usd must be numeric") from exc
+        if not math.isfinite(spent_value) or spent_value < 0:
+            raise CampaignExecutionBlocked("campaign spent_usd must be finite and non-negative")
+        remaining = max(0.0, budget_value - spent_value - reserved)
         capacity = min(worker_count, int(remaining // reserve_usd))
         if capacity <= 0:
             raise CampaignExecutionBlocked(
@@ -603,8 +974,10 @@ def lease_next_campaign_actions(
             ("proofs", 0, ("complex",)),
             ("statements", None, ("complex",)),
             ("proofs", None, ("complex",)),
+            ("proofs", None, ("routine", "moderate")),
         ]
-        lanes.append(("proofs", None, ("routine", "moderate")))
+        if requested_stage:
+            lanes = [lane for lane in lanes if lane[0] == requested_stage]
         for stage, max_stage_attempts, allowed_complexity_tiers in lanes:
             open_slots = capacity - len(claimed)
             if open_slots <= 0:
@@ -615,6 +988,7 @@ def lease_next_campaign_actions(
                 stage=stage,
                 worker_ids=worker_ids,
                 ttl_seconds=lease_ttl_seconds,
+                reserve_usd=reserve_usd,
                 max_stage_attempts=max_stage_attempts,
                 allowed_complexity_tiers=allowed_complexity_tiers,
             )
@@ -661,11 +1035,11 @@ def validate_campaign_action_paths(
     """Reject actions whose source or target escapes the registered Lean project."""
     root = Path(project_root).expanduser().resolve()
     if action.stage == "proofs":
-        selected = action.target_file
+        selected = _normalize_project_path(action.target_file, root)
     else:
         try:
             formalize_index = action.argv.index("formalize")
-            selected = action.argv[formalize_index + 1]
+            selected = _normalize_project_path(action.argv[formalize_index + 1], root)
         except (ValueError, IndexError) as exc:
             raise CampaignExecutionBlocked("formalization action has no source path") from exc
     path = (root / selected).resolve()
@@ -675,6 +1049,192 @@ def validate_campaign_action_paths(
         raise CampaignExecutionBlocked("formalization source has an unsupported extension")
     if action.stage == "proofs" and path.suffix.lower() != ".lean":
         raise CampaignExecutionBlocked("proof target is not a Lean file")
+
+
+def _campaign_safe_name(value: str, default: str = "Formalization") -> str:
+    """Match the formalization intake's project/module name normalization.
+
+    This intentionally lives here instead of importing ``formalization_documents``:
+    that module imports campaign planning, so importing it from the runner would
+    introduce an import cycle.  It is only used to derive a *read-only* target
+    snapshot path before launching a child workflow.
+    """
+    words = re.findall(r"[A-Za-z0-9]+", value or "")
+    if not words:
+        return default
+    name = "".join(word[:1].upper() + word[1:] for word in words)
+    if not re.match(r"^[A-Za-z_]", name):
+        name = f"{default}{name}"
+    return name[:80] or default
+
+
+def _campaign_formalization_target_path(
+    action: CampaignAction, *, project_root: str | Path
+) -> Path | None:
+    """Resolve the deterministic target that a formalize action will scaffold.
+
+    Statement actions do not carry ``target_file`` until a successful child
+    records its outcome.  Their intake path is nevertheless deterministic from
+    the source and QA selector, which lets the parent take a transaction
+    snapshot without creating anything itself.  Returning ``None`` is safer
+    than guessing when a malformed action cannot be resolved.
+    """
+    if project_root is None:
+        return None
+    root = Path(project_root).expanduser().resolve()
+    if action.stage == "proofs":
+        selected = str(action.target_file or "").strip()
+        if not selected:
+            return None
+        candidate = (root / selected).resolve()
+        return candidate if candidate.is_relative_to(root) else None
+    if action.stage != "statements":
+        return None
+    try:
+        formalize_index = action.argv.index("formalize")
+        source_arg = str(action.argv[formalize_index + 1] or "").strip()
+    except (ValueError, IndexError):
+        return None
+    if not source_arg:
+        return None
+    source_path = (root / source_arg).resolve()
+    if not source_path.is_relative_to(root):
+        return None
+    # The workflow uses the LeanFlow project manifest name when present, and
+    # falls back to the root directory name for bare test projects.
+    try:
+        project_label = discover_leanflow_project(root).label
+    except Exception:
+        project_label = root.name
+    target = (
+        root
+        / _campaign_safe_name(project_label or root.name)
+        / _campaign_safe_name(source_path.stem, "Document")
+        / "Main.lean"
+    )
+    remainder = tuple(str(item) for item in action.argv[formalize_index + 2 :])
+    scope_id = ""
+    for index, item in enumerate(remainder):
+        if item == "--qa-batch" and index + 1 < len(remainder):
+            scope_id = remainder[index + 1].strip()
+            break
+        if item.startswith("--qa-batch="):
+            scope_id = item.partition("=")[2].strip()
+            break
+    if not scope_id:
+        for index, item in enumerate(remainder):
+            if item == "--qa-items" and index + 1 < len(remainder):
+                labels = remainder[index + 1].strip()
+                scope_id = "items-" + labels
+                break
+            if item.startswith("--qa-items="):
+                scope_id = "items-" + item.partition("=")[2].strip()
+                break
+    if scope_id:
+        scope_digest = hashlib.sha256(scope_id.encode("utf-8")).hexdigest()[:8]
+        scope_module = _campaign_safe_name(scope_id) + scope_digest.upper()
+        target = target.parent / scope_module / "Main.lean"
+    return target
+
+
+def _is_initial_formalization_skeleton(path: Path) -> bool:
+    """Return whether ``path`` still contains only the intake import."""
+    try:
+        return path.read_text(encoding="utf-8").strip() == "import Mathlib"
+    except (OSError, UnicodeError):
+        return False
+
+
+def _expected_lean_import_update(before: str, module: str) -> str:
+    """Mirror ``_ensure_lean_import``'s deterministic insertion format."""
+    lines = before.splitlines()
+    insert_at = 0
+    while insert_at < len(lines) and not lines[insert_at].strip():
+        insert_at += 1
+    while insert_at < len(lines) and lines[insert_at].lstrip().startswith("import "):
+        insert_at += 1
+    lines.insert(insert_at, f"import {module}")
+    if insert_at == 0 and len(lines) > 1 and lines[1].strip():
+        lines.insert(1, "")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _campaign_import_transaction_snapshot(
+    action: CampaignAction, *, project_root: str | Path, target: Path | None
+) -> dict[Path, tuple[str | None, str]]:
+    """Snapshot root/parent import-chain files touched by formalize intake."""
+    if action.stage != "statements" or target is None:
+        return {}
+    if project_root is None:
+        return {}
+    root = Path(project_root).expanduser().resolve()
+    try:
+        parts = target.relative_to(root).with_suffix("").parts
+    except ValueError:
+        return {}
+    if len(parts) < 2:
+        return {}
+    root_module = parts[0]
+    root_file = root / f"{root_module}.lean"
+    if target.name == "Main.lean" and len(parts) >= 3:
+        parent_module = ".".join(parts[:-1])
+        parent_file = root / Path(*parts[:-1]).with_suffix(".lean")
+        candidates = ((parent_file, ".".join(parts)), (root_file, parent_module))
+    else:
+        candidates = ((root_file, ".".join(parts)),)
+    snapshot: dict[Path, tuple[str | None, str]] = {}
+    for path, module in candidates:
+        try:
+            before = path.read_text(encoding="utf-8") if path.is_file() else None
+        except (OSError, UnicodeError):
+            continue
+        snapshot[path] = (before, module)
+    return snapshot
+
+
+def _cleanup_failed_campaign_imports(
+    snapshot: Mapping[Path, tuple[str | None, str]], *, success: bool
+) -> None:
+    """Undo only the exact import additions made by this failed intake.
+
+    If another process edits a root/parent module while the child runs, the
+    post-image no longer equals the deterministic one-import update and is left
+    untouched.  Newly-created parent modules containing only that import are
+    removed; pre-existing modules are restored byte-for-byte.
+    """
+    if success:
+        return
+    for path, (before, module) in snapshot.items():
+        try:
+            if before is None:
+                if path.is_file() and path.read_text(encoding="utf-8") == f"import {module}\n":
+                    path.unlink()
+            elif path.is_file() and path.read_text(
+                encoding="utf-8"
+            ) == _expected_lean_import_update(before, module):
+                path.write_text(before, encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+
+
+def _cleanup_failed_campaign_skeleton(
+    target: Path | None, *, existed_before: bool, success: bool
+) -> bool:
+    """Delete only a newly-created, untouched intake skeleton after failure.
+
+    Existing files and any file containing declarations/comments are preserved.
+    This narrow check also makes concurrent workers safe: a worker can only
+    remove the exact deterministic target it snapshotted as absent.
+    """
+    if target is None or existed_before or success:
+        return False
+    if not target.is_file() or not _is_initial_formalization_skeleton(target):
+        return False
+    try:
+        target.unlink()
+    except OSError:
+        return False
+    return True
 
 
 def _zero_cost_proof(source: str) -> str:
@@ -862,10 +1422,15 @@ def execute_next_campaign_action(
     statement_judge_model: str = "",
     statement_candidates: int = 1,
     statement_candidate_workers: int = 4,
+    warmup_workers: int | None = None,
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
     lake_executable: str = "lake",
+    statement_compile_timeout_seconds: float | int | None = None,
+    stage: str | None = None,
+    batch_id: str | None = None,
+    lease_ttl_seconds: int = 7200,
 ) -> dict[str, Any]:
     """Execute exactly one admitted action; the native runner commits its outcome."""
     path = Path(campaign_path).expanduser().resolve()
@@ -877,37 +1442,154 @@ def execute_next_campaign_action(
             if manifest_path.is_file()
             else dict(current)
         )
+        updated, _stale = reconcile_campaign_targets(updated, project_root=project_root)
         return updated, updated
 
     campaign = update_campaign_file(path, refresh)
-    action = plan_next_campaign_action(campaign, python_executable=python_executable)
-    if action is None:
-        return {"executed": False, "reason": "campaign has no remaining action"}
-    validate_campaign_action_paths(action, project_root=project_root)
-    admitted, reason = campaign_execution_admitted(campaign, reserve_usd=reserve_usd)
-    if not admitted:
-        raise CampaignExecutionBlocked(reason)
-    return _execute_campaign_action(
-        action,
-        campaign_path=path,
-        campaign=campaign,
-        project_root=project_root,
-        reserve_usd=reserve_usd,
-        provider=provider,
-        model=select_campaign_model(campaign, action, fallback_model=model, policy=model_policy),
-        statement_provider=statement_provider,
-        statement_planner_provider=statement_planner_provider,
-        statement_planner_model=statement_planner_model,
-        statement_fallback_provider=statement_fallback_provider,
-        statement_fallback_model=statement_fallback_model,
-        statement_judge_provider=statement_judge_provider,
-        statement_judge_model=statement_judge_model,
-        statement_candidates=statement_candidates,
-        statement_candidate_workers=statement_candidate_workers,
-        environ=environ,
-        bounded_statements=bounded_statements,
-        lake_executable=lake_executable,
-    )
+    explicit_selection = bool(str(stage or "").strip() or str(batch_id or "").strip())
+    worker_id = ""
+    action: CampaignAction | None = None
+    effective_reserve_usd = float(reserve_usd)
+    if explicit_selection:
+        requested_stage = str(stage or "").strip()
+        if requested_stage not in {"statements", "proofs"}:
+            raise CampaignExecutionBlocked("explicit campaign stage must be statements or proofs")
+        if batch_id is not None and not str(batch_id).strip():
+            raise CampaignExecutionBlocked("explicit batch id must not be empty")
+        selected_batch_preview = next(
+            (
+                item
+                for item in campaign.get("batches", []) or []
+                if isinstance(item, Mapping) and str(item.get("id", "")) == batch_id
+            ),
+            None,
+        )
+        escalation_pending = requested_stage == "statements" and (
+            (
+                isinstance(selected_batch_preview, Mapping)
+                and statement_escalation_pending(selected_batch_preview)
+            )
+            or (batch_id is None and _campaign_has_escalation_pending(campaign))
+        )
+        if escalation_pending:
+            effective_reserve_usd = _escalation_action_reserve_usd(reserve_usd)
+        admitted, reason = campaign_execution_admitted(campaign, reserve_usd=effective_reserve_usd)
+        if not admitted:
+            raise CampaignExecutionBlocked(reason)
+        worker_id = f"campaign-{uuid.uuid4().hex}"
+
+        def claim_selected(current: Mapping[str, Any]):
+            refreshed, _ = refresh(current)
+            claimed, leased = lease_campaign_batches(
+                refreshed,
+                stage=requested_stage,
+                worker_ids=[worker_id],
+                ttl_seconds=lease_ttl_seconds,
+                reserve_usd=effective_reserve_usd,
+                batch_id=str(batch_id or "").strip() or None,
+            )
+            if not leased:
+                selector = f" batch {batch_id}" if batch_id else ""
+                raise CampaignExecutionBlocked(
+                    f"no eligible {requested_stage} campaign action{selector}"
+                )
+            return claimed, leased[0]
+
+        # Defer reading/planning the claimed action until the protected
+        # execution block below.  A malformed batch or read failure after claim
+        # must still persist an infrastructure attempt and release its lease.
+        selected_batch = update_campaign_file(path, claim_selected)
+        action = CampaignAction(
+            stage=requested_stage,
+            batch_id=str(selected_batch.get("id", "") or batch_id or ""),
+            labels=tuple(str(label) for label in selected_batch.get("labels", []) or []),
+            argv=(),
+        )
+        execution_environ = {
+            **dict(environ or os.environ),
+            "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id,
+        }
+    else:
+        action = plan_next_campaign_action(campaign, python_executable=python_executable)
+        if action is None:
+            return {"executed": False, "reason": "campaign has no remaining action"}
+        selected_batch_preview = next(
+            (
+                item
+                for item in campaign.get("batches", []) or []
+                if isinstance(item, Mapping) and str(item.get("id", "")) == action.batch_id
+            ),
+            None,
+        )
+        if (
+            action.stage == "statements"
+            and isinstance(selected_batch_preview, Mapping)
+            and statement_escalation_pending(selected_batch_preview)
+        ):
+            effective_reserve_usd = _escalation_action_reserve_usd(reserve_usd)
+        execution_environ = environ
+
+    try:
+        assert action is not None
+        if explicit_selection:
+            campaign = read_campaign(path)
+            action = plan_campaign_batch_action(
+                campaign,
+                selected_batch,
+                stage=requested_stage,
+                python_executable=python_executable,
+            )
+        validate_campaign_action_paths(action, project_root=project_root)
+        if not explicit_selection:
+            admitted, reason = campaign_execution_admitted(
+                campaign, reserve_usd=effective_reserve_usd
+            )
+            if not admitted:
+                raise CampaignExecutionBlocked(reason)
+        return _execute_campaign_action(
+            action,
+            campaign_path=path,
+            campaign=campaign,
+            project_root=project_root,
+            reserve_usd=effective_reserve_usd,
+            provider=provider,
+            model=select_campaign_model(
+                campaign, action, fallback_model=model, policy=model_policy
+            ),
+            statement_provider=statement_provider,
+            statement_planner_provider=statement_planner_provider,
+            statement_planner_model=statement_planner_model,
+            statement_fallback_provider=statement_fallback_provider,
+            statement_fallback_model=statement_fallback_model,
+            statement_judge_provider=statement_judge_provider,
+            statement_judge_model=statement_judge_model,
+            statement_candidates=statement_candidates,
+            statement_candidate_workers=statement_candidate_workers,
+            warmup_workers=warmup_workers,
+            environ=execution_environ,
+            bounded_statements=bounded_statements,
+            lake_executable=lake_executable,
+            statement_compile_timeout_seconds=statement_compile_timeout_seconds,
+        )
+    except BaseException as exc:
+        # Preserve an auditable infrastructure attempt before the lease is
+        # released.  Re-raise so callers retain cancellation semantics.
+        if worker_id:
+            _record_campaign_interruption(path, action=action, worker_id=worker_id, error=exc)
+        raise
+    finally:
+        if worker_id:
+
+            def release(current: Mapping[str, Any]):
+                try:
+                    updated = release_campaign_lease(
+                        current, batch_id=action.batch_id, worker_id=worker_id
+                    )
+                except ValueError:
+                    updated = dict(current)
+                return updated, None
+
+            update_campaign_file(path, release)
 
 
 def _recent_campaign_candidate_evidence(
@@ -987,7 +1669,7 @@ def _recent_campaign_candidate_evidence(
     return "\n".join(value for _, value in found)[:max_chars]
 
 
-def _execute_campaign_action(
+def _execute_campaign_action_impl(
     action: CampaignAction,
     *,
     campaign_path: str | Path,
@@ -1005,12 +1687,15 @@ def _execute_campaign_action(
     statement_judge_model: str = "",
     statement_candidates: int = 1,
     statement_candidate_workers: int = 4,
+    warmup_workers: int | None = None,
     environ: Mapping[str, str] | None = None,
     bounded_statements: bool = False,
     lake_executable: str = "lake",
+    statement_compile_timeout_seconds: float | int | None = None,
 ) -> dict[str, Any]:
     """Launch one already selected action without re-running global selection."""
     path = Path(campaign_path).expanduser().resolve()
+    action = _normalize_campaign_action(action, project_root=project_root)
     validate_campaign_action_paths(action, project_root=project_root)
     zero_cost_outcome = try_zero_cost_proof_preflight(
         path,
@@ -1028,6 +1713,13 @@ def _execute_campaign_action(
             "outcome": zero_cost_outcome,
         }
     child_env = dict(environ or os.environ)
+    # Feedback belongs to this batch's latest verdict, not the parent process.
+    for key in (
+        REVIEW_FEEDBACK_ENV,
+        "LEANFLOW_FORMALIZATION_REVIEW_FEEDBACK_PROMPT",
+        "LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE",
+    ):
+        child_env.pop(key, None)
     plan_state_slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", action.batch_id).strip("-_") or "batch"
     child_env.update(
         {
@@ -1071,7 +1763,13 @@ def _execute_campaign_action(
     # Campaign review calls are retryable infrastructure stages. A shorter
     # deadline prevents one stalled auxiliary reviewer from pinning a model
     # worker for the general interactive default of three minutes.
-    child_env.setdefault("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")
+    child_advisory_timeout_s = max(
+        90,
+        verification_review_timeout_s(
+            child_env.get("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")
+        ),
+    )
+    child_env["LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S"] = str(child_advisory_timeout_s)
     worker_id = str(child_env.get("LEANFLOW_CAMPAIGN_WORKER_ID", "") or "").strip()
     if worker_id:
         child_env["LEANFLOW_WORKFLOW_STATE_NAMESPACE"] = worker_id
@@ -1083,7 +1781,194 @@ def _execute_campaign_action(
         ),
         {},
     )
-    if bounded_statements and action.stage == "statements":
+    # A batch that exhausted the bounded lane gets exactly one unbounded attempt:
+    # the bounded lane has a 90s retrieval deadline, three iterations, and cannot
+    # look outside its own item, so the items that exhaust it are
+    # disproportionately the heavily-cited foundations whose statements need the
+    # full agent (book search, Mathlib exploration, multi-declaration output).
+    # Falling through to the escalation path below reuses the standard
+    # ``workflow formalize`` subprocess, which already has every tool.
+    escalating = statement_escalation_pending(selected_batch)
+    if escalating and action.stage == "statements":
+        child_env["LEANFLOW_FORMALIZATION_ESCALATED"] = "1"
+        child_env["LEANFLOW_DISABLE_SOLUTION_RESEARCH"] = "0"
+        escalation_receipts = [
+            item
+            for item in selected_batch.get("attempts", []) or []
+            if isinstance(item, Mapping) and bool(item.get("escalated", False))
+        ]
+        semantic_receipts = sum(
+            classify_campaign_retry_class(item) == RETRY_CLASS_SEMANTIC
+            for item in escalation_receipts
+        )
+        infrastructure_receipts = sum(
+            classify_campaign_retry_class(item) == RETRY_CLASS_INFRASTRUCTURE
+            for item in escalation_receipts
+        )
+        previous_retry_class = classify_campaign_retry_class(
+            dict(selected_batch.get("last_outcome", {}) or {})
+        )
+        try:
+            semantic_repair_limit = max(
+                1,
+                int(
+                    child_env.get(
+                        "LEANFLOW_FORMALIZATION_MAX_SEMANTIC_REPAIRS",
+                        MAX_ESCALATION_SEMANTIC_REPAIRS,
+                    )
+                    or MAX_ESCALATION_SEMANTIC_REPAIRS
+                ),
+            )
+        except (TypeError, ValueError):
+            semantic_repair_limit = MAX_ESCALATION_SEMANTIC_REPAIRS
+        try:
+            infrastructure_retry_limit = max(
+                1,
+                int(
+                    child_env.get(
+                        "LEANFLOW_FORMALIZATION_MAX_INFRASTRUCTURE_RETRIES",
+                        MAX_ESCALATION_ATTEMPTS,
+                    )
+                    or MAX_ESCALATION_ATTEMPTS
+                ),
+            )
+        except (TypeError, ValueError):
+            infrastructure_retry_limit = MAX_ESCALATION_ATTEMPTS
+        # Every escalation action is a fresh generator process. The native
+        # runner uses this boundary marker to stop after one reviewer BLOCK;
+        # the campaign ledger then decides whether another fresh action is
+        # admissible. These fields are also included in the outcome receipt for
+        # post-hoc case-study reconstruction.
+        child_env.update(
+            {
+                "LEANFLOW_FORMALIZATION_STATEMENT_CONTRACT_GATE": "1",
+                "LEANFLOW_FORMALIZATION_ESCALATION_ATTEMPT": str(len(escalation_receipts) + 1),
+                "LEANFLOW_FORMALIZATION_ESCALATION_SESSION_ID": uuid.uuid4().hex,
+                "LEANFLOW_FORMALIZATION_ESCALATION_SEMANTIC_RECEIPTS": str(semantic_receipts),
+                "LEANFLOW_FORMALIZATION_ESCALATION_INFRASTRUCTURE_RECEIPTS": str(
+                    infrastructure_receipts
+                ),
+                "LEANFLOW_FORMALIZATION_FRESH_REVIEW_BOUNDARY": "1",
+                "LEANFLOW_FORMALIZATION_MAX_SEMANTIC_REPAIRS": str(semantic_repair_limit),
+                "LEANFLOW_FORMALIZATION_MAX_INFRASTRUCTURE_RETRIES": str(
+                    infrastructure_retry_limit
+                ),
+                "LEANFLOW_FORMALIZATION_RETRY_CLASS": previous_retry_class or RETRY_CLASS_SEMANTIC,
+            }
+        )
+        # Source admission precedes the full-tool provider process just as it
+        # precedes bounded generation. Candidate lint is enforced again inside
+        # that process on every proposed Lean edit and before review/Lean.
+        _source, source_issues = campaign_statement_source_admission(
+            path,
+            project_root=project_root,
+            batch_id=action.batch_id,
+            timeout_s=int(child_advisory_timeout_s),
+        )
+        if source_issues:
+            diagnostic = "; ".join(source_issues)
+            target = _campaign_formalization_target_path(action, project_root=project_root)
+            outcome = {
+                "stage": "statements",
+                "success": False,
+                "exit_code": 2,
+                "reason": "escalation source admission returned BLOCK: " + diagnostic,
+                "target_file": (
+                    str(target.relative_to(Path(project_root).resolve())) if target else ""
+                ),
+                "failure_stage": "source_context",
+                "retry_class": RETRY_CLASS_SEMANTIC,
+                "review_decision": "BLOCK",
+                "review_provider": "deterministic_source_admission",
+                "review_findings": list(source_issues),
+                "candidate_diagnostics": [
+                    {
+                        "stage": "source_context",
+                        "status": "blocked",
+                        "diagnostic": diagnostic,
+                    }
+                ],
+                "final_diagnostic": diagnostic,
+                "escalated": True,
+                "generator_boundary": "pre_provider_admission",
+                "escalation_attempt": len(escalation_receipts) + 1,
+                "escalation_session_id": child_env["LEANFLOW_FORMALIZATION_ESCALATION_SESSION_ID"],
+                "max_semantic_repairs": semantic_repair_limit,
+                "max_infrastructure_retries": infrastructure_retry_limit,
+                "cost_usd": 0.0,
+                "cost_source": "none",
+                "cost_scope": "no_provider_call",
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                },
+                "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            }
+            if worker_id:
+                outcome["worker_id"] = worker_id
+            update_campaign_file(
+                path,
+                lambda current: (
+                    record_campaign_outcome(current, batch_id=action.batch_id, outcome=outcome),
+                    None,
+                ),
+            )
+            return {
+                "executed": True,
+                "stage": action.stage,
+                "batch_id": action.batch_id,
+                "exit_code": 2,
+                "success": False,
+                "outcome": outcome,
+            }
+        # The full agent does not fit the bounded lane's reservation: every
+        # escalated attempt in the first HDP escalation wave died on "Per-action
+        # USD cost limit reached" at $1.5-1.9 against a $2.0 reserve, spending
+        # $33 to close nothing. Give the escalation lane a larger floor so one
+        # full multi-call action can finish, still bounded by what the campaign
+        # budget actually has left.
+        remaining_budget = max(
+            0.0,
+            float(campaign.get("budget_usd", 0.0) or 0.0)
+            - float(campaign.get("spent_usd", 0.0) or 0.0),
+        )
+        escalation_reserve_usd = min(
+            _escalation_action_reserve_usd(reserve_usd),
+            remaining_budget,
+        )
+        child_env["LEANFLOW_ACTION_COST_LIMIT_USD"] = str(escalation_reserve_usd)
+        # The review gate closes on three mechanical conditions unrelated to the
+        # mathematics, and the escalated agent was never told about them: every
+        # BLOCK in the first wave carried the same three findings (blueprint
+        # verification line not approved, no project-scope lean_verify, root
+        # module missing the import). Spell the contract out so the agent
+        # finishes the handoff instead of stopping at a statement the gate
+        # then rejects.
+        child_env["LEANFLOW_FORMALIZATION_ESCALATION_CONTRACT"] = (
+            "You are running one fresh generator/reviewer boundary for one campaign item. "
+            "The bounded lane already failed on it. Produce one concrete candidate, run the "
+            "required deterministic checks, and allow the independent reviewer to return PASS "
+            "or BLOCK. A BLOCK is a semantic retry receipt: do not apply reviewer feedback in "
+            "this same process and do not start another autonomous continuation. The campaign "
+            "runner will start a fresh process when a semantic retry is still allowed. The "
+            "Run the source-fidelity contract lint at review/acceptance handoff (and use a lightweight "
+            "guard before any automated Lean check when available; it does not replace the independent reviewer). "
+            "Only an independent verifier PASS may stamp approval. In the blueprint inventory entry, include a "
+            "`- Source fidelity contract: {...}` JSON object with explicit objects, domains, "
+            "hypotheses, conclusion, measure_space, measurability, integrability, and time_domain "
+            "where applicable. Tautological predicates and circular target assumptions are BLOCK. The "
+            "document-formalization review gate also requires all three of the following before "
+            "it will release the item.\n1. Leave the statement verification status pending for the drafting model; "
+            "the independent verifier writes the approved wording after PASS. Resolve the source "
+            "qualifiers, Lean coverage, and scope-changes bullets to concrete values or `none`.\n"
+            "2. Ensure the generated module is reachable from a plain `lake build`: the root "
+            "module (or the parent module the root imports) must import this module, and the "
+            "target module must not import the root scaffold back.\n3. Run "
+            "`lean_verify(mode=project)` as the last verification step, after the files and "
+            "imports are in place, and make it pass."
+        )
+    if bounded_statements and action.stage == "statements" and not escalating:
         outcome = refine_campaign_statement_bounded(
             path,
             project_root=project_root,
@@ -1094,15 +1979,20 @@ def _execute_campaign_action(
             generator_provider=statement_provider,
             generator_fallback_provider=statement_fallback_provider,
             generator_fallback_model=statement_fallback_model,
-            planner_model=statement_planner_model,
+            planner_model=statement_planner_model or model or DEFAULT_BOUNDED_STATEMENT_MODEL,
             judge_provider=statement_judge_provider,
-            generator_model=model,
-            judge_model=statement_judge_model or model,
+            generator_model=model or DEFAULT_BOUNDED_STATEMENT_MODEL,
+            judge_model=statement_judge_model or model or DEFAULT_BOUNDED_STATEMENT_MODEL,
             candidates_per_iteration=statement_candidates,
             candidate_workers=statement_candidate_workers,
+            warmup_workers=warmup_workers,
+            warm_remote_probe=str(child_env.get(WARM_PROBE_ENV, "")).strip().lower()
+            in {"1", "true", "yes", "on"},
             lake_executable=lake_executable,
             max_iterations=3,
             timeout_s=int(child_env.get("LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S", "90")),
+            compile_timeout_s=statement_compile_timeout_seconds,
+            environ=child_env,
         )
         return {
             "executed": True,
@@ -1134,12 +2024,20 @@ def _execute_campaign_action(
             f"{str(last_outcome.get('reason', '') or '[unspecified]')}. Do not repeat broad project search, "
             "lean_decompose_helpers, or lean_reasoning_help before executing at least one concrete, "
             "substantive lean_incremental_check that advances the next missing helper or the target."
-            + (f"\n\nRECENT DURABLE CANDIDATE EVIDENCE:\n{recent_candidates}" if recent_candidates else "")
+            + (
+                f"\n\nRECENT DURABLE CANDIDATE EVIDENCE:\n{recent_candidates}"
+                if recent_candidates
+                else ""
+            )
         )
-    review_evidence = str(last_outcome.get("review_evidence", "") or "").strip()
+    verdict = latest_statement_verdict(selected_batch)
+    review_evidence = str(verdict.get("review_evidence", "") or "").strip()
+    feedback = statement_review_feedback(verdict) if action.stage == "statements" else ""
+    if feedback:
+        child_env[REVIEW_FEEDBACK_ENV] = feedback
     if (
         action.stage == "statements"
-        and str(last_outcome.get("review_decision", "") or "").upper() == "BLOCK"
+        and str(verdict.get("review_decision", "") or "").upper() == "BLOCK"
         and review_evidence
     ):
         evidence_path = (Path(project_root).expanduser().resolve() / review_evidence).resolve()
@@ -1150,7 +2048,12 @@ def _execute_campaign_action(
             child_env["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] = str(evidence_path)
     action_argv = action.argv
     if provider.strip():
-        action_argv = (*action_argv[:4], "--provider", provider.strip(), *action_argv[4:])
+        action_argv = (
+            *action_argv[:4],
+            "--provider",
+            provider.strip(),
+            *action_argv[4:],
+        )
     if model.strip():
         # The outer CLI owns --provider, while --model is parsed from the
         # selected workflow's remainder after the workflow name.
@@ -1226,6 +2129,122 @@ def _execute_campaign_action(
     }
 
 
+def _execute_campaign_action(
+    action: CampaignAction,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Execute one action with a narrow failed-intake cleanup transaction.
+
+    ``workflow formalize`` prepares its document context before the provider is
+    contacted, so an authentication/connection failure can otherwise leave a
+    brand-new ``Main.lean`` containing only ``import Mathlib``.  Snapshot the
+    deterministic target before launch and remove it only when the action fails
+    and the file is still that untouched skeleton.  The implementation remains
+    in a separate function so every existing return/timeout/recovery path gets
+    the same cleanup behavior, including exceptions and cancellation.
+    """
+    project_root = kwargs.get("project_root")
+    if project_root is not None:
+        action = _normalize_campaign_action(action, project_root=project_root)
+    target = _campaign_formalization_target_path(action, project_root=project_root)
+    existed_before = bool(target is not None and target.exists())
+    import_snapshot = _campaign_import_transaction_snapshot(
+        action, project_root=project_root, target=target
+    )
+    try:
+        result = _execute_campaign_action_impl(action, **kwargs)
+    except BaseException:
+        _cleanup_failed_campaign_skeleton(target, existed_before=existed_before, success=False)
+        _cleanup_failed_campaign_imports(import_snapshot, success=False)
+        raise
+    _cleanup_failed_campaign_skeleton(
+        target,
+        existed_before=existed_before,
+        success=bool(result.get("success", False)),
+    )
+    _cleanup_failed_campaign_imports(import_snapshot, success=bool(result.get("success", False)))
+    return result
+
+
+def _record_campaign_interruption(
+    campaign_path: str | Path,
+    *,
+    action: CampaignAction,
+    worker_id: str,
+    error: BaseException,
+) -> bool:
+    """Persist an infrastructure failure before a claimed lease is released.
+
+    A worker can be cancelled after claiming a batch but before the child
+    process records its normal outcome.  Recording the failure while the lease
+    owner is still present makes that interval auditable and prevents a
+    cancelled action from silently returning to ``pending`` with zero attempts.
+    The lease-owner guard also makes this safe when a late exception races a
+    normal outcome commit or lease reclamation.
+    """
+    if not worker_id:
+        return False
+    reason = f"{type(error).__name__}: {error}"[:2000]
+    timed_out = isinstance(error, subprocess.TimeoutExpired) or "timeout" in reason.lower()
+    cancelled = isinstance(error, (KeyboardInterrupt, SystemExit)) or "interrupt" in reason.lower()
+    outcome = {
+        "stage": action.stage,
+        "batch_id": action.batch_id,
+        "worker_id": worker_id,
+        "success": False,
+        "exit_code": 124 if timed_out else 130 if cancelled else 1,
+        "reason": reason,
+        "failure_class": "infrastructure",
+        "infrastructure_failure": True,
+        "cancelled": cancelled,
+        "timed_out": timed_out,
+        "aborted": cancelled,
+        "inflight": True,
+        "interruption_kind": ("aborted" if cancelled else "timeout" if timed_out else "error"),
+        "recovery_receipt": {
+            "kind": "campaign_interruption",
+            "worker_id": worker_id,
+            "stage": action.stage,
+            "batch_id": action.batch_id,
+            "recorded_before_lease_release": True,
+        },
+        "cost_usd": 0.0,
+        "cost_source": "campaign_worker_interrupted",
+        "cost_scope": "no_additional_provider_call",
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+    def commit(current: Mapping[str, Any]):
+        batch = next(
+            (
+                item
+                for item in current.get("batches", []) or []
+                if isinstance(item, Mapping) and str(item.get("id", "")) == action.batch_id
+            ),
+            None,
+        )
+        lease = batch.get("lease") if isinstance(batch, Mapping) else None
+        if not isinstance(lease, Mapping) or str(lease.get("worker_id", "")) != worker_id:
+            # No active lease means another path already committed/reclaimed the
+            # action; never append a duplicate late failure.
+            return current, False
+        attempts = batch.get("attempts", []) or []
+        if any(
+            isinstance(item, Mapping)
+            and str(item.get("worker_id", "")) == worker_id
+            and str(item.get("stage", "")) == action.stage
+            and bool(item.get("infrastructure_failure", False))
+            for item in attempts
+        ):
+            return current, False
+        return (
+            record_campaign_outcome(current, batch_id=action.batch_id, outcome=outcome),
+            True,
+        )
+
+    return bool(update_campaign_file(campaign_path, commit))
+
+
 def execute_campaign_wave(
     campaign_path: str | Path,
     *,
@@ -1234,6 +2253,7 @@ def execute_campaign_wave(
     worker_count: int,
     reserve_usd: float,
     wave_budget_usd: float | None = None,
+    stage: str | None = None,
     provider: str = "",
     model: str = "",
     statement_provider: str = "",
@@ -1245,14 +2265,21 @@ def execute_campaign_wave(
     statement_judge_model: str = "",
     statement_candidates: int = 1,
     statement_candidate_workers: int = 4,
+    warmup_workers: int | None = None,
     model_policy: CampaignModelPolicy | None = None,
     environ: Mapping[str, str] | None = None,
     lease_ttl_seconds: int = 7200,
     bounded_statements: bool = False,
     lake_executable: str = "lake",
+    statement_compile_timeout_seconds: float | int | None = None,
 ) -> list[dict[str, Any]]:
     """Run a budget-safe wave of distinct leased batches concurrently."""
     path = Path(campaign_path).expanduser().resolve()
+    if not 1 <= worker_count <= MAX_CAMPAIGN_WORKERS:
+        raise CampaignExecutionBlocked(f"worker count must be between 1 and {MAX_CAMPAIGN_WORKERS}")
+    requested_stage = str(stage or "").strip()
+    if requested_stage and requested_stage not in {"statements", "proofs"}:
+        raise CampaignExecutionBlocked("campaign stage must be statements or proofs")
     if wave_budget_usd is not None:
         if wave_budget_usd <= 0:
             raise CampaignExecutionBlocked("wave budget must be positive")
@@ -1262,22 +2289,41 @@ def execute_campaign_wave(
         action_reserve_usd = min(float(reserve_usd), float(wave_budget_usd) / worker_count)
     else:
         action_reserve_usd = float(reserve_usd)
+    if requested_stage != "proofs" and _campaign_has_escalation_pending(read_campaign(path)):
+        action_reserve_usd = _escalation_action_reserve_usd(action_reserve_usd)
+    if wave_budget_usd is not None and action_reserve_usd * worker_count > wave_budget_usd:
+        raise CampaignExecutionBlocked(
+            "wave budget does not cover the requested workers' escalation reservations"
+        )
     claims = lease_next_campaign_actions(
         path,
         worker_count=worker_count,
         python_executable=python_executable,
         reserve_usd=action_reserve_usd,
+        stage=requested_stage or None,
         lease_ttl_seconds=lease_ttl_seconds,
     )
     if not claims:
         return []
 
     def run_claim(worker_id: str, action: CampaignAction) -> dict[str, Any]:
-        snapshot = read_campaign(path)
-        selected_model = select_campaign_model(
-            snapshot, action, fallback_model=model, policy=model_policy
-        )
         try:
+            snapshot = read_campaign(path)
+            selected_batch = next(
+                batch for batch in snapshot["batches"] if batch["id"] == action.batch_id
+            )
+            if (
+                wave_budget_usd is not None
+                and action.stage == "statements"
+                and statement_escalation_pending(selected_batch)
+                and _escalation_action_reserve_usd(action_reserve_usd) > action_reserve_usd
+            ):
+                raise CampaignExecutionBlocked(
+                    "wave budget cannot raise a leased action's escalation reservation"
+                )
+            selected_model = select_campaign_model(
+                snapshot, action, fallback_model=model, policy=model_policy
+            )
             result = _execute_campaign_action(
                 action,
                 campaign_path=path,
@@ -1295,12 +2341,32 @@ def execute_campaign_wave(
                 statement_judge_model=statement_judge_model,
                 statement_candidates=statement_candidates,
                 statement_candidate_workers=statement_candidate_workers,
-                environ={**dict(environ or os.environ), "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id},
+                warmup_workers=warmup_workers,
+                environ={
+                    **dict(environ or os.environ),
+                    "LEANFLOW_CAMPAIGN_WORKER_ID": worker_id,
+                },
                 bounded_statements=bounded_statements,
                 lake_executable=lake_executable,
+                statement_compile_timeout_seconds=statement_compile_timeout_seconds,
             )
             result["model"] = selected_model
             return result
+        except BaseException as exc:
+            persisted = False
+            with contextlib.suppress(Exception):
+                persisted = _record_campaign_interruption(
+                    path, action=action, worker_id=worker_id, error=exc
+                )
+            return {
+                "executed": True,
+                "stage": action.stage,
+                "batch_id": action.batch_id,
+                "worker_id": worker_id,
+                "success": False,
+                "error": f"{type(exc).__name__}: {exc}",
+                "infrastructure_failure_persisted": persisted,
+            }
         finally:
             # A normal native finalization removes the lease as part of its ledger
             # transaction.  This is the crash-before-finalization fallback.
@@ -1316,18 +2382,22 @@ def execute_campaign_wave(
             update_campaign_file(path, release)
 
     results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(
-        max_workers=len(claims), thread_name_prefix="leanflow-campaign"
-    ) as pool:
-        futures = {
-            pool.submit(run_claim, worker_id, action): (worker_id, action)
-            for worker_id, action in claims
-        }
+    pool = ThreadPoolExecutor(max_workers=len(claims), thread_name_prefix="leanflow-campaign")
+    futures = {
+        pool.submit(run_claim, worker_id, action): (worker_id, action)
+        for worker_id, action in claims
+    }
+    try:
         for future in as_completed(futures):
             worker_id, action = futures[future]
             try:
                 result = future.result()
             except BaseException as exc:
+                persisted = False
+                with contextlib.suppress(Exception):
+                    persisted = _record_campaign_interruption(
+                        path, action=action, worker_id=worker_id, error=exc
+                    )
                 result = {
                     "executed": True,
                     "stage": action.stage,
@@ -1335,10 +2405,25 @@ def execute_campaign_wave(
                     "worker_id": worker_id,
                     "success": False,
                     "error": f"{type(exc).__name__}: {exc}",
+                    "infrastructure_failure_persisted": persisted,
                 }
             else:
                 result["worker_id"] = worker_id
             results.append(result)
+    except BaseException as exc:
+        # Ctrl-C can interrupt ``as_completed`` while children are still
+        # running. Persist failures and release every outstanding lease before
+        # returning control to the caller, instead of leaving ghost leases
+        # until their TTL expires.
+        for future in futures:
+            future.cancel()
+        for worker_id, action in claims:
+            with contextlib.suppress(Exception):
+                _record_campaign_interruption(path, action=action, worker_id=worker_id, error=exc)
+        pool.shutdown(wait=False, cancel_futures=True)
+        raise
+    else:
+        pool.shutdown(wait=True)
     return results
 
 
@@ -1377,17 +2462,32 @@ def _accept_locally_verified_stage(
     if completed.returncode != 0:
         details = (completed.stderr or completed.stdout or "Lean verification failed").strip()
         raise CampaignExecutionBlocked(details[-2000:])
+    if stage == "proofs":
+        try:
+            verified_source = (Path(project_root).expanduser().resolve() / target_file).read_text(
+                encoding="utf-8"
+            )
+        except OSError as exc:
+            raise CampaignExecutionBlocked("verified proof target could not be read") from exc
+        if _text_has_sorry(verified_source):
+            raise CampaignExecutionBlocked(
+                "local proof verification target still contains sorry/admit/sorryAx"
+            )
     proof_obligations = (completed.stdout + completed.stderr).count("declaration uses `sorry`")
     if stage == "proofs" and proof_obligations:
         raise CampaignExecutionBlocked(
             f"local proof verification still reports {proof_obligations} sorry declaration(s)"
         )
+    integration = project_target_reachability(project_root, target_file)
     outcome = {
         "stage": stage,
         "success": True,
         "exit_code": 0,
         "reason": f"locally verified {stage} repair",
         "target_file": target_file,
+        "root_reachable": integration["root_reachable"],
+        "integration_status": integration["integration_status"],
+        "integration_root_file": integration["root_file"],
         "proof_obligations": proof_obligations,
         "cost_usd": 0.0,
         "cost_source": "local",
@@ -1396,8 +2496,15 @@ def _accept_locally_verified_stage(
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    updated = record_campaign_outcome(campaign, batch_id=batch_id, outcome=outcome)
-    atomic_json_write(path, updated)
+    # Re-read under the campaign transaction: another worker may have completed
+    # or reclaimed this batch while Lean was running.
+    update_campaign_file(
+        path,
+        lambda current: (
+            record_campaign_outcome(current, batch_id=batch_id, outcome=outcome),
+            None,
+        ),
+    )
     return outcome
 
 
@@ -1457,7 +2564,11 @@ def accept_agent_reviewed_statement(
     if not selected_target:
         raise CampaignExecutionBlocked(f"batch {batch_id} has no recorded target file")
     action = CampaignAction(
-        stage="proofs", batch_id=batch_id, labels=(), argv=(), target_file=selected_target
+        stage="proofs",
+        batch_id=batch_id,
+        labels=(),
+        argv=(),
+        target_file=selected_target,
     )
     validate_campaign_action_paths(action, project_root=root)
     blueprint = (root / selected_target).resolve().with_name("Blueprint.md")
@@ -1483,12 +2594,16 @@ def accept_agent_reviewed_statement(
         details = (completed.stderr or completed.stdout or "Lean verification failed").strip()
         raise CampaignExecutionBlocked(details[-2000:])
     proof_obligations = (completed.stdout + completed.stderr).count("declaration uses `sorry`")
+    integration = project_target_reachability(root, selected_target)
     outcome = {
         "stage": "statements",
         "success": True,
         "exit_code": 0,
         "reason": "recovered independently reviewed agent statement handoff",
         "target_file": selected_target,
+        "root_reachable": integration["root_reachable"],
+        "integration_status": integration["integration_status"],
+        "integration_root_file": integration["root_file"],
         "proof_obligations": proof_obligations,
         "cost_usd": 0.0,
         "cost_source": "review_reuse",
@@ -1498,8 +2613,13 @@ def accept_agent_reviewed_statement(
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    updated = record_campaign_outcome(campaign, batch_id=batch_id, outcome=outcome)
-    atomic_json_write(path, updated)
+    update_campaign_file(
+        path,
+        lambda current: (
+            record_campaign_outcome(current, batch_id=batch_id, outcome=outcome),
+            None,
+        ),
+    )
     return outcome
 
 
@@ -1542,7 +2662,11 @@ def review_existing_agent_statement(
     if not selected_target:
         raise CampaignExecutionBlocked(f"batch {batch_id} has no recorded target file")
     action = CampaignAction(
-        stage="proofs", batch_id=batch_id, labels=(), argv=(), target_file=selected_target
+        stage="proofs",
+        batch_id=batch_id,
+        labels=(),
+        argv=(),
+        target_file=selected_target,
     )
     validate_campaign_action_paths(action, project_root=root)
     target = (root / selected_target).resolve()
@@ -1561,7 +2685,11 @@ def review_existing_agent_statement(
 
     verification_commands = [
         [lake_executable, "env", "lean", selected_target],
-        [lake_executable, "build", *([project_build_target] if project_build_target else [])],
+        [
+            lake_executable,
+            "build",
+            *([project_build_target] if project_build_target else []),
+        ],
     ]
     for command in verification_commands:
         completed = subprocess.run(
@@ -1606,7 +2734,7 @@ def review_existing_agent_statement(
                 "You are a read-only mathematical formalization reviewer. Compare source meaning "
                 "against Lean types exactly; never approve based only on compilation."
             ),
-            timeout_s=max(5, min(300, int(timeout_s))),
+            timeout_s=verification_review_timeout_s(timeout_s),
             max_tokens=4000,
         )
     finally:
@@ -1638,6 +2766,7 @@ def review_existing_agent_statement(
                 "review passed but blueprint had no review stamp to apply"
             )
         blueprint.write_text(approved, encoding="utf-8")
+    integration = project_target_reachability(root, selected_target)
     outcome = {
         "stage": "statements",
         "success": success,
@@ -1648,13 +2777,26 @@ def review_existing_agent_statement(
             else "independent bounded statement/source review did not pass"
         ),
         "target_file": selected_target,
+        "root_reachable": integration["root_reachable"],
+        "integration_status": integration["integration_status"],
+        "integration_root_file": integration["root_file"],
         "proof_obligations": target_text.count("sorry"),
-        "cost_usd": float(payload.get("cost_usd", 0.0) or 0.0),
-        "cost_source": "reviewer_token_usage" if payload.get("total_tokens") else "unavailable",
+        "cost_usd": (
+            float(payload.get("cost_usd", 0.0) or 0.0)
+            if payload.get("pricing_known", False)
+            else 0.0
+        ),
+        "pricing_known": bool(payload.get("pricing_known", False)),
+        "cost_source": (
+            ("reviewer_token_usage" if payload.get("total_tokens") else "unavailable")
+            if payload.get("pricing_known", False)
+            else "cost_unavailable"
+        ),
         "cost_scope": "independent_statement_reviewer",
         "provenance": "agent",
         "review_evidence": str(evidence.relative_to(root)),
         "review_decision": decision,
+        "review_provider": str(payload.get("provider", "") or provider),
         "review_status": str(payload.get("status", "") or ""),
         "review_findings": findings,
         "model": str(payload.get("model", "") or model),
@@ -1667,8 +2809,17 @@ def review_existing_agent_statement(
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
 
+    if str(payload.get("status", "") or "") != "ok":
+        outcome["infrastructure_failure"] = True
+        outcome["retry_class"] = RETRY_CLASS_INFRASTRUCTURE
+        outcome["review_decision"] = ""
+        outcome["review_findings"] = []
+
     def commit(current: Mapping[str, Any]):
-        return record_campaign_outcome(current, batch_id=batch_id, outcome=outcome), None
+        return (
+            record_campaign_outcome(current, batch_id=batch_id, outcome=outcome),
+            None,
+        )
 
     update_campaign_file(path, commit)
     return outcome
@@ -1754,7 +2905,7 @@ def recover_agent_verified_proof(
             if str(item.get("name", "") or "")
             in {str(value) for value in batch.get("declarations", []) or []}
             or (
-                "sorry" in str(item.get("text", "") or "")
+                _text_has_sorry(str(item.get("text", "") or ""))
                 and str(item.get("kind", "") or "") in {"theorem", "lemma"}
             )
         ),
@@ -1836,7 +2987,7 @@ def recover_agent_verified_proof(
                 recovered = str(entries[0].get("text", "") or "").strip()
                 if (
                     not recovered
-                    or "sorry" in recovered
+                    or _text_has_sorry(recovered)
                     or re.sub(r"\s+", " ", recovered.partition(":=")[0]).strip()
                     != re.sub(r"\s+", " ", old_declaration.partition(":=")[0]).strip()
                 ):
@@ -1902,7 +3053,7 @@ def recover_agent_verified_proof(
                 "parent-accepted helper is not signature-equivalent to the assigned target"
             )
         separator = helper_declaration.find(":=")
-        if separator < 0 or "sorry" in helper_declaration[separator:]:
+        if separator < 0 or _text_has_sorry(helper_declaration[separator:]):
             raise CampaignExecutionBlocked("durable helper proof is incomplete")
         declaration = old_declaration[: old_declaration.find(":=")] + helper_declaration[separator:]
         tactic = "parent-accepted signature-equivalent helper"
@@ -1942,8 +3093,13 @@ def recover_agent_verified_proof(
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    updated = record_campaign_outcome(campaign, batch_id=batch_id, outcome=outcome)
-    atomic_json_write(path, updated)
+    update_campaign_file(
+        path,
+        lambda current: (
+            record_campaign_outcome(current, batch_id=batch_id, outcome=outcome),
+            None,
+        ),
+    )
     return outcome
 
 
@@ -1965,6 +3121,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--statement-judge-model", default="")
     parser.add_argument("--statement-candidates", type=int, default=1)
     parser.add_argument("--statement-candidate-workers", type=int, default=4)
+    parser.add_argument(
+        "--warmup-workers",
+        type=int,
+        default=None,
+        help=f"remote warm LeanProbe session capacity (1-{WARMUP_WORKERS_MAX})",
+    )
+    parser.add_argument(
+        "--warm-remote-probe",
+        action="store_true",
+        help="opt in to the bounded remote LeanProbe warm service for statement screening",
+    )
     parser.add_argument("--proof-model", default="")
     parser.add_argument("--escalation-model", default="")
     parser.add_argument("--escalate-after-failures", type=int, default=2)
@@ -1972,6 +3139,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--batch-item-limit", type=int, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--stage",
+        choices=("statements", "proofs"),
+        default=None,
+        help="explicitly constrain execution to one campaign stage (default keeps proof-first planning)",
+    )
+    parser.add_argument(
+        "--batch-id",
+        default=None,
+        help="explicitly execute this eligible batch; must be paired with --stage",
+    )
+    parser.add_argument(
+        "--reconcile-only",
+        action="store_true",
+        help="reconcile stale proof receipts, persist an audit report, and do no paid work",
+    )
     parser.add_argument("--bounded-statements", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument(
@@ -1993,12 +3176,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--review-provider", default="main")
     parser.add_argument("--review-model", default="")
     parser.add_argument("--review-timeout-seconds", type=int, default=90)
+    parser.add_argument(
+        "--statement-compile-timeout-seconds",
+        type=float,
+        default=None,
+        help="per-candidate remote Lean timeout (capped by the bounded lane)",
+    )
     parser.add_argument("--project-build-target", default="")
     parser.add_argument("--local-target", default="")
-    parser.add_argument("--lake-executable", default="lake")
+    # HDP restricted campaigns keep orchestration local but run every Lake/Lean
+    # process through the checked-in remote wrapper. Callers may still provide
+    # an explicit executable for isolated unit tests or another approved host.
+    parser.add_argument(
+        "--lake-executable",
+        default=str(Path(__file__).resolve().parents[2] / "remote-bin" / "lake"),
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
     campaign_path = Path(args.campaign).expanduser().resolve()
     project_root = Path(args.project_root).expanduser().resolve()
+    if args.reconcile_only and args.execute:
+        parser.error("--reconcile-only cannot be combined with --execute")
+    if args.batch_id and not args.stage:
+        parser.error("--batch-id requires --stage")
+    if args.warmup_workers is not None and not 1 <= args.warmup_workers <= WARMUP_WORKERS_MAX:
+        parser.error(f"--warmup-workers must be between 1 and {WARMUP_WORKERS_MAX}")
     lake_path = Path(args.lake_executable).expanduser()
     if not lake_path.is_absolute():
         cwd_lake = lake_path.resolve()
@@ -2007,6 +3208,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.lake_executable = str(cwd_lake)
         elif project_lake.is_file():
             args.lake_executable = str(project_lake)
+        else:
+            # Native workflow subprocesses may receive a sanitized PATH, and an
+            # elan-managed toolchain under <root>/.elan-home is not on PATH at
+            # all.  Resolve lake to an absolute path here, because the bounded
+            # statement lane invokes it directly instead of through the managed
+            # workflow env, and a bare "lake" would raise FileNotFoundError
+            # after the paid generator call had already been made.
+            resolved_lake = shutil.which(str(lake_path))
+            if resolved_lake:
+                args.lake_executable = resolved_lake
+            else:
+                lean_bin = discover_lean_bin(project_root)
+                if lean_bin is not None and os.access(lean_bin / lake_path.name, os.X_OK):
+                    args.lake_executable = str(lean_bin / lake_path.name)
+    if args.reconcile_only:
+        report: dict[str, Any] = {
+            "mode": "reconciliation-only",
+            "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        }
+
+        def reconcile_only(current: Mapping[str, Any]):
+            updated, details = reconcile_campaign_targets_report(current, project_root=project_root)
+            report.update(details)
+            updated["last_reconciliation_audit"] = dict(report)
+            return updated, report
+
+        persisted_report = update_campaign_file(campaign_path, reconcile_only)
+        print(json.dumps(persisted_report, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     refresh_campaign_source_complexity(campaign_path, project_root=project_root)
     if args.refine_statement_bounded:
         if args.reserve_usd is None or args.reserve_usd <= 0:
@@ -2015,6 +3245,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("--max-statement-iterations must be between 1 and 3")
         if not 1 <= args.statement_candidates <= 8:
             parser.error("--statement-candidates must be between 1 and 8")
+        bounded_model = (
+            args.model
+            or args.statement_model
+            or args.statement_planner_model
+            or args.statement_judge_model
+            or DEFAULT_BOUNDED_STATEMENT_MODEL
+        )
         outcome = refine_campaign_statement_bounded(
             campaign_path,
             project_root=project_root,
@@ -2025,15 +3262,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             planner_provider=args.statement_planner_provider,
             generator_fallback_provider=args.statement_fallback_provider,
             generator_fallback_model=args.statement_fallback_model,
-            planner_model=args.statement_planner_model,
+            planner_model=args.statement_planner_model or bounded_model,
             judge_provider=args.statement_judge_provider or args.review_provider,
-            generator_model=args.statement_model or args.model,
-            judge_model=args.statement_judge_model or args.review_model,
+            generator_model=args.statement_model or args.model or bounded_model,
+            judge_model=args.statement_judge_model or args.review_model or bounded_model,
             lake_executable=args.lake_executable,
             max_iterations=args.max_statement_iterations,
             candidates_per_iteration=args.statement_candidates,
             candidate_workers=args.statement_candidate_workers,
+            warmup_workers=args.warmup_workers,
+            warm_remote_probe=args.warm_remote_probe,
             timeout_s=args.review_timeout_seconds,
+            compile_timeout_s=args.statement_compile_timeout_seconds,
         )
         print(json.dumps(outcome, ensure_ascii=False, indent=2))
         return 0 if outcome["success"] else 1
@@ -2097,32 +3337,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(outcome, ensure_ascii=False, indent=2))
         return 0
     if args.batch_item_limit is not None or args.budget_usd is not None:
-        campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
-        if not isinstance(campaign, dict):
-            raise CampaignExecutionBlocked("campaign JSON must contain an object")
+        if args.batch_item_limit is not None and args.batch_item_limit <= 0:
+            parser.error("--batch-item-limit must be positive")
+        manifest_path = campaign_path.with_name("book-manifest.json")
+        corpus_plan: dict[str, Any] | None = None
         if args.batch_item_limit is not None:
-            if args.batch_item_limit <= 0:
-                parser.error("--batch-item-limit must be positive")
-            manifest_path = campaign_path.with_name("book-manifest.json")
             if not manifest_path.is_file():
                 raise CampaignExecutionBlocked("book-manifest.json is required to repartition")
-            corpus_plan = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if not isinstance(corpus_plan, dict):
+            raw_plan = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(raw_plan, dict):
                 raise CampaignExecutionBlocked("book manifest JSON must contain an object")
-            campaign = build_campaign(
-                corpus_plan,
-                existing={**campaign, "batch_item_limit": args.batch_item_limit},
-            )
-        if args.budget_usd is not None:
-            if args.budget_usd < float(campaign.get("spent_usd", 0.0) or 0.0):
-                parser.error("--budget-usd cannot be below already-spent campaign cost")
-            campaign["budget_usd"] = args.budget_usd
-        atomic_json_write(campaign_path, campaign)
+            corpus_plan = raw_plan
+
+        def update_options(
+            current: Mapping[str, Any],
+        ) -> tuple[Mapping[str, Any], None]:
+            updated = dict(current)
+            if corpus_plan is not None:
+                updated = build_campaign(
+                    corpus_plan,
+                    existing={**updated, "batch_item_limit": args.batch_item_limit},
+                )
+            if args.budget_usd is not None:
+                if args.budget_usd < float(updated.get("spent_usd", 0.0) or 0.0):
+                    parser.error("--budget-usd cannot be below already-spent campaign cost")
+                updated["budget_usd"] = args.budget_usd
+            return updated, None
+
+        update_campaign_file(campaign_path, update_options)
     if args.execute:
         if args.reserve_usd is None:
             parser.error("--execute requires --reserve-usd")
-        if args.workers <= 0:
-            parser.error("--workers must be positive")
+        if not 1 <= args.workers <= MAX_CAMPAIGN_WORKERS:
+            parser.error(f"--workers must be between 1 and {MAX_CAMPAIGN_WORKERS}")
+        if args.batch_id and args.workers != 1:
+            parser.error("--batch-id selector requires --workers=1")
         if args.wave_budget_usd is not None and args.wave_budget_usd <= 0:
             parser.error("--wave-budget-usd must be positive")
         if not 1 <= args.lean_slots <= MAX_PROJECT_LEAN_CAPACITY:
@@ -2135,6 +3384,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             **os.environ,
             "LEANFLOW_PROJECT_LEAN_CAPACITY": str(args.lean_slots),
         }
+        if args.warm_remote_probe:
+            execution_env[WARM_PROBE_ENV] = "1"
         if args.reasoning_effort:
             execution_env["LEANFLOW_CODEX_REASONING_EFFORT"] = args.reasoning_effort
         if args.escalate_after_failures <= 0:
@@ -2162,10 +3413,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 statement_judge_model=args.statement_judge_model,
                 statement_candidates=args.statement_candidates,
                 statement_candidate_workers=args.statement_candidate_workers,
+                warmup_workers=args.warmup_workers,
                 model_policy=model_policy,
                 environ=execution_env,
                 bounded_statements=args.bounded_statements,
                 lake_executable=args.lake_executable,
+                statement_compile_timeout_seconds=args.statement_compile_timeout_seconds,
+                stage=args.stage,
+                batch_id=args.batch_id,
+                lease_ttl_seconds=args.lease_ttl_seconds,
             )
         else:
             results = execute_campaign_wave(
@@ -2175,6 +3431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 worker_count=args.workers,
                 reserve_usd=args.reserve_usd,
                 wave_budget_usd=args.wave_budget_usd,
+                stage=args.stage,
                 provider=args.provider,
                 model=args.model,
                 statement_provider=args.statement_provider,
@@ -2186,11 +3443,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 statement_judge_model=args.statement_judge_model,
                 statement_candidates=args.statement_candidates,
                 statement_candidate_workers=args.statement_candidate_workers,
+                warmup_workers=args.warmup_workers,
                 model_policy=model_policy,
                 environ=execution_env,
                 lease_ttl_seconds=args.lease_ttl_seconds,
                 bounded_statements=args.bounded_statements,
                 lake_executable=args.lake_executable,
+                statement_compile_timeout_seconds=args.statement_compile_timeout_seconds,
             )
             outcome = {
                 "executed": bool(results),

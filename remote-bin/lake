@@ -2,40 +2,176 @@
 set -eu
 
 host_root=/Users/blackbox/m2f/fate-x-work
-remote_root=/home/hrm/ap_lean/fate-x-work
+remote_root=/data/hrm/fate-x-work
+remote_timeout_default=120
+remote_timeout_max=3600
+# The Python bounded lane publishes the already-clamped candidate timeout here.
+# Keep the statement-specific name as a standalone-wrapper fallback for callers
+# that invoke this executable directly. Invalid values never disable the guard.
+remote_timeout="${LEANFLOW_REMOTE_LEAN_TIMEOUT_S:-${LEANFLOW_STATEMENT_COMPILE_TIMEOUT_S:-$remote_timeout_default}}"
+if [[ ! "$remote_timeout" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  remote_timeout="$remote_timeout_default"
+fi
+remote_timeout_integer="${remote_timeout%%.*}"
+if (( remote_timeout_integer < 1 )); then
+  remote_timeout=1
+elif (( remote_timeout_integer >= remote_timeout_max )); then
+  remote_timeout=$remote_timeout_max
+fi
+ssh_options=(-p 49322 -o BatchMode=yes -o ControlMaster=no -o ControlPath=none)
 mapped_args=()
-for arg in "$@"; do
-  mapped_args+=("${arg//$host_root/$remote_root}")
-done
+if (($# > 0)); then
+  for arg in "$@"; do
+    mapped_args+=("${arg//$host_root/$remote_root}")
+  done
+fi
 
-# The local checkout is authoritative for agent edits. Synchronize source and
-# project metadata before invoking the remote verifier so file-level gates can
-# never inspect a stale remote copy. Build products and workflow state remain
-# remote/local respectively. Campaign ledger updates use short-lived atomic
-# temp files; exclude them because they can vanish during an rsync walk.
+# Candidate files are passed to Lake as explicit arguments by the bounded
+# verification lanes.  Retain only those exact paths for cleanup; a shared
+# remote checkout may contain other workers' live candidates.
+candidate_remote_paths=()
+receipt_target_path=""
+if ((${#mapped_args[@]} > 0)); then
+  for arg in "${mapped_args[@]}"; do
+    candidate_name="${arg##*/}"
+    if [[ -z "$receipt_target_path" && "$candidate_name" == *.lean ]]; then
+      case "$arg" in
+        "$remote_root"/*) receipt_target_path="$arg" ;;
+        ./*) receipt_target_path="$remote_root/${arg#./}" ;;
+        /*) ;;
+        *) receipt_target_path="$remote_root/$arg" ;;
+      esac
+    fi
+    case "$candidate_name" in
+      StatementCandidate_*.lean|ZeroCostCandidate_*.lean) ;;
+      *) continue ;;
+    esac
+    case "$arg" in
+      "$remote_root"/*) candidate_path="$arg" ;;
+      ./*) candidate_path="$remote_root/${arg#./}" ;;
+      /*) continue ;;
+      *) candidate_path="$remote_root/$arg" ;;
+    esac
+    # Reject traversal before constructing a remote deletion command.  The
+    # generated candidate names are UUID-based, but this keeps production files
+    # outside the remote root out of the cleanup contract even for direct use.
+    case "$candidate_path" in
+      *"/../"*|*"/.."|*"/./"*) continue ;;
+    esac
+    duplicate=0
+    if ((${#candidate_remote_paths[@]} > 0)); then
+      for existing in "${candidate_remote_paths[@]}"; do
+        if [[ "$existing" == "$candidate_path" ]]; then
+          duplicate=1
+          break
+        fi
+      done
+    fi
+    if (( ! duplicate )); then
+      candidate_remote_paths+=("$candidate_path")
+    fi
+    if [[ -z "$receipt_target_path" ]]; then
+      receipt_target_path="$candidate_path"
+    fi
+  done
+fi
+
+receipt_name="remote-compile-$(date -u +%Y%m%dT%H%M%S.%NZ)-$$-${RANDOM}.json"
+receipt_remote_path="$remote_root/.leanflow/remote-compile-receipts/$receipt_name"
+receipt_command="/home/hrm/.elan/bin/lake"
+remote_lake_argv="/home/hrm/.elan/bin/lake"
+for arg in "${mapped_args[@]}"; do
+  receipt_command+=" $(printf '%q' "$arg")"
+  remote_lake_argv+=" $(printf '%q' "$arg")"
+done
+receipt_command_b64=$(printf '%s' "$receipt_command" | base64 | tr -d '\n')
+
+cleanup_command="set -eu
+"
+if ((${#candidate_remote_paths[@]} > 0)); then
+  for candidate_path in "${candidate_remote_paths[@]}"; do
+    quoted_candidate=$(printf '%q' "$candidate_path")
+    cleanup_command+="/usr/bin/find -- $quoted_candidate -maxdepth 0 -type f \( -name 'StatementCandidate_*.lean' -o -name 'ZeroCostCandidate_*.lean' \) -delete || true
+"
+  done
+fi
+
+# A killed rsync or SSH client can leave a candidate that was uploaded just
+# before the verifier started.  Keep this allowlist deliberately narrow:
+# production sources such as Main.lean must never be part of cleanup.
+cleanup_remote_candidates() {
+  if ((${#candidate_remote_paths[@]} == 0)); then
+    return
+  fi
+  /usr/bin/ssh "${ssh_options[@]}" hrm@140.143.244.199 \
+    "$cleanup_command" \
+    >/dev/null 2>&1 || true
+}
+cleanup_needed=1
+cleanup_on_exit() {
+  if (( cleanup_needed )); then
+    cleanup_remote_candidates
+  fi
+}
+trap cleanup_on_exit EXIT
+
+# The local checkout is authoritative for Lean source edits, not host runtime
+# configuration or campaign state. All project sync entrypoints share this
+# exclusion file; missing rules make rsync fail before verification.
+wrapper_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 /usr/bin/rsync -az \
-  --exclude=.git \
-  --exclude=.git/ \
-  --exclude=.lake \
-  --exclude=.lake/ \
-  --exclude=.leanflow \
-  --exclude=.leanflow/ \
-  --exclude='.campaign_*.tmp' \
-  --exclude=.venv \
-  --exclude=.venv/ \
-  -e '/usr/bin/ssh -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 -p 49322 -o BatchMode=yes -o ControlMaster=no -o ControlPath=none' \
+  --exclude-from="$wrapper_dir/../core/remote-project-sync.exclude" \
+  -e "/usr/bin/ssh ${ssh_options[*]}" \
   "$host_root/" \
   "hrm@140.143.244.199:$remote_root/"
 
 # Campaign workers start these wrappers concurrently. A shared opportunistic
 # master races during socket creation and leaks ControlSocket warnings into
 # Lean diagnostics, so use independent noninteractive connections here.
-exec /usr/bin/ssh \
-  -i /Users/blackbox/.ssh/ap_lean_hrm_140_143_244_199 \
-  -p 49322 \
-  -o BatchMode=yes \
-  -o ControlMaster=no \
-  -o ControlPath=none \
-  hrm@140.143.244.199 \
-  "cd /home/hrm/ap_lean/fate-x-work && exec /home/hrm/.elan/bin/lake" \
-  "${mapped_args[@]}"
+# GNU timeout's default non-foreground mode gives the Lake child its own
+# process group and signals that group on TERM/KILL, including Lean descendants.
+remote_lake_command="set -eu
+cleanup() {
+  $cleanup_command
+}
+on_signal() {
+  cleanup
+  exit 143
+}
+trap cleanup EXIT
+trap on_signal HUP INT TERM
+cd '$remote_root'
+started_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+mkdir -p '$remote_root/.leanflow/remote-compile-receipts'
+receipt_tmp=\$(mktemp '$remote_root/.leanflow/remote-compile-receipt.XXXXXX')
+target_sha256=''
+if [ -n '$receipt_target_path' ] && [ -f '$receipt_target_path' ]; then
+  target_sha256=\$(sha256sum -- '$receipt_target_path' | awk '{print \$1}')
+fi
+set +e
+/usr/bin/timeout --signal=TERM --kill-after=1s ${remote_timeout}s ${remote_lake_argv} >\"\$receipt_tmp\" 2>&1
+rc=\$?
+set -e
+finished_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+command_b64='$receipt_command_b64'
+summary_b64=\$(tail -c 6000 \"\$receipt_tmp\" | base64 | tr -d '\\n')
+mkdir -p '$remote_root/.leanflow/remote-compile-receipts'
+printf '{\"schema\":\"leanflow.remote_compile_receipt.v1\",\"receipt_path\":\"%s\",\"command_base64\":\"%s\",\"exit_code\":%s,\"started_at\":\"%s\",\"finished_at\":\"%s\",\"target_path\":\"%s\",\"target_sha256\":\"%s\",\"output_summary_base64\":\"%s\"}\\n' '$receipt_remote_path' \"\$command_b64\" \"\$rc\" \"\$started_at\" \"\$finished_at\" '$receipt_target_path' \"\$target_sha256\" \"\$summary_b64\" > '$receipt_remote_path'
+cat \"\$receipt_tmp\"
+echo \"LEANFLOW_REMOTE_COMPILE_RECEIPT_PATH=$receipt_remote_path\" >&2
+echo \"LEANFLOW_REMOTE_COMPILE_RECEIPT_JSON=\$(cat '$receipt_remote_path')\" >&2
+rm -f -- \"\$receipt_tmp\"
+exit \"\$rc\"
+"
+if ((${#mapped_args[@]} > 0)); then
+  /usr/bin/ssh \
+    "${ssh_options[@]}" \
+    hrm@140.143.244.199 \
+    "if [ ! -x /usr/bin/timeout ]; then echo 'remote Lean requires /usr/bin/timeout for process cleanup' >&2; exit 127; fi; ${remote_lake_command}"
+else
+  /usr/bin/ssh \
+    "${ssh_options[@]}" \
+    hrm@140.143.244.199 \
+    "if [ ! -x /usr/bin/timeout ]; then echo 'remote Lean requires /usr/bin/timeout for process cleanup' >&2; exit 127; fi; ${remote_lake_command}"
+fi
+cleanup_needed=0

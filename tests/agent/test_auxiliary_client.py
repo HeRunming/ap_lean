@@ -32,6 +32,52 @@ from core.provider_capacity import (
 )
 
 
+@pytest.mark.parametrize("async_mode", [False, True])
+def test_quota_gate_disables_parameter_compatibility_resend(monkeypatch, async_mode):
+    import agent.providers.auxiliary_client as client_module
+
+    calls = []
+
+    def reject(**kwargs):
+        calls.append(kwargs)
+        raise RuntimeError("unsupported_parameter max_tokens")
+
+    async def reject_async(**kwargs):
+        return reject(**kwargs)
+
+    client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=SimpleNamespace(
+                create=reject_async if async_mode else reject,
+            )
+        )
+    )
+    monkeypatch.setenv("LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH", "/test/quota.json")
+    monkeypatch.setattr(
+        client_module,
+        "_resolve_task_provider_model",
+        lambda *a, **k: (
+            "custom",
+            "gpt-6-astra",
+            "https://api.zcloudapi.com/v1",
+            "test",
+        ),
+    )
+    monkeypatch.setattr(
+        client_module, "_get_cached_client", lambda *a, **k: (client, "gpt-6-astra")
+    )
+    with pytest.raises(RuntimeError, match="unsupported_parameter"):
+        if async_mode:
+            asyncio.run(
+                client_module.async_call_llm(
+                    messages=[{"role": "user", "content": "test"}], max_tokens=10
+                )
+            )
+        else:
+            client_module.call_llm(messages=[{"role": "user", "content": "test"}], max_tokens=10)
+    assert len(calls) == 1
+
+
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     """Strip provider env vars so each test starts clean."""
@@ -325,7 +371,10 @@ class TestReadCodexAccessToken:
                     "version": 1,
                     "providers": {
                         "openai-codex": {
-                            "tokens": {"access_token": "tok-123", "refresh_token": "r-456"},
+                            "tokens": {
+                                "access_token": "tok-123",
+                                "refresh_token": "r-456",
+                            },
                         },
                     },
                 }
@@ -461,7 +510,10 @@ class TestGetTextAuxiliaryClient:
 
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value=None,
+            ),
             patch(
                 "agent.providers.auxiliary_client._resolve_api_key_provider",
                 return_value=(None, None),
@@ -493,7 +545,10 @@ class TestGetTextAuxiliaryClient:
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value=None,
+            ),
             patch(
                 "agent.providers.auxiliary_client._resolve_api_key_provider",
                 return_value=(None, None),
@@ -597,7 +652,10 @@ class TestResolveForcedProvider:
         monkeypatch.setattr("leanflow_cli.runtime.runtime_provider.load_config", lambda: config)
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value=None,
+            ),
             patch(
                 "agent.providers.auxiliary_client._resolve_api_key_provider",
                 return_value=(None, None),
@@ -647,7 +705,10 @@ class TestResolveForcedProvider:
         assert model == "gpt-5.2-codex"
 
     def test_forced_codex_no_token(self, monkeypatch):
-        with patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None):
+        with patch(
+            "agent.providers.auxiliary_client._read_codex_access_token",
+            return_value=None,
+        ):
             client, model = _resolve_forced_provider("codex")
         assert client is None
         assert model is None
@@ -655,7 +716,10 @@ class TestResolveForcedProvider:
     def test_forced_unknown_returns_none(self, monkeypatch):
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value=None,
+            ),
         ):
             client, model = _resolve_forced_provider("invalid-provider")
         assert client is None
@@ -721,7 +785,10 @@ class TestAuxiliaryMaxTokensParam:
         """Codex adapter translates max_tokens internally, so we return max_tokens."""
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value="tok"),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value="tok",
+            ),
         ):
             result = auxiliary_max_tokens_param(1024)
         assert result == {"max_tokens": 1024}
@@ -734,7 +801,10 @@ class TestAuxiliaryMaxTokensParam:
     def test_no_provider_uses_max_tokens(self):
         with (
             patch("agent.providers.auxiliary_client._read_nous_auth", return_value=None),
-            patch("agent.providers.auxiliary_client._read_codex_access_token", return_value=None),
+            patch(
+                "agent.providers.auxiliary_client._read_codex_access_token",
+                return_value=None,
+            ),
         ):
             result = auxiliary_max_tokens_param(1024)
         assert result == {"max_tokens": 1024}
@@ -951,7 +1021,10 @@ class TestLeanReasoningBudget:
             lambda: {
                 "auxiliary": {
                     "lean_reasoning": {"provider": "main", "model": "reasoner/model"},
-                    "lean_decompose_helpers": {"provider": "openrouter", "model": "planner/model"},
+                    "lean_decompose_helpers": {
+                        "provider": "openrouter",
+                        "model": "planner/model",
+                    },
                 }
             },
         )

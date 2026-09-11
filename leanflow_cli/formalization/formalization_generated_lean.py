@@ -495,7 +495,7 @@ def _document_formalization_blueprint_inventory_issues(
         notes = _blueprint_first_bullet_value(
             entry, ("Source proof / prover notes", "Proof strategy", "Prover notes")
         )
-        if _blueprint_value_missing(notes):
+        if _blueprint_block_missing(notes):
             issues.append(f"blueprint entry `{label}` is missing source proof/prover notes")
         if requires_proof_notes and notes.lower() in {"none", "none needed", "n/a"}:
             issues.append(f"blueprint entry `{label}` needs prover notes for its {kind}")

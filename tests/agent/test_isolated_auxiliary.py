@@ -30,6 +30,17 @@ def _process_exists(pid: int) -> bool:
     return True
 
 
+def test_sdk_timeout_error_names_are_classified_as_timeout():
+    class APITimeoutError(Exception):
+        pass
+
+    class ReadTimeout(Exception):
+        pass
+
+    assert isolated_auxiliary._worker_error_kind(APITimeoutError("deadline")) == "timeout"
+    assert isolated_auxiliary._worker_error_kind(ReadTimeout("read timed out")) == "timeout"
+
+
 def test_overrunning_worker_is_killed_at_wall_clock_deadline(tmp_path):
     """An SDK call that ignores its request timeout cannot pin the caller."""
     child_pid_file = tmp_path / "child.pid"
@@ -332,6 +343,35 @@ print({isolated_auxiliary.RESULT_PREFIX!r} + json.dumps({{
     assert exc_info.value.model == "control-model"
 
 
+def test_bad_gateway_worker_error_is_classified_as_transient(tmp_path):
+    """HTTP 502/Bad Gateway crosses the worker boundary as retryable."""
+    command = _worker_script(
+        tmp_path,
+        f"""
+import json
+import sys
+
+sys.stdin.read()
+print({isolated_auxiliary.RESULT_PREFIX!r} + json.dumps({{
+    "ok": False,
+    "error_kind": "transient_gateway",
+    "error": "HTTP 502 Bad Gateway",
+    "provider": "main",
+    "model": "gpt-5.6-sol",
+}}))
+""",
+    )
+
+    with pytest.raises(isolated_auxiliary.IsolatedAuxiliaryTransientGateway, match="502"):
+        isolated_auxiliary.run_isolated_auxiliary_text(
+            task="orchestration",
+            provider="main",
+            messages=[{"role": "user", "content": "route"}],
+            timeout=2.0,
+            _worker_command=command,
+        )
+
+
 def test_worker_protocol_serializes_resolved_identity_on_failure(monkeypatch, capsys):
     def failed_call(**_kwargs):
         raise RuntimeError("Connection error.")
@@ -503,6 +543,30 @@ def test_reaped_group_ownership_requires_matching_launch_token(monkeypatch):
 
     assert isolated_auxiliary._reaped_process_group_is_owned(24680, "") is False
     assert isolated_auxiliary._reaped_process_group_is_owned(24680, process_token) is True
+
+
+def test_reaped_group_ownership_requests_environment_on_darwin(monkeypatch):
+    """Darwin's environment flag must survive the custom ps output format."""
+    process_token = "darwin-launch-token"
+    snapshots = iter(
+        (
+            SimpleNamespace(stdout="13579 24680\n"),
+            SimpleNamespace(
+                stdout=f"worker {isolated_auxiliary._PROCESS_TOKEN_ENV}={process_token}\n"
+            ),
+        )
+    )
+    commands = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        return next(snapshots)
+
+    monkeypatch.setattr(isolated_auxiliary.sys, "platform", "darwin")
+    monkeypatch.setattr(isolated_auxiliary.subprocess, "run", fake_run)
+
+    assert isolated_auxiliary._reaped_process_group_is_owned(24680, process_token) is True
+    assert commands[1][1] == "-E"
 
 
 def test_reaped_unowned_group_is_never_signaled(monkeypatch):

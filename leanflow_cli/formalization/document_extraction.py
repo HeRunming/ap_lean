@@ -126,6 +126,57 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
 
     blocks: list[dict[str, Any]] = []
     extracted_parts: list[str] = []
+    label_by_id = {
+        str(item.get("id")): str(item.get("label"))
+        for item in raw_items
+        if isinstance(item, dict) and item.get("id") and item.get("label")
+    }
+    label_by_entry_id = {
+        str(item.get("entry_id")): str(item.get("label"))
+        for item in raw_items
+        if isinstance(item, dict) and item.get("entry_id") and item.get("label")
+    }
+    known_labels = set(label_by_id.values())
+    numeric_labels: dict[str, list[str]] = {}
+    for label in known_labels:
+        match = re.search(r"(?:^|:)(\d+(?:\.\d+)+)(?:\b|$)", label)
+        if match:
+            numeric_labels.setdefault(match.group(1), []).append(label)
+
+    def dependency_label(record: object) -> str:
+        """Return the target's stable source label from a parser edge."""
+        if not isinstance(record, dict):
+            value = str(record or "").strip()
+            if value in known_labels:
+                return value
+            if len(numeric_labels.get(value, [])) == 1:
+                return numeric_labels[value][0]
+            return value
+        target_label = str(record.get("target_label") or "").strip()
+        if target_label:
+            if target_label in known_labels:
+                return target_label
+            # Human-readable references commonly prefix the canonical label
+            # with an environment kind (e.g. ``theorem 0.0.2``).
+            simplified = re.sub(
+                r"^(?:theorem|lemma|proposition|corollary|definition|exercise|fact|remark|example|notation)\s+",
+                "",
+                target_label,
+                flags=re.IGNORECASE,
+            )
+            if simplified in known_labels:
+                return simplified
+            numeric = re.search(r"\d+(?:\.\d+)+", simplified)
+            if numeric and len(numeric_labels.get(numeric.group(0), [])) == 1:
+                return numeric_labels[numeric.group(0)][0]
+            return target_label
+        target_id = str(record.get("target_id") or "").strip()
+        if target_id in label_by_id:
+            return label_by_id[target_id]
+        if target_id and ":" in target_id and target_id.rsplit(":", 1)[-1] in label_by_id:
+            return label_by_id[target_id.rsplit(":", 1)[-1]]
+        target_entry = str(record.get("target_entry_id") or "").strip()
+        return label_by_entry_id.get(target_entry, target_id or target_entry)
     for index, raw_item in enumerate(raw_items[:MAX_QA_ITEMS], start=1):
         if not isinstance(raw_item, dict):
             continue
@@ -135,7 +186,10 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
         proof = _first_text(
             raw_item, ("proof", "solution", "answer", "reference_answer", "rationale")
         )
-        label = _first_text(raw_item, ("id", "label", "uid", "name")) or f"qa-{index}"
+        # ``label`` is the human/canonical source identifier; ``id`` in the
+        # latest extraction is a typed key (``theorem:<label>``) and must not
+        # replace it or dependency matching will spuriously fail.
+        label = _first_text(raw_item, ("label", "id", "uid", "name")) or f"qa-{index}"
         audit = audit_by_label.get(label, {})
         crop = crop_by_label.get(label, {})
         crop_specs = crop.get("specs", []) if isinstance(crop.get("specs"), list) else []
@@ -144,6 +198,31 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
             dependencies = [dependencies]
         if not isinstance(dependencies, list):
             dependencies = []
+        # The latest parser emits rich dependency/cross-reference records,
+        # while the original QA schema used plain strings.  Keep the compact
+        # ``uses`` contract consumed by corpus planning, preferring the
+        # canonical target label and falling back to IDs for unresolved edges.
+        normalized_dependencies: list[str] = []
+        for dependency in dependencies:
+            value = dependency_label(dependency)
+            if str(value or "").strip():
+                normalized_dependencies.append(str(value).strip())
+        cross_references = raw_item.get("cross_references", [])
+        if isinstance(cross_references, dict):
+            cross_references = [cross_references]
+        if isinstance(cross_references, list):
+            for reference in cross_references:
+                if not isinstance(reference, dict):
+                    continue
+                # ``see_also``/unresolved references are retrieval hints, not
+                # scheduling prerequisites; only promote explicitly resolved
+                # dependency-like relations into the hard ``uses`` field.
+                relation = str(reference.get("relation") or "").lower()
+                if not reference.get("resolved") or relation in {"see_also", "citation"}:
+                    continue
+                value = dependency_label(reference)
+                if str(value or "").strip():
+                    normalized_dependencies.append(str(value).strip())
         pages = audit.get("pages", []) if isinstance(audit.get("pages"), list) else []
         if not pages:
             pages = [
@@ -172,7 +251,7 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
                 "end_line": int(raw_item.get("end_line", raw_item.get("line", index)) or index),
                 "label": label,
                 "title": _first_text(raw_item, ("title", "heading")),
-                "uses": [str(value) for value in dependencies if str(value).strip()],
+                "uses": list(dict.fromkeys(normalized_dependencies)),
                 "statement": _bounded(statement, MAX_STATEMENT_CHARS),
                 "proof": _bounded(proof, MAX_STATEMENT_CHARS),
                 "page": page,
@@ -184,6 +263,10 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
                     for key in ("chapter", "section", "page", "page_number", "bbox")
                     if key in raw_item
                 },
+                "dependency_records": dependencies,
+                "cross_reference_records": cross_references
+                if isinstance(cross_references, list)
+                else [],
             }
         )
         extracted_parts.append(f"[{label}]\n{statement}")

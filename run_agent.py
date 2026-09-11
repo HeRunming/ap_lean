@@ -5296,6 +5296,28 @@ class AIAgent:
                             self._vprint(
                                 f"{self.log_prefix}🔄 Retrying API call ({self._empty_content_retries}/3)..."
                             )
+                            # Do not retry an empty response with an identical
+                            # payload.  Some OpenAI-compatible gateways can
+                            # deterministically return a zero-token completion
+                            # for a long tool-heavy prompt; replaying the exact
+                            # same messages then burns all three retries without
+                            # giving the model a chance to recover.  A normal
+                            # user-role continuation is valid after the last
+                            # tool result and gives the provider an explicit
+                            # signal to emit either a tool call or visible text.
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        "[System: The previous response contained no visible text "
+                                        "or tool call. Continue the task now using the available "
+                                        "tools or provide the requested answer; do not return an "
+                                        "empty response.]"
+                                    ),
+                                }
+                            )
+                            self._session_messages = messages
+                            self._save_session_log(messages)
                             continue
                         else:
                             self._vprint(

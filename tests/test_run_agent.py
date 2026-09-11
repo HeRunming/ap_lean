@@ -2663,6 +2663,28 @@ class TestRunConversation:
         assert result["completed"] is False
         assert result.get("partial") is True
 
+    def test_empty_content_retry_adds_recovery_turn(self, agent):
+        """A blank provider response must not be retried with an identical payload."""
+        self._setup_agent(agent)
+        empty_resp = _mock_response(content=" ", finish_reason="stop")
+        good_resp = _mock_response(content="Recovered", finish_reason="stop")
+        agent.client.chat.completions.create.side_effect = [empty_resp, good_resp]
+        with (
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("answer me")
+
+        assert result["completed"] is True
+        assert result["final_response"] == "Recovered"
+        assert agent.client.chat.completions.create.call_count == 2
+        retry_messages = agent.client.chat.completions.create.call_args_list[1].kwargs[
+            "messages"
+        ]
+        assert retry_messages[-1]["role"] == "user"
+        assert "no visible text" in retry_messages[-1]["content"]
+
     def test_nous_401_refreshes_after_remint_and_retries(self, agent):
         self._setup_agent(agent)
         agent.provider = "nous"

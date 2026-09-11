@@ -84,6 +84,28 @@ def test_load_leanflow_dotenv_project_does_not_override_home(monkeypatch, tmp_pa
     assert os.environ["SHARED_KEY"] == "home-wins"
 
 
+def test_load_leanflow_dotenv_duplicate_provider_assignments_keep_first(
+    monkeypatch, tmp_path, caplog
+):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text(
+        "LEANFLOW_OPENAI_BASE_URL=https://api.zcloudapi.com/v1\n"
+        "LEANFLOW_OPENAI_BASE_URL=http://stale-proxy.invalid/v1\n"
+        "LEANFLOW_OPENAI_API_KEY=active-key\n"
+        "LEANFLOW_OPENAI_API_KEY=stale-key\n",
+        encoding="utf-8",
+    )
+    _clean_env(monkeypatch, "LEANFLOW_OPENAI_BASE_URL", "LEANFLOW_OPENAI_API_KEY")
+
+    with caplog.at_level("WARNING"):
+        load_leanflow_dotenv(leanflow_home=home)
+
+    assert os.environ["LEANFLOW_OPENAI_BASE_URL"] == "https://api.zcloudapi.com/v1"
+    assert os.environ["LEANFLOW_OPENAI_API_KEY"] == "active-key"
+    assert "stale-key" not in caplog.text
+
+
 def test_load_leanflow_dotenv_falls_back_to_latin1_on_decode_error(monkeypatch, tmp_path):
     home = tmp_path / "home"
     home.mkdir()

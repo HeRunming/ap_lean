@@ -442,6 +442,13 @@ from leanflow_cli.formalization.formalization_generated_lean import (  # noqa: E
     _formalization_generated_module_names,
     _formalization_generated_prove_scope,
 )
+from leanflow_cli.formalization.statement_contract_gate import (  # noqa: E402
+    document_statement_contract_gate,
+    queue_statement_contract_block,
+)
+from leanflow_cli.formalization.statement_review_feedback import (  # noqa: E402
+    REVIEW_FEEDBACK_ENV,
+)
 from leanflow_cli.lean.lean_diagnostic_feedback import (  # noqa: E402
     _declaration_diagnostic_feedback_reason,
     _declaration_name_safe_for_diagnostic_match,
@@ -739,6 +746,10 @@ def _record_formalization_campaign_stage(
         raise RuntimeError("formalization campaign path is missing or outside the project")
     current = dict(live_state or {})
     stage = "statements" if workflow_kind == "formalize" else "proofs"
+    contract_gate = dict(
+        (current.get("document_formalization_handoff", {}) or {}).get("statement_contract", {})
+        or {}
+    )
     success = bool(
         exit_code == 0
         and (
@@ -798,6 +809,133 @@ def _record_formalization_campaign_stage(
         "cost_scope": "primary_agent_only",
         "provenance": "agent",
     }
+    campaign_worker_id = _read_text_env("LEANFLOW_CAMPAIGN_WORKER_ID", "").strip()
+    if campaign_worker_id:
+        outcome["worker_id"] = campaign_worker_id
+    # A receipt that this attempt actually ran in the unbounded full-tool lane.
+    # ``record_campaign_outcome`` counts receipts, not routing requests, when
+    # deciding whether the escalation allowance is spent.
+    if _read_text_env("LEANFLOW_FORMALIZATION_ESCALATED", "").strip() == "1":
+        outcome["escalated"] = True
+        outcome["generator_boundary"] = "fresh_process"
+        try:
+            outcome["escalation_attempt"] = max(
+                0,
+                int(_read_text_env("LEANFLOW_FORMALIZATION_ESCALATION_ATTEMPT", "0") or 0),
+            )
+        except (TypeError, ValueError):
+            outcome["escalation_attempt"] = 0
+        outcome["escalation_session_id"] = _read_text_env(
+            "LEANFLOW_FORMALIZATION_ESCALATION_SESSION_ID", ""
+        ).strip()
+        try:
+            outcome["max_semantic_repairs"] = max(
+                1,
+                int(_read_text_env("LEANFLOW_FORMALIZATION_MAX_SEMANTIC_REPAIRS", "1") or 1),
+            )
+        except (TypeError, ValueError):
+            outcome["max_semantic_repairs"] = 1
+        try:
+            outcome["max_infrastructure_retries"] = max(
+                1,
+                int(_read_text_env("LEANFLOW_FORMALIZATION_MAX_INFRASTRUCTURE_RETRIES", "3") or 3),
+            )
+        except (TypeError, ValueError):
+            outcome["max_infrastructure_retries"] = 3
+    # A provider/worker pause outranks any stale document handoff in the live
+    # state. Startup can restore an old BLOCK handoff before the first provider
+    # call; if that call exhausts transient retries, the current attempt has no
+    # semantic verdict. Record only the infrastructure failure and let the next
+    # fresh process re-run the reviewer after the provider recovers.
+    pause_kind = str((autonomy_state or {}).get("operational_pause", "") or "").strip()
+    pause_reason = str(
+        (autonomy_state or {}).get("infrastructure_pause_reason", "") or reason or ""
+    ).strip()
+    infrastructure_attempt = bool(
+        pause_kind == "paused_infrastructure"
+        or (autonomy_state or {}).get("infrastructure_pause_reason")
+        or any(
+            marker in pause_reason.lower()
+            for marker in (
+                "transientproviderretriesexhausted",
+                "provider/api failure",
+                "provider attempts exhausted",
+                "connection error",
+                "api error",
+                "timed out",
+            )
+        )
+    )
+    if not success and infrastructure_attempt:
+        outcome["failure_class"] = "infrastructure"
+        outcome["retry_class"] = "infrastructure"
+        # These keys are intentionally absent from a provider-failure receipt.
+        # Explicitly remove them so this remains true if a future outcome
+        # builder starts from a copied handoff or prior receipt.
+        for key in (
+            "review_decision",
+            "review_findings",
+            "candidate_diagnostics",
+            "final_diagnostic",
+            "semantic_retry_limit_exhausted",
+            "terminal",
+        ):
+            outcome.pop(key, None)
+    # A verifier BLOCK is a verdict, not a fault. The runner has nothing to hand a
+    # headless caller once the review gate closes, so it leaves through the no-TTY
+    # path and the campaign used to see only ``reason: headless early exit`` -- the
+    # findings were discarded, and the next attempt restarted blind. Carry the
+    # verdict and its findings into the ledger so a retry gets them as feedback.
+    elif contract_gate:
+        outcome.update(
+            {
+                key: value
+                for key, value in contract_gate.items()
+                if key not in {"ok", "issues", "summary"}
+            }
+        )
+        outcome["success"] = False
+        outcome["reason"] = contract_gate["summary"]
+    elif not success and _document_formalization_waiting_for_independent_review(current):
+        outcome["retry_class"] = "semantic"
+        outcome["review_decision"] = "BLOCK"
+        handoff = dict(current.get("document_formalization_handoff", {}) or {})
+        findings = [
+            str(issue).strip() for issue in handoff.get("issues", []) or [] if str(issue).strip()
+        ]
+        if findings:
+            outcome["review_findings"] = findings
+            outcome["candidate_diagnostics"] = [
+                {"stage": "semantic_review", "diagnostic": text[:1000]} for text in findings
+            ]
+        blocker = str(current.get("current_blocker", "") or "").strip()
+        outcome["final_diagnostic"] = (
+            blocker or "; ".join(findings)[:6000] or "statement/source verification returned BLOCK"
+        )
+    elif (
+        not success
+        and str(
+            (autonomy_state or {}).get("operational_pause", "")
+            or (autonomy_state or {}).get("operational_pause_reason", "")
+            or ""
+        ).strip()
+    ):
+        outcome["failure_class"] = "infrastructure"
+        outcome["retry_class"] = "infrastructure"
+
+    review = dict((autonomy_state or {}).get("document_formalization_review_result", {}) or {})
+    decision = _verification_review_decision(review)
+    if (
+        stage == "statements"
+        and not infrastructure_attempt
+        and outcome.get("retry_class") != "infrastructure"
+        and not contract_gate
+        and str(review.get("status", "") or "") == "ok"
+        and decision in {"PASS", "BLOCK"}
+    ):
+        outcome["review_decision"] = decision
+        outcome["review_provider"] = str(review.get("provider", "") or "")
+        outcome["review_findings"] = _verification_review_findings(review, limit=12)
 
     def commit(current: Mapping[str, Any]) -> tuple[Mapping[str, Any], None]:
         return record_campaign_outcome(current, batch_id=batch_id, outcome=outcome), None
@@ -8338,6 +8476,7 @@ def _reset_search_progress(agent: Any) -> None:
     autonomy_state = getattr(agent, "_managed_autonomy_state", None)
     if isinstance(autonomy_state, dict):
         autonomy_state.pop("search_progress", None)
+        autonomy_state.pop("_search_synthesis_feedback_count", None)
 
 
 def _search_synthesis_debt_active(
@@ -8780,6 +8919,45 @@ def _search_synthesis_pre_tool_guard(
     tracker = dict(autonomy_state.get("search_progress") or {})
     if not target_symbol or not active_file or not tracker:
         return None
+    if str(tracker.get("target_symbol", "") or "") != target_symbol or not _same_active_file(
+        str(tracker.get("active_file", "") or ""), active_file
+    ):
+        autonomy_state.pop("_search_synthesis_feedback_count", None)
+    if (
+        function_name == "lean_incremental_check"
+        and str(dict(args or {}).get("action", "") or "").strip().lower().replace("-", "_")
+        == "feedback"
+        and bool(tracker.get("synthesis_grace_pending") or tracker.get("hard_route_requested"))
+        and str(tracker.get("target_symbol", "") or "") == target_symbol
+        and _same_active_file(str(tracker.get("active_file", "") or ""), active_file)
+    ):
+        # One diagnostic feedback request remains useful during the reserved
+        # synthesis turn. Repeating it is deterministic proof-budget
+        # consumption, so return the same JSON contract as the helper fence.
+        feedback_key = "_search_synthesis_feedback_count"
+        try:
+            feedback_count = max(0, int(autonomy_state.get(feedback_key, 0) or 0))
+        except (TypeError, ValueError):
+            feedback_count = 0
+        if feedback_count >= 1:
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "target_proof_consumption_required",
+                    "blocked_tool": function_name,
+                    "blocked_action": "feedback",
+                    "target_symbol": target_symbol,
+                    "feedback_checks_allowed": 1,
+                    "feedback_checks_used": feedback_count,
+                    "required_action": (
+                        "Use the reserved synthesis evidence to construct a concrete assigned "
+                        "proof candidate, then run `check_target`."
+                    ),
+                    "reason": "Repeating unchanged feedback does not test a new proof candidate.",
+                },
+                ensure_ascii=False,
+            )
+        autonomy_state[feedback_key] = feedback_count + 1
     discovery_name = search_synthesis_admission.discovery_tool_name(function_name, args)
     if discovery_name is None:
         return None
@@ -10912,9 +11090,9 @@ def _document_formalization_pre_tool_guard(
     """Guard document formalization edits: reject self-approved blueprint, enforce planner blueprint before Lean drafts, block early completion/sorry-removal in planner phase. Returns JSON error or None if allowed; prevents verification bypass and out-of-phase Lean edits."""
     if function_name not in {"patch", "write_file", "apply_verified_patch"}:
         return None
-    target_path = _document_formalization_target_path()
-    if target_path is None:
+    if not _document_formalization_requested():
         return None
+    target_path = _document_formalization_target_path()
     formalization_lean_paths = _formalization_lean_edit_paths(function_name, args)
     blueprint = _read_text_env("LEANFLOW_FORMALIZATION_BLUEPRINT", "").strip()
     blueprint_path = _resolve_project_path(blueprint) if blueprint else None
@@ -10943,6 +11121,30 @@ def _document_formalization_pre_tool_guard(
             },
             ensure_ascii=False,
         )
+    if target_path is None:
+        # A formalization run without its target is not safely scoped: accept
+        # no Lean edit until the managed target is configured.
+        lean_paths = [
+            path for path in _tool_edit_paths(function_name, args) if path.suffix.lower() == ".lean"
+        ]
+        if lean_paths:
+            return json.dumps(
+                {
+                    "success": False,
+                    "status": "formalization_target_file_required",
+                    "blocked_by": "document_formalization_target_scope",
+                    "blocked_paths": [str(path) for path in lean_paths],
+                    "patch_applied": False,
+                    "check_passed": False,
+                    "error": (
+                        "Document formalization cannot edit Lean source until the managed target "
+                        "file is configured via LEANFLOW_FORMALIZATION_TARGET_FILE. This "
+                        "fail-closed guard prevents an out-of-scope patch from surviving."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        return None
     try:
         touches_target = any(
             path.resolve() == target_path for path in _tool_edit_paths(function_name, args)
@@ -13083,7 +13285,9 @@ def _campaign_expensive_patch_pre_tool_guard(
         )
         integrates_authenticated_helper = bool(
             research_helper_candidate_priority.parent_recheck_evidence_authenticated(candidate)
-            and (candidate.declaration in proposed_text or candidate.declaration in added_patch_text)
+            and (
+                candidate.declaration in proposed_text or candidate.declaration in added_patch_text
+            )
             and _managed_edit_targets_assignment(
                 arguments,
                 active_file,
@@ -18422,9 +18626,11 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         workflow_kind == "formalize"
         and _document_formalization_requested()
         and _document_formalization_blueprint_waiting_for_review()
+        and _read_text_env("LEANFLOW_FORMALIZATION_ESCALATED", "").strip() != "1"
     )
+    review_feedback = _read_text_env(REVIEW_FEEDBACK_ENV, "").strip()
     formalization_review_blocked = bool(
-        _read_text_env("LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE", "").strip()
+        review_feedback or _read_text_env("LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE", "").strip()
     )
     guidance_map = {
         "prove": (
@@ -18454,7 +18660,7 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
         "formalize": (
             "autonomous formalization session",
             (
-                "Resume a targeted statement-fidelity correction from the prior independent BLOCK review. Read the configured review evidence first, change only the Lean declarations/Blueprint needed to resolve its findings, keep theorem/lemma `sorry` bodies as proof placeholders, run deterministic Lean/project checks, and request a fresh independent review. Do not restart broad proof search."
+                "Resume a targeted statement-fidelity correction from the prior BLOCK findings. Read the feedback below and any configured review evidence first, change only the Lean declarations/Blueprint needed to resolve its findings, keep theorem/lemma `sorry` bodies as proof placeholders, run deterministic Lean/project checks, and request a fresh independent review. Do not restart broad proof search."
                 if formalization_review_blocked
                 else (
                     "Resume directly at the independent statement/source review gate. The drafted theorem/lemma `sorry` declarations are expected proof placeholders, not proof assignments: do not search for or fill their proofs. Run only the missing deterministic Lean/project readiness checks, report the pending review blocker, and let the harness launch the independent reviewer."
@@ -18479,6 +18685,8 @@ def _workflow_startup_guidance(workflow_kind: str, workflow_command: str) -> str
     document_block = _formalization_document_startup_block()
     if workflow_kind == "formalize" and document_block:
         guidance += f"\n\n{document_block}"
+    if workflow_kind == "formalize" and review_feedback:
+        guidance += f"\n\n{review_feedback[:6000]}"
     if _swarm_enabled():
         agent_count = _parallel_agents()
         guidance += (
@@ -18529,7 +18737,7 @@ def _formalization_document_startup_block() -> str:
         lines.extend(
             (
                 "",
-                "Prior independent statement/source review: BLOCK.",
+                "Prior statement/source BLOCK evidence:",
                 f"- Evidence file: {review_evidence}",
                 "- Read that bounded evidence first and correct exactly its fidelity findings before requesting another review.",
                 "- Do not restart broad proof search or fill theorem/lemma `sorry` placeholders.",
@@ -21288,6 +21496,8 @@ def _stamp_blueprint_statement_review_approved(
     active_file: str = "",
 ) -> bool:
     """Update formalization blueprint markdown to mark statement/source verification as approved by verifier, check off review checklists, and set status to ready for prove workflow."""
+    if document_statement_contract_gate(active_file):
+        return False
     blueprint_path = _read_text_env("LEANFLOW_FORMALIZATION_BLUEPRINT", "").strip()
     if not blueprint_path:
         return False
@@ -21417,6 +21627,11 @@ def _run_configured_blueprint_verification(
     autonomy_state: dict[str, Any],
 ) -> dict[str, Any]:
     """Run configured document formalization statement/source review verifier, process PASS/BLOCK decision, stamp approval on success, and record feedback or blocking findings in autonomy state."""
+    gate = document_statement_contract_gate(
+        str(live_state.get("active_file", "") or live_state.get("active_file_label", "") or "")
+    )
+    if gate:
+        return queue_statement_contract_block(autonomy_state, gate)
     provider = resolve_verification_provider(BLUEPRINT_VERIFICATION_TASK)
     if provider in {"main", "auto"} and not _verification_task_has_aux_overrides(
         BLUEPRINT_VERIFICATION_TASK
@@ -21456,8 +21671,12 @@ def _run_configured_blueprint_verification(
     result["configured_provider"] = provider
     autonomy_state["document_formalization_review_result"] = result
     approval_stamped = False
-    decision = _verification_review_decision(result)
+    decision = (
+        _verification_review_decision(result) if str(result.get("status", "") or "") == "ok" else ""
+    )
     if decision == "PASS":
+        autonomy_state.pop("document_formalization_review_feedback_message", None)
+        autonomy_state.pop("document_formalization_review_feedback_pending", None)
         approval_stamped = _stamp_blueprint_statement_review_approved(
             provider=provider,
             active_file=active_file,
@@ -21657,6 +21876,14 @@ def _maybe_run_document_formalization_review_agent(
     live_state: Mapping[str, Any],
     autonomy_state: dict[str, Any],
 ) -> bool:
+    # Re-read the current candidate after generation, even when the blueprint
+    # has already been stamped or other local issues would defer review.
+    gate = document_statement_contract_gate(
+        str(live_state.get("active_file", "") or live_state.get("active_file_label", "") or "")
+    )
+    if gate:
+        queue_statement_contract_block(autonomy_state, gate)
+        return True
     if not _document_formalization_review_due(live_state, autonomy_state):
         return False
     _run_configured_blueprint_verification(agent, system_prompt, live_state, autonomy_state)
@@ -22795,6 +23022,10 @@ def _document_formalization_handoff_verification(
     except Exception:
         issues.append("target Lean file could not be read")
     generated_text = _formalization_generated_lean_text(str(active_path), active_text=target_text)
+    contract_gate = document_statement_contract_gate(
+        str(active_path), blueprint_text=blueprint_text, target_text=generated_text
+    )
+    issues.extend(contract_gate.get("issues", []))
     if _read_text_env("LEANFLOW_FORMALIZATION_PROVENANCE", "").strip() == "agent":
         held_out_markers = ("FateXWork.Gold", "FateXWork/Gold")
         referenced_markers = [marker for marker in held_out_markers if marker in generated_text]
@@ -22941,7 +23172,8 @@ def _document_formalization_handoff_verification(
             blueprint_text=blueprint_text,
             target_text=generated_text,
         )
-        if _autoformalizer_advisory_review_due(
+        if not contract_gate
+        and _autoformalizer_advisory_review_due(
             local_ok=local_ok, issues=issues, completion=completion
         )
         else None
@@ -23012,7 +23244,10 @@ def _document_formalization_handoff_verification(
             active_file=str(active_path),
             issues=advisory_findings,
         )
-    return {"ok": ok, "issues": issues, "summary": summary}
+    handoff = {"ok": ok, "issues": issues, "summary": summary}
+    if contract_gate:
+        handoff["statement_contract"] = contract_gate
+    return handoff
 
 
 def _canonical_file_verification_command(active_file: str) -> str:
@@ -26257,6 +26492,9 @@ def _startup_user_message(
     with contextlib.suppress(Exception):
         _recover_persisted_checkpoint_advisories(live_state)
     startup_prompt = _read_native_env("STARTUP_PROMPT")
+    startup_review_feedback = _read_text_env(REVIEW_FEEDBACK_ENV, "").strip()
+    if startup_prompt and startup_review_feedback and _workflow_kind() == "formalize":
+        startup_prompt = f"{startup_prompt}\n\n{startup_review_feedback[:6000]}"
     workflow_command = _read_native_env("WORKFLOW_COMMAND")
     workflow_kind = _workflow_kind()
     selected_skill = _effective_skill_name(live_state)
@@ -31867,34 +32105,46 @@ def _consume_research_helper_parent_recheck_boundary(
         target_symbol=target_symbol,
         active_file=active_file,
     )
+
+    def candidate_field(name: str, default: Any = "") -> Any:
+        """Read a candidate field from dataclass and mapping adapters alike."""
+        if isinstance(candidate, Mapping):
+            return candidate.get(name, default)
+        return getattr(candidate, name, default)
+
+    candidate_state = candidate_field("state", candidate_field("status", ""))
+    candidate_state = str(candidate_state or "").strip()
+    # The explicit boundary marker is itself an authenticated request for the
+    # parent recheck. Some lightweight candidate adapters expose no state
+    # attribute, so retain that valid boundary instead of dropping it.
+    candidate_awaiting_recheck = (
+        candidate_state == research_helper_candidate_priority.AWAITING_RECHECK
+        or (not candidate_state and bool(candidate_id))
+    )
     # The boundary marker is ephemeral autonomy state, while the candidate is
     # durable plan state.  A provider-turn rollover or campaign-worker restart
     # can therefore preserve ``awaiting_parent_recheck`` while losing only the
     # marker.  Treat that durable state itself as the promised boundary so a
     # requested route cannot suppress the parent check forever.
-    if (
-        not candidate_id
-        and candidate is not None
-        and candidate.state == research_helper_candidate_priority.AWAITING_RECHECK
-    ):
-        candidate_id = candidate.candidate_id
+    if not candidate_id and candidate is not None and candidate_awaiting_recheck:
+        candidate_id = str(candidate_field("candidate_id", "") or "").strip()
     if not candidate_id:
         return ""
     if (
         candidate is None
-        or candidate.candidate_id != candidate_id
-        or candidate.state != research_helper_candidate_priority.AWAITING_RECHECK
+        or str(candidate_field("candidate_id", "") or "").strip() != candidate_id
+        or not candidate_awaiting_recheck
     ):
         autonomy_state.pop(_RESEARCH_HELPER_RECHECK_BOUNDARY_KEY, None)
         return ""
     autonomy_state.pop(_RESEARCH_HELPER_RECHECK_BOUNDARY_KEY, None)
     _record_activity(
         "research-helper-parent-recheck-boundary-consumed",
-        f"Running promised parent recheck for helper {candidate.helper_name}",
-        candidate_id=candidate.candidate_id,
+        f"Running promised parent recheck for helper {candidate_field('helper_name')}",
+        candidate_id=candidate_field("candidate_id"),
         target_symbol=target_symbol,
         active_file=active_file,
-        helper_symbol=candidate.helper_name,
+        helper_symbol=candidate_field("helper_name"),
         campaign_progress=False,
     )
     return _recheck_pending_research_helper_if_due(
@@ -35470,6 +35720,27 @@ def _drive_autonomous_followups_inner(
             _persist_live_status(
                 history, compaction_state, checkpoint_state, live_state, phase="verifying"
             )
+            # Escalated campaign actions are intentionally one fresh
+            # generator/reviewer boundary. A semantic BLOCK is durable feedback
+            # for the *next* campaign action; feeding it back into this same
+            # autonomous conversation made the agent repair its own abstraction
+            # indefinitely and blurred semantic retries with infrastructure
+            # retries. Let finalization record the BLOCK and let the campaign
+            # runner decide whether another fresh process is admissible.
+            if _read_text_env(
+                "LEANFLOW_FORMALIZATION_FRESH_REVIEW_BOUNDARY", ""
+            ).strip() == "1" and bool(review_feedback):
+                autonomy_state["formalization_semantic_retry_boundary_reached"] = True
+                _record_activity(
+                    "formalization-semantic-retry-boundary",
+                    "Stopped escalated formalization session after independent reviewer BLOCK; next retry requires a fresh generator process",
+                    active_file=str(
+                        live_state.get("active_file_label", "")
+                        or live_state.get("active_file", "")
+                        or ""
+                    ),
+                )
+                return history, compaction_state, checkpoint_state, live_state
             continue
         _maybe_announce_final_file_sweep_state(autonomy_state, live_state)
         _maybe_sync_plan_state(autonomy_state, live_state)
@@ -36161,6 +36432,20 @@ def main() -> int:
                 )
         checkpoint_state = _journal_status()
         resumed_checkpoint = checkpoint_state.get("current")
+        # An escalated campaign item is being retried precisely because the
+        # bounded lane could not produce a usable statement, so a checkpoint left
+        # by that lane describes work that does not exist.
+        # Resuming it drops the agent straight at the review gate with guidance to
+        # "run only the missing checks and report the blocker", which contradicts
+        # the completion contract and made every escalated attempt report BLOCK
+        # without ever drafting the declarations the gate asks for.
+        if (
+            resumed_checkpoint
+            and _read_text_env("LEANFLOW_FORMALIZATION_ESCALATED", "").strip() == "1"
+        ):
+            print("Escalated campaign retry: ignoring bounded-lane checkpoint.")
+            print("")
+            resumed_checkpoint = None
         startup_target = str(
             dict(autonomy_state.get("current_queue_assignment") or {}).get("target_symbol", "")
             or "[project scope]"
@@ -36468,6 +36753,13 @@ def main() -> int:
             ),
             live_state,
         )
+        review_feedback = _read_text_env(REVIEW_FEEDBACK_ENV, "").strip()[:6000]
+        if (
+            _workflow_kind() == "formalize"
+            and review_feedback
+            and review_feedback not in initial_message
+        ):
+            initial_message = f"{initial_message}\n\n{review_feedback}"
         if plan_resume_block:
             initial_message = f"{plan_resume_block}\n\n{initial_message}"
         if scope_entry_prompt:
@@ -36479,6 +36771,15 @@ def main() -> int:
         if proof_resume_evidence and _workflow_kind() == "prove":
             initial_message = (
                 f"{initial_message}\n\n[CAMPAIGN RETRY EVIDENCE]\n{proof_resume_evidence[:6000]}"
+            )
+
+        escalation_contract = _read_text_env(
+            "LEANFLOW_FORMALIZATION_ESCALATION_CONTRACT", ""
+        ).strip()
+        if escalation_contract and _workflow_kind() == "formalize":
+            initial_message = (
+                f"{initial_message}\n\n[ESCALATION COMPLETION CONTRACT]\n"
+                f"{escalation_contract[:4000]}"
             )
         _record_turn_prompt_fingerprint(autonomy_state, initial_message, phase="startup", cycle=0)
         _set_runtime_active_skill(_effective_skill_name(live_state))

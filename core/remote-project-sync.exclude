@@ -1,0 +1,35 @@
+# Shared by remote-bin/lake, remote_warm_probe and the SSH terminal backend.
+# Compilation transfers sources; each host owns its runtime and campaign state.
+.git
+.lake
+.leanflow
+.leanflow-*
+.venv
+.venv-*
+.env*
+.codex
+.codex-*
+.elan
+.elan-*
+.ssh
+/bin/
+/remote-bin/
+
+# Match ledgers and their state/lock/backup files at any source depth, while
+# keeping book source JSON and Lean files (including candidates) transferable.
+campaign.json*
+campaign.*.json*
+campaign-*.json*
+campaign_*.json*
+campaign.lock*
+campaign.state*
+campaign.*.lock*
+campaign.*.state*
+campaign.bak*
+campaign.backup*
+campaign.*.bak*
+campaign.*.backup*
+campaign-state*
+campaign_state*
+.campaign_*.tmp
+.campaign.*

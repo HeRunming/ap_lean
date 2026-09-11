@@ -86,6 +86,21 @@ def test_blueprint_plan_accepts_common_agent_heading_variant(tmp_path, monkeypat
     assert fdr._document_formalization_needs_blueprint_plan() is False
 
 
+def test_blueprint_source_inventory_preserves_colon_labels():
+    blueprint = (
+        "## Source Statement Inventory\n\n"
+        "### thm:demo\n"
+        "- Planned Lean declarations: `demo`\n\n"
+        "### foundation:0.0.2\n"
+        "- Planned Lean declarations: `foundation`\n"
+    )
+
+    assert list(fdr._blueprint_source_inventory_entries(blueprint)) == [
+        "thm:demo",
+        "foundation:0.0.2",
+    ]
+
+
 def test_planned_declaration_parser_ignores_markdown_lean_fence_language():
     planned = """```lean
 lemma helper : True

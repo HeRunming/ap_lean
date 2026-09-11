@@ -214,6 +214,19 @@ guidance on top of the Lean-first workflow contract:
 leanflow workflow prove Main.lean --prompt "try abs_abs_sub before ring_nf"
 ```
 
+For one bounded HDP statement action, set `LEANFLOW_REMOTE_WARM_PROBE=1` to opt into a
+per-invocation SSH stdin JSON-lines service. It synchronizes `/Users/blackbox/m2f/fate-x-work`
+once and keeps one remote `LeanProbe` alive across candidate checks. Its `health warm=true` request
+performs a bounded Mathlib import readiness check with a 3600-second (one-hour) budget; if
+that cannot complete, the warm path is rejected and the normal `remote-bin/lake` fallback remains
+authoritative. Candidate checks retain their independent 120-second compile bound. Unset the
+variable to retain that normal behavior directly. Probe the service without starting a campaign with:
+
+```bash
+source .venv/bin/activate
+python -m leanflow_cli.formalization.remote_warm_probe --health
+```
+
 ## Project state
 
 LeanFlow keeps user-level state separate from per-project workflow state:
@@ -267,3 +280,23 @@ module map is in [ARCHITECTURE.md](ARCHITECTURE.md).
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## HDP formalization harness
+
+This branch also contains the LeanFlow harness used to formalize the *HDP* book into Lean. It combines model driven statement generation, deterministic contract checks, independent review, compiler feedback and bounded retry, with remote Lean verification as the authoritative acceptance gate.
+
+The root level `hdp-run` starts a bounded single worker campaign. `hdp-scale` is the quota guarded multi worker launcher. Campaign state and large HDP corpus data stay outside this repository.
+
+For zcloud, configure credentials only through the environment or a project `.env` file (never commit keys):
+
+```bash
+export LEANFLOW_OPENAI_BASE_URL=https://api.zcloudapi.com/v1
+export LEANFLOW_OPENAI_API_KEY=<your-key>
+export OPENAI_MODEL=gpt-6-astra
+```
+
+The HDP launchers normalize generator, planner, reviewer and auxiliary roles to the configured endpoint and `gpt-6-astra` model. A 600 second timeout is suitable for long requests. Lean compilation and final verification use the sole remote workspace `/data/hrm/fate-x-work`; local workers invoke the SSH/Lake wrapper. Optional LeanProbe warmup is enabled with `LEANFLOW_REMOTE_WARM_PROBE=1` and never replaces the Lake final gate.
+
+A statement enters the campaign only after source admission and the deterministic statement contract gate. An independent reviewer receives the generated statement plus compiler evidence. `BLOCK` findings are persisted with numbered feedback and fed into the next generator attempt; only reviewer `PASS` together with successful remote Lean verification permits promotion. Infrastructure failures remain separate from semantic rejection and are retryable without claiming success.
+
+Run `./hdp-run --check` for a no-network configuration check. For real work, run a bounded single-worker smoke, inspect remote compile receipts and the quota ledger, then increase worker count gradually.

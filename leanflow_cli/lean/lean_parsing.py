@@ -408,7 +408,14 @@ def _text_has_theorem_or_lemma(text: str) -> bool:
 
 
 def _text_has_sorry(text: str) -> bool:
-    return bool(re.search(r"\bsorry\b", _strip_lean_comments_and_strings(str(text or ""))))
+    """Return whether executable Lean text contains an admission placeholder.
+
+    Lean accepts ``admit`` as a synonym for ``sorry`` and emits the same
+    warning.  Treat all three spellings uniformly, including when the token is
+    on a later line of a ``by`` block; comments and strings remain ignored.
+    """
+    sanitized = _strip_lean_comments_and_strings(str(text or ""))
+    return bool(re.search(r"\b(?:sorry|admit|sorryAx)\b", sanitized, flags=re.IGNORECASE))
 
 
 def _text_has_theorem_or_lemma_without_sorry(text: str) -> bool:
@@ -692,7 +699,7 @@ def _declaration_line_index_from_text(content: str) -> list[dict[str, Any]]:
         region = "\n".join(lines[start - 1 : end]).strip()
         entry["end_line"] = end
         entry["text"] = region
-        entry["has_sorry"] = bool(re.search(r"\bsorry\b", _strip_lean_comments_and_strings(region)))
+        entry["has_sorry"] = _text_has_sorry(region)
     return entries
 
 

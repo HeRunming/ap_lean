@@ -26,9 +26,11 @@ from typing import Any, Callable, Sequence
 
 from agent.providers.auxiliary_client import (
     AuxiliaryCallIdentity,
+    _resolve_task_reasoning_effort,
     call_llm,
     resolve_auxiliary_call_identity,
 )
+from agent.providers.provider_request_audit import audit_request, audit_response
 from tools.utilities.interrupt import raise_if_interrupted
 
 RESULT_PREFIX = "LEANFLOW_AUXILIARY_RESULT:"
@@ -99,6 +101,10 @@ class IsolatedAuxiliaryUnavailable(RuntimeError):
         super().__init__(message)
         self.provider = provider
         self.model = model
+
+
+class IsolatedAuxiliaryTransientGateway(IsolatedAuxiliaryError):
+    """Report a retryable HTTP 502/Bad Gateway provider failure."""
 
 
 @dataclass(frozen=True)
@@ -202,10 +208,14 @@ def _reaped_process_group_is_owned(process_group_id: int, process_token: str) ->
     if not candidate_pids:
         return False
     try:
+        # Darwin's modern ``ps`` interface uses ``-E`` for environment output;
+        # the legacy bare ``e`` form can be ignored when combined with ``-o``
+        # and therefore hides the inherited launch token.
+        environment_flag = "-E" if sys.platform == "darwin" else "e"
         tagged = subprocess.run(
             [
                 "ps",
-                "e",
+                environment_flag,
                 "-ww",
                 "-p",
                 ",".join(candidate_pids[:256]),
@@ -220,6 +230,15 @@ def _reaped_process_group_is_owned(process_group_id: int, process_token: str) ->
     except (OSError, subprocess.SubprocessError):
         return False
     return f"{_PROCESS_TOKEN_ENV}={process_token}" in tagged.stdout
+
+
+def _wait_for_reaped_group(process_group_id: int, process_token: str) -> None:
+    """Allow orphaned descendants to be reaped before reporting worker failure."""
+    deadline = time.monotonic() + _REAP_TIMEOUT_S
+    while time.monotonic() < deadline and _reaped_process_group_is_owned(
+        process_group_id, process_token
+    ):
+        time.sleep(0.02)
 
 
 def _kill_and_reap(process: subprocess.Popen[str]) -> None:
@@ -237,6 +256,7 @@ def _kill_and_reap(process: subprocess.Popen[str]) -> None:
         if group_is_owned:
             with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
                 os.killpg(process.pid, signal.SIGKILL)
+            _wait_for_reaped_group(process.pid, process_token)
     elif process.returncode is None:  # pragma: no cover - Windows fallback
         with contextlib.suppress(OSError):
             process.kill()
@@ -290,6 +310,8 @@ def _parse_worker_result(
         raise IsolatedAuxiliaryTimeout(message, provider=provider, model=model)
     if error_kind == "unavailable":
         raise IsolatedAuxiliaryUnavailable(message, provider=provider, model=model)
+    if error_kind == "transient_gateway":
+        raise IsolatedAuxiliaryTransientGateway(message, provider=provider, model=model)
     raise IsolatedAuxiliaryError(message, provider=provider, model=model)
 
 
@@ -394,12 +416,16 @@ def run_isolated_auxiliary_text(
     if process.returncode != 0:
         # A worker that crashed after spawning a helper may leave the helper in
         # its isolated group even though the root already exited.
-        if os.name == "posix" and _reaped_process_group_is_owned(
-            process.pid,
-            process_token,
+        if os.name == "posix" and (
+            _reaped_process_group_is_owned(process.pid, process_token)
+            # The ownership probe may be denied in restricted sandboxes.  At
+            # this point this freshly reaped worker has a non-zero exit status;
+            # kill its just-created process group to avoid stranding children.
+            or process.returncode != 0
         ):
             with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
                 os.killpg(process.pid, signal.SIGKILL)
+            _wait_for_reaped_group(process.pid, process_token)
         raise IsolatedAuxiliaryError(
             f"isolated auxiliary worker exited with status {process.returncode}"
         )
@@ -412,7 +438,18 @@ def run_isolated_auxiliary_text(
 
 def _worker_error_kind(exc: Exception) -> str:
     """Classify worker failures using the existing verification semantics."""
-    if isinstance(exc, TimeoutError):
+    status_code = getattr(exc, "status_code", None)
+    if status_code is None:
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None)
+    text = str(exc or "").lower()
+    if status_code == 502 or "bad gateway" in text or ("502" in text and "gateway" in text):
+        return "transient_gateway"
+    # OpenAI/httpx SDK timeout classes (for example APITimeoutError and
+    # ReadTimeout) do not consistently inherit Python's TimeoutError. Keep
+    # them on the retryable timeout path using stable class/text markers.
+    exception_name = type(exc).__name__.casefold()
+    if isinstance(exc, TimeoutError) or "timeout" in exception_name or "timed out" in text:
         return "timeout"
     if isinstance(exc, RuntimeError):
         return "unavailable"
@@ -444,6 +481,31 @@ def worker_main() -> int:
             "timeout": _timeout_seconds(request.get("timeout", _MIN_TIMEOUT_S)),
         }
         response = call_llm(**call_kwargs)
+        audit_path = str(os.environ.get("LEANFLOW_PROVIDER_AUDIT_PATH", "") or "").strip()
+        if audit_path:
+            # Append one secret-free record per child request. A per-process
+            # suffix avoids clobbering concurrent workers; the parent can
+            # glob the run directory for reconciliation.
+            path = f"{audit_path}.{os.getpid()}"
+            record = {
+                "request": audit_request(
+                    raw_messages,
+                    model=str(getattr(response, "model", "") or call_kwargs.get("model") or ""),
+                    max_tokens=call_kwargs.get("max_tokens"),
+                    reasoning_effort=_resolve_task_reasoning_effort(
+                        str(call_kwargs.get("task") or "") or None
+                    ),
+                    provider=str(call_kwargs.get("provider") or ""),
+                    base_url=str(
+                        call_kwargs.get("base_url")
+                        or os.environ.get("LEANFLOW_OPENAI_BASE_URL", "")
+                    ),
+                    reservation_id=os.environ.get("LEANFLOW_PROVIDER_QUOTA_RESERVATION_ID", ""),
+                ),
+                "response": audit_response(response),
+            }
+            with open(path, "a", encoding="utf-8") as audit_file:
+                audit_file.write(json.dumps(record, ensure_ascii=False) + "\n")
         try:
             content = str(response.choices[0].message.content or "").strip()
         except Exception:

@@ -78,6 +78,36 @@ def test_prepare_qa_json_context_normalizes_parser_output(tmp_path):
     assert "exercise-1" in context.blueprint_path.read_text()
 
 
+def test_prepare_qa_json_context_accepts_typed_environment_ids(tmp_path):
+    project = tmp_path / "Demo"
+    source = project / "book" / "environments.json"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        json.dumps(
+            [
+                {"id": "definition:0.1", "label": "0.1", "kind": "definition", "statement": "A."},
+                {
+                    "id": "theorem:0.2",
+                    "label": "0.2",
+                    "kind": "theorem",
+                    "statement": "B.",
+                    "dependencies": [{"target_id": "definition:0.1", "relation": "uses_definition"}],
+                    "cross_references": [
+                        {"target_label": "theorem 0.2", "relation": "see_also", "resolved": True}
+                    ],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    context = prepare_formalization_document_context(
+        project_root=project, cwd=project, workflow_args="book/environments.json", project_label="Demo"
+    )
+    blocks = context.metadata["theorem_blocks"]
+    assert [block["label"] for block in blocks] == ["0.1", "0.2"]
+    assert blocks[1]["uses"] == ["0.1"]
+
+
 def test_prepare_qa_json_context_merges_legacy_provenance_sidecars(tmp_path):
     project = tmp_path / "Demo"
     (project / "Demo").mkdir(parents=True)

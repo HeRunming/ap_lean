@@ -1,5 +1,7 @@
 # LeanFlow Architecture
 
+Formalization acceptance runs source admission, the deterministic statement contract gate, independent review, remote verification, and explicit prover handoff in that order. Deterministic BLOCK receipts carry `reviewer_called: false`; only verifier PASS stamps approval.
+
 This document is the maintainer map for LeanFlow's current runtime. It records
 the package boundaries, principal execution paths, compatibility surfaces, and
 invariants that must survive implementation changes. User-facing behavior is
@@ -96,6 +98,9 @@ layers:
 - `provider_availability.py` and `provider_capacity.py` coordinate provider
   recovery and bounded background actors.
 - `project_resource_admission.py` coordinates resource-heavy Lean work.
+- `remote-project-sync.exclude` is the shared rsync boundary for remote Lake,
+  warm probes, and SSH terminals: sources transfer; host configuration and
+  campaign state remain owned by each host.
 - `runtime_modes.py` centralizes process-scoped runtime flags.
 - `verified_edit_authority.py` carries single-use, hash-bound authorization
   between managed orchestration and atomic patch tools when prior Lean evidence
@@ -121,6 +126,10 @@ collaborators are grouped by responsibility:
   commands, resource handoff, and model-facing projection of successful tool
   payloads while the manager and audit log retain the complete raw result
 - `agent/accounting/` — token/cost accounting, redaction, and error logging
+  `provider_quota.py` keeps endpoint/model/group-scoped quota quotes separate
+  from USD model prices. `provider_quota_budget.py` reserves conservative
+  request capacity in a distinct atomic ledger; unknown request charges retain
+  their holds until reconciled, and provider usage overruns stop new calls.
 - `agent/display/` — terminal rendering and structured log formatting
 - `agent/runtime/` — managed-run contracts, trajectory capture, and workflow
   events
@@ -174,6 +183,16 @@ tool is reachable through the public registry.
   Lean shaping, corpus-level concept/dependency planning, shared-library scaffolding,
   namespace-preserving promotion candidate materialization, the statement-review handoff,
   and resumable two-stage book campaign state.
+  `statement_contract_gate.py` blocks candidate acceptance without an authoritative
+  nonblank source and rechecks current generated files before review or handoff.
+  `declaration_contract_lint.py` uses the shared Lean declaration parser to lint
+  individual headers and predicate bodies independently of proof syntax.
+  `statement_review_feedback.py` recovers the latest statement verdict across
+  infrastructure attempts; a newer PASS supersedes earlier BLOCK findings.
+  Campaign startup transports numbered findings and the recorded provider through
+  `LEANFLOW_FORMALIZATION_REVIEW_FEEDBACK`,
+  consumed by native startup guidance in the generator's initial user message.
+  Deterministic contract lint never substitutes for independent review approval.
   `corpus_campaign_runner.py` produces proof-first, path-checked workflow actions
   and can lease a budget-bounded wave to distinct workers. `campaign_store.py`
   serializes read-modify-write ledger transactions across processes so concurrent
@@ -182,7 +201,22 @@ tool is reachable through the public registry.
   source-declared dependency frontier, route models from durable failure history,
   and use `core/project_lean_capacity.py` for an opt-in bounded pool of Lean-heavy
   subprocess slots; the default project admission behavior remains single-slot.
+  The bounded lane receives each worker's environment explicitly, preserving its
+  lease owner and compile namespace without mutating process-global environment.
+  Cold candidate compilation and warm-service startup/checks acquire the same
+  cross-process project slots; model calls release those slots. Explicit wave
+  budgets are checked against escalation reservations before leasing any work.
+  `statement_compilation_evidence.py` attaches candidate-digest-bound compiler
+  acceptance and selected same-run API signatures to independent semantic review.
+  Source admission resolves displayed equation references and the HDP book's
+  canonical `HDP/source/full/HDP-2.pdf` before asking a model to guess missing claims.
   Each campaign worker receives its own namespaced workflow-state root, while
+  `remote_warm_probe.py` provides an opt-in, per-action SSH JSONL client for a
+  single remote Python LeanProbe instance; it never replaces the canonical Lake
+  final gate. The paired `remote-bin/lean-probe-service.py` reports import-level
+  readiness only after its bounded 3600-second Mathlib warmup; candidate checks
+  retain their independent 120-second cap. An unready service is rejected so
+  the Lake fallback remains authoritative.
   the campaign ledger remains the single transactionally updated authority.
 - `workflows/` owns proof queues, verification transactions, persistent
   plan/graph state, orchestration, research portfolios, decomposition,

@@ -38,6 +38,20 @@ def _demo_blueprint() -> Blueprint:
     )
 
 
+def test_apply_delta_rejects_dynamic_dependency_cycle():
+    a = GraphNode(id=plan_state.node_id_for("a", "Demo.lean"), name="a", file="Demo.lean", status="stated")
+    b = GraphNode(id=plan_state.node_id_for("b", "Demo.lean"), name="b", file="Demo.lean", status="stated")
+    bp = Blueprint(nodes=(a, b), edges=(GraphEdge(source=a.id, target=b.id, kind="depends_on"),))
+    updated, changes = plan_state.apply_delta(
+        bp,
+        {"nodes": [], "edges": [{"source": {"name": "b", "file": "Demo.lean"}, "target": {"name": "a", "file": "Demo.lean"}, "kind": "depends_on"}]},
+        generated_by="planner",
+        journal=False,
+    )
+    assert updated.edges == bp.edges
+    assert any(change.get("reason") == "dependency cycle" for change in changes)
+
+
 def test_everything_noops_when_flag_off(tmp_path, monkeypatch):
     state_dir = tmp_path / "plan-state"
     monkeypatch.delenv("LEANFLOW_PLAN_STATE", raising=False)

@@ -27,9 +27,7 @@ import tempfile
 import threading
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -1269,6 +1267,25 @@ def apply_delta(
 
     known = {node.id for node in bp.nodes}
     have = {(edge.source, edge.target, edge.kind) for edge in bp.edges}
+    dependency_adjacency: dict[str, set[str]] = {}
+    for edge in bp.edges:
+        if edge.kind == "depends_on":
+            dependency_adjacency.setdefault(edge.source, set()).add(edge.target)
+
+    def creates_dependency_cycle(source_id: str, target_id: str) -> bool:
+        """Return whether adding ``source -> target`` closes a dependency cycle."""
+        pending = [source_id]
+        seen: set[str] = set()
+        while pending:
+            current = pending.pop()
+            if current == target_id:
+                return True
+            if current in seen:
+                continue
+            seen.add(current)
+            pending.extend(dependency_adjacency.get(current, ()))
+        return False
+
     added: list[GraphEdge] = []
     for source_id, target_id, kind in pending_edges:
         if source_id in signature_conflicts or target_id in signature_conflicts:
@@ -1295,8 +1312,20 @@ def apply_delta(
         if source_id not in known or target_id not in known:
             changes.append({"event": "plan-delta-edge-skipped", "reason": "unknown node"})
             continue
+        if kind == "depends_on" and creates_dependency_cycle(target_id, source_id):
+            changes.append(
+                {
+                    "event": "plan-delta-edge-skipped",
+                    "reason": "dependency cycle",
+                    "source": source_id,
+                    "target": target_id,
+                }
+            )
+            continue
         added.append(GraphEdge(source=source_id, target=target_id, kind=kind))
         have.add((source_id, target_id, kind))
+        if kind == "depends_on":
+            dependency_adjacency.setdefault(source_id, set()).add(target_id)
     if added:
         bp = replace(bp, edges=(*bp.edges, *added))
         changes.append({"event": "plan-delta-edges", "added": len(added)})

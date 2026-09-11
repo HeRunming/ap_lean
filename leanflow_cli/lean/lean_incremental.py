@@ -978,7 +978,19 @@ def compact_check_payload(
         "target_verified",
     }
     projected = {key: value for key, value in payload.items() if key in keep_fields}
-    verified = payload.get("ok") is True and payload.get("valid_without_sorry") is not False
+    # A projected response is model-facing evidence, not an authority.  Missing
+    # fields must fail closed: only a real Lean backend that explicitly reports
+    # success, a clean target, and no errors can be described as verified.
+    verified = (
+        payload.get("success") is True
+        and payload.get("ok") is True
+        and payload.get("valid_without_sorry") is True
+        and payload.get("has_errors") is False
+        and payload.get("has_sorry") is False
+        and payload.get("timed_out") is not True
+        and str(payload.get("backend", "") or "").strip()
+        not in {"", "deterministic_preflight"}
+    )
     projected["verification_status"] = "verified" if verified else "not_verified"
 
     messages, message_total = _compact_provider_messages(payload.get("messages"))

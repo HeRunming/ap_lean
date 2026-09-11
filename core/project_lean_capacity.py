@@ -31,9 +31,9 @@ _CURRENT_LEASE: ContextVar[ProjectLeanCapacityLease | None] = ContextVar(
 )
 
 
-def project_lean_capacity() -> int:
+def project_lean_capacity(value: int | str | None = None) -> int:
     """Return the explicitly configured project Lean slot count."""
-    raw = str(os.getenv(PROJECT_LEAN_CAPACITY_ENV, "1") or "1").strip()
+    raw = str(value if value is not None else os.getenv(PROJECT_LEAN_CAPACITY_ENV, "1")).strip()
     try:
         return max(1, min(MAX_PROJECT_LEAN_CAPACITY, int(raw)))
     except ValueError:
@@ -62,6 +62,12 @@ class ProjectLeanCapacityLease:
     _references: int = 1
     _released: bool = False
     _retained: bool = False
+
+    def __enter__(self) -> ProjectLeanCapacityLease:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.release()
 
     def retain(self) -> ProjectLeanCapacityLease:
         """Share this context's slot with a nested Lean operation."""
@@ -92,12 +98,15 @@ class ProjectLeanCapacityLease:
                 _CURRENT_LEASE.set(None)
 
 
-def acquire_project_lean_capacity(root: Path) -> ProjectLeanCapacityLease:
+def acquire_project_lean_capacity(
+    root: Path, *, capacity: int | str | None = None
+) -> ProjectLeanCapacityLease:
     """Wait for one configured project slot, retaining nested ownership."""
     existing = _CURRENT_LEASE.get()
     if existing is not None and not existing._released:
         return existing.retain()
-    capacity = project_lean_capacity()
+    root = root.expanduser().resolve()
+    capacity = project_lean_capacity(capacity)
     semaphore = _local_semaphore(root, capacity)
     started = time.monotonic()
     semaphore.acquire()

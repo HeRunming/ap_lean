@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -13,15 +14,21 @@ import pytest
 from leanflow_cli.formalization import corpus_campaign_runner
 from leanflow_cli.formalization.campaign_store import update_campaign_file
 from leanflow_cli.formalization.corpus_campaign import (
+    ESCALATION_STATUS,
+    MAX_STAGE_FAILURES_BEFORE_TERMINAL,
+    RETRY_CLASS_INFRASTRUCTURE,
+    RETRY_CLASS_SEMANTIC,
     build_campaign,
     lease_campaign_batches,
     next_campaign_batch,
     record_campaign_outcome,
+    statement_escalation_pending,
 )
 from leanflow_cli.formalization.corpus_campaign_runner import (
     CampaignAction,
     CampaignExecutionBlocked,
     CampaignModelPolicy,
+    _normalize_campaign_action,
     accept_agent_reviewed_statement,
     accept_locally_verified_proof,
     accept_locally_verified_statement,
@@ -34,6 +41,8 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     execute_next_campaign_action,
     lease_next_campaign_actions,
     plan_next_campaign_action,
+    reconcile_campaign_targets,
+    reconcile_campaign_targets_report,
     recover_agent_verified_proof,
     refresh_campaign_source_complexity,
     review_existing_agent_statement,
@@ -41,6 +50,7 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     try_zero_cost_proof_preflight,
     validate_campaign_action_paths,
 )
+from leanflow_cli.formalization.project_reachability import project_target_reachability
 
 
 def test_latest_statement_audit_overrides_an_earlier_pass():
@@ -59,6 +69,145 @@ def test_latest_statement_audit_overrides_an_earlier_pass():
     )
 
     assert campaign["batches"][0]["status"] == "statement_retry"
+
+
+def test_repeated_stage_failures_park_a_batch_instead_of_rescheduling_forever():
+    """Regression: an unconverging batch must stop consuming the wave budget.
+
+    Nine runaway batches burned 3,549 of 14,652 statement attempts in the HDP
+    run because nothing capped a repeatedly failing stage, and each one also held
+    every downstream batch at pending for the whole campaign.
+    """
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["1", "2"]},
+        "source_batches": [
+            {"id": "b", "labels": ["1"]},
+            {"id": "downstream", "labels": ["2"], "dependency_labels": ["1"]},
+        ],
+    }
+    campaign = build_campaign(plan)
+    failure = {"stage": "statements", "success": False, "reason": "retrieval planner timeout"}
+
+    for index in range(MAX_STAGE_FAILURES_BEFORE_TERMINAL - 1):
+        campaign = record_campaign_outcome(
+            campaign,
+            batch_id="b",
+            outcome={**failure, "recorded_at": f"2026-09-02T10:{index:02d}:00+00:00"},
+        )
+        assert campaign["batches"][0]["status"] == "statement_retry"
+
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="b",
+        outcome={**failure, "recorded_at": "2026-09-02T11:00:00+00:00"},
+    )
+
+    # Hitting the cap buys one unbounded attempt before the batch is parked: the
+    # batches that exhaust the bounded lane are disproportionately the
+    # heavily-cited foundations, so parking them outright strands the downstream.
+    escalating = campaign["batches"][0]
+    assert escalating["status"] == ESCALATION_STATUS
+    assert escalating["attempts"][-1]["failure_class"] == "retry_limit"
+    assert escalating["attempts"][-1]["escalate"] is True
+    assert statement_escalation_pending(escalating)
+
+    # A budget death in the unbounded lane says nothing about formalizability, so
+    # it must not consume the allowance.
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="b",
+        outcome={
+            **failure,
+            "escalated": True,
+            "reason": "Per-action USD cost limit reached before the next provider request",
+            "recorded_at": "2026-09-02T12:00:00+00:00",
+        },
+    )
+    assert campaign["batches"][0]["status"] == ESCALATION_STATUS
+
+    # A genuine unbounded failure does consume it, and the batch is parked.
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="b",
+        outcome={**failure, "escalated": True, "recorded_at": "2026-09-02T13:00:00+00:00"},
+    )
+
+    parked = campaign["batches"][0]
+    assert parked["status"] == "skipped"
+    assert parked["attempts"][-1]["terminal"] is True
+    # The cap must survive the ledger rebuild, and it must unblock the dependent.
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "downstream"
+
+
+def test_escalation_pending_batches_are_scheduled_before_cheap_leaves():
+    """Regression: the cheap-first ordering must not bury escalations.
+
+    An escalation-pending batch is by construction the most expensive and most
+    failed item in the frontier, so plain cheap-first ordering ranks it last --
+    behind every batch that is blocked on it. Escalations are the heavily-cited
+    foundations, so unblocking one is worth more than another cheap leaf.
+    """
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["cheap", "foundation"]},
+        "source_batches": [
+            {"id": "items-cheap", "labels": ["cheap"], "selection_kind": "items"},
+            {"id": "items-foundation", "labels": ["foundation"], "selection_kind": "items"},
+        ],
+    }
+    campaign = build_campaign(plan)
+    failure = {"stage": "statements", "success": False, "cost_usd": 1.5}
+    for index in range(MAX_STAGE_FAILURES_BEFORE_TERMINAL):
+        campaign = record_campaign_outcome(
+            campaign,
+            batch_id="items-foundation",
+            outcome={**failure, "recorded_at": f"2026-09-02T{index:02d}:00:00+00:00"},
+        )
+
+    foundation = next(b for b in campaign["batches"] if b["id"] == "items-foundation")
+    assert foundation["status"] == ESCALATION_STATUS
+
+    # items-cheap is untouched and free; without the escalation tier it would win.
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "items-foundation"
+
+
+def test_source_context_citations_become_real_dependencies_on_rebuild():
+    """Regression: a citation the static graph missed must become a dependency.
+
+    10,321 of 14,652 statement attempts in the HDP run were zero-cost
+    source-context rejections, because the scheduler kept reselecting batches
+    whose cited declarations ("Theorem 4.4.3") were absent from the dependency
+    graph and therefore never gated their scheduling.
+    """
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["4.4.3", "9.9"]},
+        "source_batches": [
+            {"id": "items-4.4.3", "labels": ["4.4.3"]},
+            {"id": "items-9.9", "labels": ["9.9"]},
+        ],
+    }
+    campaign = record_campaign_outcome(
+        build_campaign(plan),
+        batch_id="items-9.9",
+        outcome={
+            "stage": "statements",
+            "success": False,
+            "failure_stage": "source_context",
+            "cost_usd": 0.0,
+            "missing_source_references": ["Theorem 4.4.3"],
+            "recorded_at": "2026-09-02T10:00:00+00:00",
+        },
+    )
+
+    citing = next(batch for batch in campaign["batches"] if batch["id"] == "items-9.9")
+    assert citing["dependency_labels"] == ["4.4.3"]
+    # With the citation gating it, the uncited foundation is scheduled first.
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "items-4.4.3"
 
 
 def test_campaign_outcome_delivery_is_idempotent_by_timestamped_payload():
@@ -80,7 +229,10 @@ def test_campaign_outcome_delivery_is_idempotent_by_timestamped_payload():
     campaign = record_campaign_outcome(campaign, batch_id="b", outcome=outcome)
 
     assert campaign["spent_usd"] == 0.25
-    assert campaign["batches"][0]["attempts"] == [{**outcome, "failure_class": "proof_incomplete"}]
+    # An interrupt is an infrastructure fault, not a verdict on the mathematics.
+    assert campaign["batches"][0]["attempts"] == [
+        {**outcome, "failure_class": "infrastructure", "retry_class": RETRY_CLASS_INFRASTRUCTURE}
+    ]
 
 
 def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path, monkeypatch):
@@ -134,10 +286,11 @@ def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path
         "run",
         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
     )
-    monkeypatch.setattr(
-        corpus_campaign_runner,
-        "run_model_verification_review",
-        lambda **kwargs: SimpleNamespace(
+    observed: dict[str, object] = {}
+
+    def fake_review(**kwargs):
+        observed.update(kwargs)
+        return SimpleNamespace(
             task="blueprint_verification",
             provider="openai-codex",
             mode="model",
@@ -155,8 +308,9 @@ def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path
             completion_tokens=100,
             total_tokens=1100,
             cost_usd=0.013,
-        ),
-    )
+        )
+
+    monkeypatch.setattr(corpus_campaign_runner, "run_model_verification_review", fake_review)
 
     outcome = review_existing_agent_statement(
         campaign_path,
@@ -165,12 +319,14 @@ def test_campaign_reviews_existing_statement_in_bounded_accounted_stage(tmp_path
         reserve_usd=1.0,
         provider="openai-codex",
         model="gpt-5.6-terra",
+        timeout_s=1200,
     )
     updated = json.loads(campaign_path.read_text(encoding="utf-8"))
 
     assert outcome["success"] is True
     assert outcome["cost_scope"] == "independent_statement_reviewer"
     assert outcome["usage"]["total_tokens"] == 1100
+    assert observed["timeout_s"] == 1200
     assert updated["spent_usd"] == pytest.approx(2.013)
     assert updated["batches"][0]["agent_status"] == "statements_completed"
     assert "approved by openai-codex verifier" in blueprint.read_text(encoding="utf-8")
@@ -205,6 +361,61 @@ def test_campaign_leases_distinct_batches_and_recovers_expired_lease():
     )
     assert leased_again[0]["id"] == "a"
     assert recovered["batches"][0]["lease"]["worker_id"] == "w3"
+
+
+def test_campaign_duplicate_ids_are_not_schedulable_or_attributable():
+    campaign = {
+        "batches": [
+            {"id": "items-3.35", "agent_status": "pending", "labels": ["3.35"]},
+            {"id": "items-3.35", "agent_status": "pending", "labels": ["3.35"]},
+            {"id": "unique", "agent_status": "pending", "labels": ["u"]},
+        ]
+    }
+    assert next_campaign_batch(campaign, stage="statements")["id"] == "unique"
+    updated, leased = lease_campaign_batches(campaign, stage="statements", worker_ids=["w1", "w2"])
+    assert [item["id"] for item in leased] == ["unique"]
+    with pytest.raises(ValueError, match="not unique"):
+        lease_campaign_batches(
+            campaign, stage="statements", worker_ids=["w"], batch_id="items-3.35"
+        )
+    with pytest.raises(ValueError, match="not unique"):
+        record_campaign_outcome(
+            campaign,
+            batch_id="items-3.35",
+            outcome={"stage": "statements", "success": True},
+        )
+    with pytest.raises(CampaignExecutionBlocked, match="not unique"):
+        plan_next_campaign_action(
+            campaign,
+            python_executable="python",
+            stage="statements",
+            batch_id="items-3.35",
+        )
+
+
+def test_campaign_action_normalizes_redundant_project_name_prefix(tmp_path):
+    root = tmp_path / "HDP"
+    root.mkdir()
+    (root / "source").mkdir()
+    (root / "source" / "environments.json").write_text("[]", encoding="utf-8")
+    action = CampaignAction(
+        stage="statements",
+        batch_id="items-1",
+        labels=("1",),
+        argv=(
+            "python",
+            "-m",
+            "leanflow_cli.main",
+            "workflow",
+            "formalize",
+            "HDP/source/environments.json",
+            "--qa-items",
+            "1",
+        ),
+    )
+    normalized = _normalize_campaign_action(action, project_root=root)
+    assert normalized.argv[5] == "source/environments.json"
+    validate_campaign_action_paths(normalized, project_root=root)
 
 
 def test_campaign_plans_book_foundation_from_its_own_document_source():
@@ -315,6 +526,157 @@ def test_parallel_claim_is_atomic_and_reserves_total_wave_budget(tmp_path):
     assert [action.batch_id for _, action in claims] == ["a", "b"]
     persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert len([item for item in persisted["batches"] if item.get("lease")]) == 2
+
+
+def test_parallel_claim_stage_selector_keeps_four_workers_in_one_stage(tmp_path):
+    """A statement-only wave must never silently lease proof work."""
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 8.0,
+                "batches": [
+                    {"id": "s1", "labels": ["1.1"], "status": "pending"},
+                    {"id": "s2", "labels": ["1.2"], "status": "statement_retry"},
+                    {
+                        "id": "p1",
+                        "labels": ["1.3"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/P.lean"},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    claims = lease_next_campaign_actions(
+        campaign_path,
+        worker_count=4,
+        python_executable="python",
+        reserve_usd=1.0,
+        stage="statements",
+    )
+    assert claims
+    assert all(action.stage == "statements" for _worker, action in claims)
+    assert {action.batch_id for _worker, action in claims} == {"s1", "s2"}
+
+
+def test_cli_allows_stage_only_four_worker_wave_but_rejects_batch_selector(tmp_path):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps({"source": "book.json", "budget_usd": 10.0, "spent_usd": 0.0, "batches": []}),
+        encoding="utf-8",
+    )
+    # Stage-only selection is valid for a multi-worker wave; no work is simply
+    # reported rather than rejected by the argument parser.
+    assert (
+        corpus_campaign_runner.main(
+            [
+                str(campaign_path),
+                "--execute",
+                "--stage",
+                "statements",
+                "--workers",
+                "4",
+                "--reserve-usd",
+                "1",
+            ]
+        )
+        == 1
+    )
+    with pytest.raises(SystemExit):
+        corpus_campaign_runner.main(
+            [
+                str(campaign_path),
+                "--execute",
+                "--stage",
+                "statements",
+                "--batch-id",
+                "b",
+                "--workers",
+                "4",
+                "--reserve-usd",
+                "1",
+            ]
+        )
+
+
+def test_parallel_claim_accounts_for_reservations_from_an_existing_wave(tmp_path):
+    """A second supervisor cannot admit work against another wave's leases."""
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 1.0,
+                "budget_usd": 3.0,
+                "batches": [
+                    {
+                        "id": "a",
+                        "labels": ["1.1"],
+                        "status": "pending",
+                        "lease": {
+                            "worker_id": "old-worker",
+                            "stage": "statements",
+                            "reserve_usd": 2.0,
+                            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                        },
+                    },
+                    {"id": "b", "labels": ["1.2"], "status": "pending"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CampaignExecutionBlocked, match="reservation"):
+        lease_next_campaign_actions(
+            campaign_path,
+            worker_count=1,
+            python_executable="python",
+            reserve_usd=2.0,
+        )
+
+
+@pytest.mark.parametrize("lease_reserve", [float("nan"), float("inf"), float("-inf")])
+def test_parallel_claim_rejects_non_finite_active_lease_reservation(tmp_path, lease_reserve):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 5.0,
+                "batches": [
+                    {
+                        "id": "leased",
+                        "labels": ["1.1"],
+                        "status": "pending",
+                        "lease": {
+                            "worker_id": "old-worker",
+                            "stage": "statements",
+                            "reserve_usd": lease_reserve,
+                            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                        },
+                    },
+                    {"id": "fresh", "labels": ["1.2"], "status": "pending"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(CampaignExecutionBlocked, match="active lease reservation"):
+        lease_next_campaign_actions(
+            campaign_path,
+            worker_count=1,
+            python_executable="python",
+            reserve_usd=1.0,
+        )
 
 
 def test_parallel_claim_plans_completed_document_foundation_as_proof(tmp_path):
@@ -971,9 +1333,7 @@ def test_recent_campaign_candidate_evidence_recovers_failed_concrete_candidate(t
                         "theorem_id": "demo",
                         "replacement": "private lemma useful : True := by trivial",
                     },
-                    "result": json.dumps(
-                        {"ok": False, "error": "LeanProbe wall-clock timeout"}
-                    ),
+                    "result": json.dumps({"ok": False, "error": "LeanProbe wall-clock timeout"}),
                 },
             }
         )
@@ -1152,6 +1512,102 @@ def test_campaign_wave_launches_distinct_actions_with_stage_model_routing(tmp_pa
     assert all("lease" not in batch for batch in persisted["batches"])
 
 
+def test_failed_statement_action_cleans_new_empty_target_and_import_chain(tmp_path, monkeypatch):
+    """Provider failure must not strand the intake-only Main.lean skeleton."""
+    source = tmp_path / "source.json"
+    source.write_text("{}", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text("{}", encoding="utf-8")
+    action = CampaignAction(
+        stage="statements",
+        batch_id="items-1",
+        labels=("1",),
+        argv=(
+            "python",
+            "-m",
+            "leanflow_cli.main",
+            "workflow",
+            "formalize",
+            "source.json",
+            "--qa-items",
+            "1",
+        ),
+    )
+    target = corpus_campaign_runner._campaign_formalization_target_path(
+        action, project_root=tmp_path
+    )
+    assert target is not None
+    root_file = tmp_path / target.relative_to(tmp_path).parts[0]
+    root_file = root_file.with_suffix(".lean")
+
+    def failed_intake(current_action, **_kwargs):
+        assert current_action == action
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("import Mathlib\n", encoding="utf-8")
+        root_file.write_text(
+            f"import {'.'.join(target.relative_to(tmp_path).with_suffix('').parts[:-1])}\n",
+            encoding="utf-8",
+        )
+        return {"executed": True, "success": False, "exit_code": 1}
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action_impl", failed_intake)
+    result = corpus_campaign_runner._execute_campaign_action(
+        action,
+        campaign_path=campaign_path,
+        campaign={"spent_usd": 0.0, "budget_usd": 1.0, "batches": []},
+        project_root=tmp_path,
+        reserve_usd=1.0,
+    )
+
+    assert result["success"] is False
+    assert not target.exists()
+    assert not root_file.exists()
+
+
+def test_failed_statement_action_preserves_preexisting_target(tmp_path, monkeypatch):
+    """A user's pre-existing import-only target is never deleted on failure."""
+    source = tmp_path / "source.json"
+    source.write_text("{}", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text("{}", encoding="utf-8")
+    action = CampaignAction(
+        stage="statements",
+        batch_id="items-1",
+        labels=("1",),
+        argv=(
+            "python",
+            "-m",
+            "leanflow_cli.main",
+            "workflow",
+            "formalize",
+            "source.json",
+            "--qa-items",
+            "1",
+        ),
+    )
+    target = corpus_campaign_runner._campaign_formalization_target_path(
+        action, project_root=tmp_path
+    )
+    assert target is not None
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("import Mathlib\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        corpus_campaign_runner,
+        "_execute_campaign_action_impl",
+        lambda *_args, **_kwargs: {"executed": True, "success": False, "exit_code": 1},
+    )
+    corpus_campaign_runner._execute_campaign_action(
+        action,
+        campaign_path=campaign_path,
+        campaign={"spent_usd": 0.0, "budget_usd": 1.0, "batches": []},
+        project_root=tmp_path,
+        reserve_usd=1.0,
+    )
+
+    assert target.read_text(encoding="utf-8") == "import Mathlib\n"
+
+
 def test_failed_prover_exit_auto_recovers_durable_candidate(tmp_path, monkeypatch):
     target = tmp_path / "Book" / "Main.lean"
     target.parent.mkdir(parents=True)
@@ -1236,6 +1692,188 @@ def test_campaign_wave_splits_explicit_total_budget_across_workers(tmp_path, mon
 
     assert len(results) == 2
     assert observed_limits == [0.75, 0.75]
+
+
+def test_campaign_wave_stage_selector_forwards_only_requested_stage(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 10.0,
+                "batches": [
+                    {"id": "s", "labels": ["1.1"], "status": "pending"},
+                    {
+                        "id": "p",
+                        "labels": ["1.2"],
+                        "status": "statements_completed",
+                        "last_outcome": {"target_file": "Book/P.lean"},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    seen: list[tuple[str, str]] = []
+
+    def fake_execute(action, **_kwargs):
+        seen.append((action.batch_id, action.stage))
+        return {"executed": True, "batch_id": action.batch_id, "success": True}
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fake_execute)
+    results = execute_campaign_wave(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        worker_count=2,
+        reserve_usd=1.0,
+        stage="statements",
+    )
+    assert results and seen == [("s", "statements")]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [subprocess.TimeoutExpired("provider", 1), KeyboardInterrupt("cancelled")],
+)
+def test_campaign_wave_persists_interruption_before_releasing_lease(tmp_path, monkeypatch, failure):
+    """A cancelled worker leaves a durable infrastructure attempt, never a ghost pending row."""
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 10.0,
+                "batches": [{"id": "s", "labels": ["1.1"], "status": "pending"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fail_execute(_action, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fail_execute)
+    results = execute_campaign_wave(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        worker_count=1,
+        reserve_usd=1.0,
+        stage="statements",
+    )
+    assert results and results[0]["success"] is False
+    persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+    batch = persisted["batches"][0]
+    assert "lease" not in batch
+    assert len(batch.get("attempts", [])) == 1
+    attempt = batch["attempts"][0]
+    assert attempt["failure_class"] == "infrastructure"
+    assert attempt["infrastructure_failure"] is True
+    assert attempt["stage"] == "statements"
+    assert attempt["worker_id"].startswith("campaign-")
+    assert attempt["timed_out"] is (isinstance(failure, subprocess.TimeoutExpired))
+    assert attempt["cancelled"] is (isinstance(failure, KeyboardInterrupt))
+
+
+def test_execute_next_campaign_action_persists_timeout_before_reraise(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [{"id": "s", "labels": ["1.1"], "status": "pending"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fail_execute(_action, **_kwargs):
+        raise subprocess.TimeoutExpired("provider", 1)
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fail_execute)
+    with pytest.raises(subprocess.TimeoutExpired):
+        execute_next_campaign_action(
+            campaign_path,
+            project_root=tmp_path,
+            python_executable="python",
+            reserve_usd=1.0,
+            stage="statements",
+            batch_id="s",
+        )
+    batch = json.loads(campaign_path.read_text(encoding="utf-8"))["batches"][0]
+    assert "lease" not in batch
+    assert batch["attempts"][0]["failure_class"] == "infrastructure"
+    assert batch["attempts"][0]["timed_out"] is True
+
+
+def test_campaign_wave_selection_exception_still_records_and_releases(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [{"id": "s", "labels": ["1.1"], "status": "pending"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fail_selection(*_args, **_kwargs):
+        raise RuntimeError("model policy unavailable")
+
+    monkeypatch.setattr(corpus_campaign_runner, "select_campaign_model", fail_selection)
+    results = execute_campaign_wave(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        worker_count=1,
+        reserve_usd=1.0,
+        stage="statements",
+    )
+    assert results and results[0]["infrastructure_failure_persisted"] is True
+    batch = json.loads(campaign_path.read_text(encoding="utf-8"))["batches"][0]
+    assert "lease" not in batch
+    assert len(batch["attempts"]) == 1
+    assert batch["attempts"][0]["failure_class"] == "infrastructure"
+
+
+def test_execute_next_campaign_action_planning_exception_releases_claim(tmp_path, monkeypatch):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 2.0,
+                "batches": [{"id": "s", "labels": ["1.1"], "status": "pending"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        corpus_campaign_runner,
+        "plan_campaign_batch_action",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("malformed batch")),
+    )
+    with pytest.raises(RuntimeError, match="malformed batch"):
+        execute_next_campaign_action(
+            campaign_path,
+            project_root=tmp_path,
+            python_executable="python",
+            reserve_usd=1.0,
+            stage="statements",
+            batch_id="s",
+        )
+    batch = json.loads(campaign_path.read_text(encoding="utf-8"))["batches"][0]
+    assert "lease" not in batch
+    assert batch["attempts"][0]["failure_class"] == "infrastructure"
 
 
 from leanflow_cli.formalization.corpus_planning import build_corpus_plan
@@ -1763,6 +2401,271 @@ def test_campaign_frontier_waits_for_declared_agent_dependencies():
     assert next_campaign_batch(leased, stage="proofs")["id"] == "b"
 
 
+def test_campaign_reconciliation_downgrades_deleted_or_re_admitted_targets(tmp_path):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
+    campaign = {
+        "batches": [
+            {
+                "id": "b",
+                "labels": ["demo"],
+                "status": "proofs_completed",
+                "agent_status": "proofs_completed",
+                "declarations": ["demo"],
+                "last_outcome": {"target_file": "Book/Main.lean"},
+            }
+        ]
+    }
+    reconciled, stale = reconcile_campaign_targets(campaign, project_root=tmp_path)
+    assert stale == ["b"]
+    assert reconciled["batches"][0]["status"] == "proof_retry"
+
+
+def test_campaign_reconciliation_checks_project_root_import_reachability(tmp_path):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by trivial\n", encoding="utf-8")
+    root_file = tmp_path / f"{tmp_path.name}.lean"
+    root_file.write_text("import Book.Main\n", encoding="utf-8")
+    campaign = {
+        "batches": [
+            {
+                "id": "b",
+                "labels": ["demo"],
+                "status": "proofs_completed",
+                "agent_status": "proofs_completed",
+                "declarations": ["demo"],
+                "last_outcome": {"target_file": "Book/Main.lean"},
+            }
+        ]
+    }
+    reconciled, stale = reconcile_campaign_targets(campaign, project_root=tmp_path)
+    assert stale == []
+    root_file.write_text("", encoding="utf-8")
+    reconciled, stale = reconcile_campaign_targets(reconciled, project_root=tmp_path)
+    assert stale == ["b"]
+    assert "reachable" in reconciled["batches"][0]["last_outcome"]["reconciliation_reason"]
+
+
+def test_project_target_reachability_distinguishes_integrated_and_standalone(tmp_path):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by trivial\n", encoding="utf-8")
+    root = tmp_path / "FateXWork.lean"
+    root.write_text("import Book.Main\n", encoding="utf-8")
+    integrated = project_target_reachability(tmp_path, "Book/Main.lean")
+    assert integrated["root_reachable"] is True
+    assert integrated["integration_status"] == "integrated"
+    root.write_text("", encoding="utf-8")
+    standalone = project_target_reachability(tmp_path, "Book/Main.lean")
+    assert standalone["root_reachable"] is False
+    assert standalone["integration_status"] == "not_reachable"
+
+
+def test_project_target_reachability_without_root_is_unknown(tmp_path):
+    target = tmp_path / "Book" / "Main.lean"
+    target.parent.mkdir(parents=True)
+    target.write_text("theorem demo : True := by trivial\n", encoding="utf-8")
+    result = project_target_reachability(tmp_path, "Book/Main.lean")
+    assert result["root_reachable"] is None
+    assert result["integration_status"] == "unknown_no_project_root"
+
+
+def test_campaign_integration_counts_require_explicit_root_reachable_receipt():
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["a", "b"]},
+        "source_batches": [
+            {"id": "a", "labels": ["a"]},
+            {"id": "b", "labels": ["b"]},
+        ],
+    }
+    campaign = build_campaign(plan)
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="a",
+        outcome={
+            "stage": "statements",
+            "success": True,
+            "root_reachable": True,
+            "target_file": "A.lean",
+        },
+    )
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="b",
+        outcome={
+            "stage": "statements",
+            "success": True,
+            "root_reachable": False,
+            "target_file": "B.lean",
+        },
+    )
+    assert campaign["statement_completed_batch_count"] == 2
+    assert campaign["root_reachable_statement_completed_batch_count"] == 1
+
+
+def test_campaign_reconciliation_report_counts_reasons_and_preserves_source(tmp_path):
+    target = tmp_path / "Main.lean"
+    target.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
+    campaign = {
+        "batches": [
+            {
+                "id": "stale",
+                "status": "proofs_completed",
+                "declarations": ["demo"],
+                "last_outcome": {"target_file": "Main.lean"},
+            },
+            {
+                "id": "untouched",
+                "status": "pending",
+                "last_outcome": {},
+            },
+        ]
+    }
+    reconciled, report = reconcile_campaign_targets_report(campaign, project_root=tmp_path)
+    assert report["scanned_completed_proofs"] == 1
+    assert report["stale_downgraded"] == 1
+    assert report["reason_counts"]["target content no longer matches a sorry-free declaration"] == 1
+    assert report["source_files_preserved"] is True
+    assert reconciled["batches"][0]["status"] == "proof_retry"
+    assert target.exists()
+
+
+def test_reconciliation_marker_survives_campaign_rebuild_until_new_proof(tmp_path):
+    """A stale receipt must not be resurrected by build_campaign's ledger fold."""
+    campaign = {
+        "source": "book.json",
+        "batches": [
+            {
+                "id": "b",
+                "labels": ["demo"],
+                "status": "proofs_completed",
+                "agent_status": "proofs_completed",
+                "declarations": ["demo"],
+                "attempts": [{"stage": "proofs", "success": True}],
+                "last_outcome": {"target_file": "Missing.lean"},
+            }
+        ],
+    }
+    reconciled, stale = reconcile_campaign_targets(campaign, project_root=tmp_path)
+    assert stale == ["b"]
+    assert reconciled["batches"][0]["stale_proof_receipt"]["attempt_count"] == 1
+    plan = {
+        "source": "book.json",
+        "item_count": 1,
+        "execution_plan": {"order": ["demo"]},
+        "source_batches": [{"id": "b", "labels": ["demo"]}],
+    }
+    rebuilt = build_campaign(plan, existing=reconciled)
+    assert rebuilt["batches"][0]["status"] == "proof_retry"
+    assert rebuilt["batches"][0]["agent_status"] == "proof_retry"
+    assert rebuilt["batches"][0]["completion_provenance"] == "none"
+    assert "stale_proof_receipt" in rebuilt["batches"][0]
+
+    completed = record_campaign_outcome(
+        rebuilt,
+        batch_id="b",
+        outcome={"stage": "proofs", "success": True, "provenance": "agent"},
+    )
+    assert completed["batches"][0]["status"] == "proofs_completed"
+    assert completed["batches"][0]["agent_status"] == "proofs_completed"
+    assert "stale_proof_receipt" not in completed["batches"][0]
+
+
+def test_reconciliation_requires_all_expected_declarations(tmp_path):
+    target = tmp_path / "Main.lean"
+    target.write_text("theorem first : True := by trivial\n", encoding="utf-8")
+    campaign = {
+        "batches": [
+            {
+                "id": "multi",
+                "labels": ["multi"],
+                "status": "proofs_completed",
+                "agent_status": "proofs_completed",
+                "declarations": ["first", "second"],
+                "last_outcome": {"target_file": "Main.lean"},
+            }
+        ]
+    }
+    reconciled, stale = reconcile_campaign_targets(campaign, project_root=tmp_path)
+    assert stale == ["multi"]
+    assert (
+        "sorry-free declaration"
+        in reconciled["batches"][0]["last_outcome"]["reconciliation_reason"]
+    )
+
+
+def test_reconcile_only_cli_persists_audit_without_execution(tmp_path, capsys):
+    campaign_path = tmp_path / "campaign.json"
+    target = tmp_path / "Main.lean"
+    target.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "batches": [
+                    {
+                        "id": "stale",
+                        "status": "proofs_completed",
+                        "declarations": ["demo"],
+                        "last_outcome": {"target_file": "Main.lean"},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        corpus_campaign_runner.main(
+            [str(campaign_path), "--project-root", str(tmp_path), "--reconcile-only"]
+        )
+        == 0
+    )
+    report = json.loads(capsys.readouterr().out)
+    persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+    assert report["mode"] == "reconciliation-only"
+    assert report["stale_downgraded"] == 1
+    assert persisted["last_reconciliation_audit"]["stale_batch_ids"] == ["stale"]
+    assert target.exists()
+
+
+def test_hard_proof_dependency_does_not_use_skipped_prerequisite():
+    plan = {
+        "source": "book.json",
+        "item_count": 2,
+        "execution_plan": {"order": ["a", "b"]},
+        "dependency_edges": [{"from": "b", "to": "a", "status": "declared_unverified"}],
+        "source_batches": [{"id": "a", "labels": ["a"]}, {"id": "b", "labels": ["b"]}],
+    }
+    campaign = build_campaign(plan)
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="a",
+        outcome={"stage": "statements", "success": False, "terminal": True},
+    )
+    assert next_campaign_batch(campaign, stage="proofs") is None
+
+
+def test_stale_worker_outcome_cannot_overwrite_reclaimed_lease():
+    campaign = {
+        "source": "book.json",
+        "item_count": 1,
+        "execution_plan": {"order": ["a"]},
+        "source_batches": [{"id": "a", "labels": ["a"]}],
+    }
+    campaign = build_campaign(campaign)
+    leased, _ = lease_campaign_batches(campaign, stage="statements", worker_ids=["new"])
+    stale = record_campaign_outcome(
+        leased,
+        batch_id="a",
+        outcome={"worker_id": "old", "stage": "statements", "success": True},
+    )
+    assert stale["batches"][0]["status"] == leased["batches"][0]["status"]
+    assert stale["batches"][0]["lease"]["worker_id"] == "new"
+
+
 def test_campaign_tracks_statement_and_proof_stages_separately():
     plan = {
         "source": "book.json",
@@ -1870,6 +2773,85 @@ def test_campaign_failure_taxonomy_is_reported_without_counting_successes():
         )
         == "infrastructure"
     )
+
+
+def test_campaign_retry_class_separates_semantic_review_block_from_infrastructure():
+    semantic = record_campaign_outcome(
+        build_campaign(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "execution_plan": {"order": ["1.1"]},
+                "source_batches": [{"id": "batch-1", "labels": ["1.1"]}],
+            }
+        ),
+        batch_id="batch-1",
+        outcome={
+            "stage": "statements",
+            "success": False,
+            "review_decision": "BLOCK",
+            "reason": "headless early exit",
+        },
+    )
+    semantic_attempt = semantic["batches"][0]["attempts"][0]
+    assert semantic_attempt["retry_class"] == RETRY_CLASS_SEMANTIC
+    assert semantic_attempt["failure_class"] == "semantic_review_block"
+
+    infrastructure = record_campaign_outcome(
+        build_campaign(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "execution_plan": {"order": ["1.1"]},
+                "source_batches": [{"id": "batch-1", "labels": ["1.1"]}],
+            }
+        ),
+        batch_id="batch-1",
+        outcome={
+            "stage": "statements",
+            "success": False,
+            "infrastructure_failure": True,
+            "reason": "provider timeout",
+        },
+    )
+    infrastructure_attempt = infrastructure["batches"][0]["attempts"][0]
+    assert infrastructure_attempt["retry_class"] == RETRY_CLASS_INFRASTRUCTURE
+
+
+def test_escalated_semantic_failure_is_terminal_and_infrastructure_can_retry():
+    plan = {
+        "source": "book.json",
+        "item_count": 1,
+        "execution_plan": {"order": ["1.1"]},
+        "source_batches": [{"id": "batch-1", "labels": ["1.1"]}],
+    }
+    campaign = build_campaign(plan)
+    for index in range(MAX_STAGE_FAILURES_BEFORE_TERMINAL):
+        campaign = record_campaign_outcome(
+            campaign,
+            batch_id="batch-1",
+            outcome={
+                "stage": "statements",
+                "success": False,
+                "reason": "bounded statement refinement exhausted",
+                "recorded_at": f"2026-09-03T10:{index:02d}:00+00:00",
+            },
+        )
+    assert statement_escalation_pending(campaign["batches"][0])
+    campaign = record_campaign_outcome(
+        campaign,
+        batch_id="batch-1",
+        outcome={
+            "stage": "statements",
+            "success": False,
+            "escalated": True,
+            "review_decision": "BLOCK",
+            "reason": "semantic reviewer BLOCK",
+        },
+    )
+    assert campaign["batches"][0]["status"] == "skipped"
+    assert campaign["batches"][0]["attempts"][-1]["terminal"] is True
+    assert campaign["batches"][0]["attempts"][-1]["retry_class"] == RETRY_CLASS_SEMANTIC
 
 
 def test_campaign_runner_closes_proofs_before_drafting_next_batch(tmp_path):
@@ -1985,7 +2967,7 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
         reserve_usd=2,
         provider="openai-codex",
         model="gpt-5.6-sol",
-        environ={"PATH": "/usr/bin"},
+        environ={"PATH": "/usr/bin", "LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S": "42"},
     )
 
     assert outcome == {
@@ -2017,6 +2999,259 @@ def test_campaign_executor_runs_only_one_budgeted_action(tmp_path, monkeypatch):
     assert calls[0][2]["LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S"] == "90"
     assert calls[0][2]["LEANFLOW_FORMALIZATION_REVIEW_EVIDENCE"] == str(review)
     assert calls[0][3] is corpus_campaign_runner.subprocess.DEVNULL
+
+
+def test_execute_next_campaign_action_preserves_an_explicit_large_advisory_timeout(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    review = tmp_path / "Book" / "Batch1" / "IndependentReview.md"
+    review.parent.mkdir(parents=True)
+    review.write_text("Verdict: BLOCK\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 1,
+                "budget_usd": 5,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["1.1"],
+                        "status": "statement_retry",
+                        "last_outcome": {
+                            "review_decision": "BLOCK",
+                            "review_evidence": "Book/Batch1/IndependentReview.md",
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    class FakeProcess:
+        pid = 123
+
+        def wait(self, timeout=None):
+            return 0
+
+        def poll(self):
+            return 0
+
+    def fake_popen(argv, *, cwd, env, stdin, start_new_session):
+        calls.append((argv, cwd, env, stdin, start_new_session))
+        return FakeProcess()
+
+    monkeypatch.setattr(corpus_campaign_runner.subprocess, "Popen", fake_popen)
+
+    outcome = execute_next_campaign_action(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        reserve_usd=2,
+        provider="openai-codex",
+        model="gpt-5.6-sol",
+        environ={"PATH": "/usr/bin", "LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S": "1200"},
+    )
+
+    assert outcome["success"] is True
+    assert calls[0][2]["LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S"] == "1200"
+
+
+def test_execute_next_campaign_action_uses_an_escalation_cost_floor(tmp_path, monkeypatch):
+    (tmp_path / "book.json").write_text("[]", encoding="utf-8")
+    review = tmp_path / "Book" / "Batch1" / "IndependentReview.md"
+    review.parent.mkdir(parents=True)
+    review.write_text("Verdict: BLOCK\n", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 1,
+                "budget_usd": 20,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["1.1"],
+                        "status": "statement_escalate",
+                        "last_outcome": {
+                            "review_decision": "BLOCK",
+                            "review_evidence": "Book/Batch1/IndependentReview.md",
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = []
+
+    class FakeProcess:
+        pid = 123
+
+        def wait(self, timeout=None):
+            return 0
+
+        def poll(self):
+            return 0
+
+    def fake_popen(argv, *, cwd, env, stdin, start_new_session):
+        calls.append((argv, cwd, env, stdin, start_new_session))
+        return FakeProcess()
+
+    monkeypatch.setattr(corpus_campaign_runner.subprocess, "Popen", fake_popen)
+
+    outcome = execute_next_campaign_action(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        reserve_usd=2,
+        provider="openai-codex",
+        model="gpt-5.6-sol",
+        stage="statements",
+        batch_id="batch-1",
+        environ={"PATH": "/usr/bin"},
+    )
+
+    assert outcome["success"] is True
+    assert calls[0][2]["LEANFLOW_FORMALIZATION_ESCALATED"] == "1"
+    assert float(calls[0][2]["LEANFLOW_ACTION_COST_LIMIT_USD"]) == pytest.approx(12.0)
+    assert calls[0][2]["LEANFLOW_FORMALIZATION_FRESH_REVIEW_BOUNDARY"] == "1"
+    assert calls[0][2]["LEANFLOW_FORMALIZATION_MAX_SEMANTIC_REPAIRS"] == "1"
+    assert calls[0][2]["LEANFLOW_FORMALIZATION_ESCALATION_ATTEMPT"] == "1"
+
+
+def test_explicit_stage_and_batch_selector_overrides_proof_first_without_bypassing_state():
+    campaign = {
+        "source": "book.json",
+        "batches": [
+            {
+                "id": "statement-batch",
+                "labels": ["s"],
+                "status": "statement_retry",
+                "agent_status": "statement_retry",
+            },
+            {
+                "id": "proof-batch",
+                "labels": ["p"],
+                "status": "statements_completed",
+                "agent_status": "statements_completed",
+                "last_outcome": {"target_file": "Proof.lean"},
+            },
+        ],
+    }
+    action = plan_next_campaign_action(
+        campaign,
+        python_executable="python",
+        stage="proofs",
+        batch_id="proof-batch",
+    )
+    assert action.stage == "proofs"
+    assert action.batch_id == "proof-batch"
+    assert action.target_file == "Proof.lean"
+
+
+def test_explicit_selector_is_leased_and_released_on_runner_failure(tmp_path, monkeypatch):
+    source = tmp_path / "book.json"
+    source.write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "spent_usd": 0.0,
+                "budget_usd": 3.0,
+                "batches": [
+                    {
+                        "id": "statement-batch",
+                        "labels": ["s"],
+                        "status": "statement_retry",
+                        "agent_status": "statement_retry",
+                    },
+                    {
+                        "id": "other-batch",
+                        "labels": ["o"],
+                        "status": "statement_retry",
+                        "agent_status": "statement_retry",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    observed = {}
+
+    def fake_execute(action, **kwargs):
+        observed["action"] = action
+        observed["env"] = kwargs["environ"]
+        persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+        selected = next(item for item in persisted["batches"] if item["id"] == action.batch_id)
+        assert selected["lease"]["stage"] == "statements"
+        return {"executed": True, "success": False, "batch_id": action.batch_id}
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fake_execute)
+    result = execute_next_campaign_action(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        reserve_usd=1.0,
+        stage="statements",
+        batch_id="statement-batch",
+        environ={"PATH": "/usr/bin"},
+    )
+    assert result["batch_id"] == "statement-batch"
+    assert observed["action"].stage == "statements"
+    assert observed["env"]["LEANFLOW_CAMPAIGN_WORKER_ID"].startswith("campaign-")
+    persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
+    selected = next(item for item in persisted["batches"] if item["id"] == "statement-batch")
+    assert "lease" not in selected
+
+
+def test_cli_rejects_batch_selector_without_stage(tmp_path):
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(json.dumps({"batches": []}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        corpus_campaign_runner.main([str(campaign_path), "--batch-id", "b"])
+
+
+def test_execute_next_campaign_action_forwards_statement_compile_timeout(tmp_path, monkeypatch):
+    """The scheduler path must preserve the bounded statement timeout override."""
+    source = tmp_path / "source.json"
+    source.write_text("[]", encoding="utf-8")
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps({"budget_usd": 2.0, "spent_usd": 0.0, "batches": []}), encoding="utf-8"
+    )
+    action = CampaignAction(
+        stage="statements",
+        batch_id="batch-1",
+        labels=("1.1",),
+        argv=("python", "-m", "leanflow_cli.main", "workflow", "formalize", "source.json"),
+    )
+    observed: dict[str, object] = {}
+    monkeypatch.setattr(corpus_campaign_runner, "plan_next_campaign_action", lambda *a, **k: action)
+
+    def fake_execute(_action, **kwargs):
+        observed.update(kwargs)
+        return {"executed": True, "success": True, "batch_id": _action.batch_id}
+
+    monkeypatch.setattr(corpus_campaign_runner, "_execute_campaign_action", fake_execute)
+    result = execute_next_campaign_action(
+        campaign_path,
+        project_root=tmp_path,
+        python_executable="python",
+        reserve_usd=1.0,
+        bounded_statements=True,
+        statement_compile_timeout_seconds=4.5,
+    )
+
+    assert result["success"] is True
+    assert observed["bounded_statements"] is True
+    assert observed["statement_compile_timeout_seconds"] == 4.5
 
 
 def test_campaign_accepts_reviewed_agent_statement_without_repeating_provider_turn(
@@ -2136,7 +3371,7 @@ def test_campaign_accepts_locally_verified_statement_without_provider_cost(tmp_p
     assert updated["statement_completed_batch_count"] == 1
     assert updated["batches"][0]["status"] == "statements_completed"
 
-    with pytest.raises(CampaignExecutionBlocked, match="still reports 1 sorry"):
+    with pytest.raises(CampaignExecutionBlocked, match="sorry"):
         accept_locally_verified_proof(
             campaign_path,
             project_root=tmp_path,
@@ -2149,6 +3384,7 @@ def test_campaign_accepts_locally_verified_statement_without_provider_cost(tmp_p
         stderr = ""
 
     monkeypatch.setattr(corpus_campaign_runner.subprocess, "run", lambda *a, **k: CompletedProof())
+    target.write_text("import Mathlib\ntheorem demo : True := by trivial\n", encoding="utf-8")
     proof_outcome = accept_locally_verified_proof(
         campaign_path,
         project_root=tmp_path,

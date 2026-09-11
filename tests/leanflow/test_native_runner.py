@@ -10120,6 +10120,41 @@ def test_search_synthesis_reservation_keeps_concrete_tools_available(monkeypatch
     assert "search_progress" not in agent._managed_autonomy_state
 
 
+def test_search_progress_reset_reopens_feedback_for_same_assignment(monkeypatch, tmp_path):
+    """A successful check must reset the feedback allowance with search debt."""
+    active = tmp_path / "Main.lean"
+    active.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
+
+    class _Agent(_ManagedRunAgentStub):
+        def __init__(self):
+            self._managed_autonomy_state = {
+                "current_queue_assignment": {
+                    "target_symbol": "demo",
+                    "active_file": str(active),
+                },
+                "search_progress": {
+                    "target_symbol": "demo",
+                    "active_file": str(active),
+                    "synthesis_grace_pending": True,
+                },
+            }
+
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "prove")
+    monkeypatch.setattr(runner, "_single_queue_item_turn_enabled", lambda: True)
+    agent = _Agent()
+    feedback = {"action": "feedback", "theorem_id": "demo", "file_path": str(active)}
+
+    assert runner._managed_pre_tool_call(agent, "lean_incremental_check", feedback) is None
+    runner._reset_search_progress(agent)
+    agent._managed_autonomy_state["search_progress"] = {
+        "target_symbol": "demo",
+        "active_file": str(active),
+        "synthesis_grace_pending": True,
+    }
+
+    assert runner._managed_pre_tool_call(agent, "lean_incremental_check", feedback) is None
+
+
 def test_search_progress_nudge_records_originating_agent(monkeypatch, tmp_path):
     """Search nudges must identify their process and agent in concurrent research logs."""
     active = tmp_path / "Main.lean"
@@ -26076,6 +26111,7 @@ def test_formalization_queue_statement_guard_protects_source_declaration(monkeyp
     monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
     monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_TARGET_FILE", "Demo/Paper/Main.lean")
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_BLUEPRINT", str(blueprint))
     monkeypatch.setenv("LEANFLOW_FORMALIZATION_MANIFEST", str(manifest))
 
@@ -28353,6 +28389,75 @@ def test_formalization_campaign_records_statement_handoff(tmp_path, monkeypatch)
     assert campaign["batches"][0]["last_outcome"]["cost_scope"] == "primary_agent_only"
 
 
+def test_formalization_campaign_records_verifier_block_as_a_verdict(tmp_path, monkeypatch):
+    """Regression: a verifier BLOCK must reach the ledger with its findings.
+
+    When the review gate closes there is nothing to hand a headless caller, so
+    the runner leaves through the no-TTY path. The campaign then saw only
+    ``reason: headless early exit`` and the findings were discarded, so the next
+    attempt restarted blind against the same objection.
+    """
+    campaign_path = tmp_path / "campaign.json"
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 5,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["2.1.2"],
+                        "status": "statement_escalate",
+                        "attempts": [],
+                        "last_outcome": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+        "LEANFLOW_FORMALIZATION_ESCALATED": "1",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+    monkeypatch.setattr(
+        runner, "_document_formalization_waiting_for_independent_review", lambda state: True
+    )
+
+    findings = [
+        "statement/source verification pending for entry 2.1.2",
+        "upper factor 1 / t is missing the t >= 1 hypothesis",
+    ]
+    runner._record_formalization_campaign_stage(
+        2,
+        {
+            "active_file_label": "Book/Batch/Main.lean",
+            "document_formalization_handoff": {"ok": False, "issues": findings},
+            "current_blocker": "upper factor 1 / t is missing the t >= 1 hypothesis",
+        },
+        {},
+        {"cost": {"estimated_turn_usd": 2.5}},
+        reason="headless early exit",
+    )
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    last = campaign["batches"][0]["attempts"][-1]
+    assert last["escalated"] is True
+    assert last["review_decision"] == "BLOCK"
+    assert last["review_findings"] == findings
+    assert last["candidate_diagnostics"][0]["stage"] == "semantic_review"
+    assert "1 / t" in last["final_diagnostic"]
+    assert last["retry_class"] == "semantic"
+    # The verdict must not be laundered into an infrastructure fault.
+    assert last["failure_class"] not in {"infrastructure", "budget_limit"}
+
+
 def test_formalization_campaign_records_verified_proof_stage(tmp_path, monkeypatch):
     campaign_path = tmp_path / "campaign.json"
     campaign_path.write_text(
@@ -28572,6 +28677,116 @@ def test_formalization_campaign_records_zero_usage_connection_failure_as_infrast
     assert outcome["usage"]["total_tokens"] == 0
     assert outcome["cost_usd"] == 0
     assert campaign["spent_usd"] == 0
+
+
+def test_formalization_campaign_provider_exhaustion_ignores_stale_escalated_block(
+    tmp_path, monkeypatch
+):
+    """A startup provider failure must not inherit the previous semantic BLOCK.
+
+    An escalated process can restore the prior live handoff before its first
+    provider call. If that call exhausts transient retries, the new receipt is
+    infrastructure-only and must leave the semantic retry allowance untouched.
+    """
+    campaign_path = tmp_path / "campaign.json"
+    prior_block = {
+        "stage": "statements",
+        "success": False,
+        "escalated": True,
+        "retry_class": "semantic",
+        "review_decision": "BLOCK",
+        "review_findings": ["the prior candidate used an unconstrained measure"],
+        "candidate_diagnostics": [
+            {"stage": "semantic_review", "diagnostic": "the prior candidate used an unconstrained measure"}
+        ],
+        "final_diagnostic": "the prior candidate used an unconstrained measure",
+        "semantic_retry_limit_exhausted": 1,
+        "terminal": True,
+    }
+    campaign_path.write_text(
+        json.dumps(
+            {
+                "source": "book.json",
+                "item_count": 1,
+                "budget_usd": 20,
+                "batches": [
+                    {
+                        "id": "batch-1",
+                        "labels": ["2.1.7"],
+                        "status": "statement_escalate",
+                        "attempts": [prior_block],
+                        "last_outcome": prior_block,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    values = {
+        "LEANFLOW_FORMALIZATION_CAMPAIGN": str(campaign_path),
+        "LEANFLOW_FORMALIZATION_QA_BATCH": "batch-1",
+        "LEANFLOW_FORMALIZATION_ESCALATED": "1",
+        "LEANFLOW_FORMALIZATION_ESCALATION_ATTEMPT": "2",
+        "LEANFLOW_FORMALIZATION_ESCALATION_SESSION_ID": "fresh-session-2",
+        "LEANFLOW_FORMALIZATION_MAX_SEMANTIC_REPAIRS": "1",
+        "LEANFLOW_FORMALIZATION_MAX_INFRASTRUCTURE_RETRIES": "3",
+    }
+    monkeypatch.setattr(
+        runner, "_read_text_env", lambda name, default="": values.get(name, default)
+    )
+    monkeypatch.setattr(runner, "_project_root", lambda: str(tmp_path))
+    monkeypatch.setattr(runner, "_workflow_kind", lambda: "formalize")
+    monkeypatch.setattr(
+        runner, "_document_formalization_waiting_for_independent_review", lambda state: True
+    )
+
+    runner._record_formalization_campaign_stage(
+        runner.EXIT_PAUSED,
+        {
+            "active_file_label": "Book/Batch/Main.lean",
+            "document_formalization_handoff": {
+                "ok": False,
+                "issues": ["the prior candidate used an unconstrained measure"],
+            },
+            "current_blocker": "the prior candidate used an unconstrained measure",
+        },
+        {
+            "operational_pause": "paused_infrastructure",
+            "infrastructure_pause_reason": (
+                "TransientProviderRetriesExhausted: Connection error."
+            ),
+        },
+        {"cost": {"estimated_turn_usd": 0.0}},
+    )
+
+    campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+    batch = campaign["batches"][0]
+    latest = batch["last_outcome"]
+    assert batch["status"] == "statement_escalate"
+    assert latest["retry_class"] == "infrastructure"
+    assert latest["failure_class"] == "infrastructure"
+    assert "TransientProviderRetriesExhausted" in latest["reason"]
+    assert "Connection error" in latest["reason"]
+    for key in (
+        "review_decision",
+        "review_findings",
+        "candidate_diagnostics",
+        "final_diagnostic",
+        "semantic_retry_limit_exhausted",
+        "terminal",
+    ):
+        assert key not in latest
+    assert latest["escalated"] is True
+    assert latest["generator_boundary"] == "fresh_process"
+    assert latest["escalation_attempt"] == 2
+    assert latest["escalation_session_id"] == "fresh-session-2"
+    assert latest["max_semantic_repairs"] == 1
+    assert latest["max_infrastructure_retries"] == 3
+    assert sum(
+        1
+        for attempt in batch["attempts"]
+        if attempt.get("retry_class") == "semantic"
+    ) == 1
 
 
 def test_reconcile_stale_workflow_file_locks_releases_only_terminal_owners(monkeypatch):
@@ -32774,6 +32989,83 @@ def test_document_formalization_blocks_drafting_model_blueprint_self_approval(
     payload = json.loads(blocked)
     assert payload["next_required_step"] == "independent_statement_source_verification"
     assert "must be written by the independent statement/source verifier" in payload["error"]
+
+
+def test_document_formalization_requires_target_file_before_lean_edits(monkeypatch, tmp_path):
+    project = tmp_path / "Demo"
+    active = project / "Demo" / "Paper" / "Other.lean"
+    active.parent.mkdir(parents=True)
+    active.write_text("theorem other : True := by\n  sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "formalize")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.delenv("LEANFLOW_FORMALIZATION_TARGET_FILE", raising=False)
+
+    blocked = runner._document_formalization_pre_tool_guard(
+        _ManagedRunAgentStub(),
+        "patch",
+        {"path": str(active), "mode": "replace", "new_string": active.read_text()},
+    )
+
+    assert blocked is not None
+    payload = json.loads(blocked)
+    assert payload["status"] == "formalization_target_file_required"
+    assert payload["patch_applied"] is False
+
+
+def test_document_formalization_target_guard_does_not_apply_to_prove_without_target(
+    monkeypatch, tmp_path
+):
+    project = tmp_path / "Demo"
+    active = project / "Main.lean"
+    project.mkdir(parents=True)
+    active.write_text("theorem demo : True := by\n  sorry\n", encoding="utf-8")
+    monkeypatch.setenv("LEANFLOW_PROJECT_ROOT", str(project))
+    monkeypatch.setenv("LEANFLOW_NATIVE_WORKFLOW_KIND", "prove")
+    monkeypatch.setenv("LEANFLOW_FORMALIZATION_DOCUMENT_RELATIVE", "docs/paper.tex")
+    monkeypatch.delenv("LEANFLOW_FORMALIZATION_TARGET_FILE", raising=False)
+
+    assert (
+        runner._document_formalization_pre_tool_guard(
+            _ManagedRunAgentStub(),
+            "patch",
+            {"path": str(active), "mode": "replace", "new_string": active.read_text()},
+        )
+        is None
+    )
+
+
+def test_parent_recheck_boundary_accepts_candidate_without_state_attribute(monkeypatch):
+    state = {
+        runner._RESEARCH_HELPER_RECHECK_BOUNDARY_KEY: "candidate-1",
+        "current_queue_assignment": {
+            "target_symbol": "demo",
+            "active_file": "Main.lean",
+        },
+    }
+    candidate = SimpleNamespace(
+        candidate_id="candidate-1",
+        helper_name="helper",
+        declaration="private lemma helper : True := by trivial",
+    )
+    monkeypatch.setattr(
+        runner.research_helper_candidate_priority, "matching", lambda *a, **k: candidate
+    )
+    monkeypatch.setattr(
+        runner,
+        "_recheck_pending_research_helper_if_due",
+        lambda *a, **k: "parent recheck prompt",
+    )
+    monkeypatch.setattr(runner, "_record_activity", lambda *a, **k: None)
+
+    assert (
+        runner._consume_research_helper_parent_recheck_boundary(
+            state,
+            {"target_symbol": "demo", "active_file": "Main.lean"},
+        )
+        == "parent recheck prompt"
+    )
+    assert runner._RESEARCH_HELPER_RECHECK_BOUNDARY_KEY not in state
 
 
 def test_document_formalization_lean_edit_gate_does_not_apply_to_prove(monkeypatch, tmp_path):

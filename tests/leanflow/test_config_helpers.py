@@ -145,6 +145,26 @@ def test_env_file_ignores_blank_and_commented_lines(monkeypatch, tmp_path):
     assert "# a comment" not in loaded
 
 
+def test_env_file_duplicate_assignments_keep_first_value(monkeypatch, tmp_path, caplog):
+    monkeypatch.setenv("LEANFLOW_HOME", str(tmp_path / "home"))
+    ensure_leanflow_home()
+    get_env_path().write_text(
+        "LEANFLOW_OPENAI_BASE_URL=https://api.zcloudapi.com/v1\n"
+        "LEANFLOW_OPENAI_BASE_URL=http://stale-proxy.invalid/v1\n"
+        "LEANFLOW_OPENAI_API_KEY=active-key\n"
+        "LEANFLOW_OPENAI_API_KEY=stale-key\n",
+        encoding="utf-8",
+    )
+
+    with caplog.at_level("WARNING"):
+        loaded = load_env_file()
+
+    assert loaded["LEANFLOW_OPENAI_BASE_URL"] == "https://api.zcloudapi.com/v1"
+    assert loaded["LEANFLOW_OPENAI_API_KEY"] == "active-key"
+    assert "LEANFLOW_OPENAI_API_KEY" in caplog.text
+    assert "stale-key" not in caplog.text
+
+
 def test_get_env_value_prefers_os_environ(monkeypatch, tmp_path):
     monkeypatch.setenv("LEANFLOW_HOME", str(tmp_path / "home"))
     save_env_value("MYKEY", "from-file")

@@ -217,7 +217,10 @@ def test_project_sync_uses_local_checkout_as_remote_verification_authority(monke
     assert environment._sync_project_to_remote() == ""
     command = calls[-1][0]
     assert command[:2] == ["rsync", "-az"]
-    assert "--exclude=.lake/" in command
+    assert (
+        f"--exclude-from={Path(ssh_env.__file__).resolve().parents[2] / 'core' / 'remote-project-sync.exclude'}"
+        in command
+    )
     assert command[-2] == f"{tmp_path}/"
     assert command[-1] == "alice@example.com:/srv/lean/project/"
 

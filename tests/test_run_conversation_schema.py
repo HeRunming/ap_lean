@@ -8,6 +8,7 @@ The schema is defined at run_agent.py (the ``result = {...}`` built at the end o
 ``run_conversation``): ``final_response``, ``last_reasoning``, ``messages``, ``api_calls``,
 ``usage``, ``completed``, ``exit_reason``, ``partial``, ``interrupted``, ``response_previewed``.
 ``wall_timed_out`` reports whether the optional conversation wall deadline ended the run.
+``action_cost_limit_reached`` reports whether the per-action USD budget stopped the run.
 ``interrupt_message`` is added only when interrupted; ``error`` only on error paths.
 """
 
@@ -31,6 +32,7 @@ EXPECTED_KEYS = {
     "interrupted",
     "response_previewed",
     "wall_timed_out",
+    "action_cost_limit_reached",
 }
 
 
@@ -105,6 +107,7 @@ def test_run_conversation_result_value_types(agent):
     assert isinstance(result["interrupted"], bool)
     assert isinstance(result["response_previewed"], bool)
     assert isinstance(result["wall_timed_out"], bool)
+    assert isinstance(result["action_cost_limit_reached"], bool)
 
 
 def test_run_conversation_normal_completion_flags(agent):

@@ -73,6 +73,7 @@ include = [
 ]
 
 [tool.setuptools.package-data]
+core = ["*.exclude"]
 leanflow_skills = ["**/*.md"]
 leanflow_specs = ["**/*.md"]
 
@@ -132,6 +133,8 @@ files = [
   "core/runtime_modes.py",
   "core/verified_edit_authority.py",
   "core/utils.py",
+  "agent/accounting/provider_quota.py",
+  "agent/accounting/provider_quota_budget.py",
   "leanflow_cli/lean/lean_interact_compat.py",
   "leanflow_cli/lean/lean_probe_deadline.py",
   "leanflow_cli/native/support_module_materialization.py",
@@ -143,9 +146,14 @@ files = [
   "leanflow_cli/formalization/corpus_planning.py",
   "leanflow_cli/formalization/corpus_reuse.py",
   "leanflow_cli/formalization/promotion_transaction.py",
+  "leanflow_cli/formalization/statement_contract_gate.py",
+  "leanflow_cli/formalization/declaration_contract_lint.py",
+  "leanflow_cli/formalization/statement_review_feedback.py",
+  "leanflow_cli/formalization/statement_compilation_evidence.py",
   "leanflow_cli/formalization/campaign_store.py",
   "leanflow_cli/formalization/corpus_campaign.py",
   "leanflow_cli/formalization/corpus_campaign_runner.py",
+  "leanflow_cli/formalization/remote_warm_probe.py",
   "leanflow_cli/runtime/toolchain_env.py",
   "agent/display/log_formatting.py",
   "agent/runtime/workflow_events.py",

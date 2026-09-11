@@ -238,7 +238,7 @@ def _resolve_api_key_provider() -> tuple[OpenAI | None, str | None]:
         extra = {}
         if "api.kimi.com" in base_url.lower():
             extra["default_headers"] = {"User-Agent": "KimiCLI/1.0"}
-        return OpenAI(api_key=api_key, base_url=base_url, **extra), model
+        return OpenAI(api_key=api_key, base_url=base_url, max_retries=0, **extra), model
 
     return None, None
 
@@ -297,7 +297,12 @@ def _try_openrouter() -> tuple[OpenAI | None, str | None]:
         return None, None
     logger.debug("Auxiliary client: OpenRouter")
     return (
-        OpenAI(api_key=or_key, base_url=OPENROUTER_BASE_URL, default_headers=_OR_HEADERS),
+        OpenAI(
+            api_key=or_key,
+            base_url=OPENROUTER_BASE_URL,
+            default_headers=_OR_HEADERS,
+            max_retries=0,
+        ),
         _OPENROUTER_MODEL,
     )
 
@@ -310,7 +315,7 @@ def _try_nous() -> tuple[OpenAI | None, str | None]:
     auxiliary_is_nous = True
     logger.debug("Auxiliary client: Nous Portal")
     return (
-        OpenAI(api_key=_nous_api_key(nous), base_url=_nous_base_url()),
+        OpenAI(api_key=_nous_api_key(nous), base_url=_nous_base_url(), max_retries=0),
         _NOUS_MODEL,
     )
 
@@ -379,7 +384,7 @@ def _try_custom_endpoint() -> tuple[OpenAI | None, str | None]:
         return None, None
     model = _read_main_model() or "gpt-4o-mini"
     logger.debug("Auxiliary client: custom endpoint (%s)", model)
-    return OpenAI(api_key=custom_key, base_url=custom_base), model
+    return OpenAI(api_key=custom_key, base_url=custom_base, max_retries=0), model
 
 
 def _try_codex(*, allow_legacy_store: bool | None = None) -> tuple[Any | None, str | None]:
@@ -394,7 +399,7 @@ def _try_codex(*, allow_legacy_store: bool | None = None) -> tuple[Any | None, s
         return None, None
     codex_model = _explicit_codex_model() if allow_legacy_store else _CODEX_AUX_MODEL
     logger.debug("Auxiliary client: Codex OAuth (%s via Responses API)", codex_model)
-    real_client = OpenAI(api_key=codex_token, base_url=_CODEX_AUX_BASE_URL)
+    real_client = OpenAI(api_key=codex_token, base_url=_CODEX_AUX_BASE_URL, max_retries=0)
     return CodexAuxiliaryClient(real_client, codex_model), codex_model
 
 
@@ -414,7 +419,10 @@ def _try_anthropic() -> tuple[Any | None, str | None]:
     model = _API_KEY_PROVIDER_AUX_MODELS.get("anthropic", "claude-haiku-4-5-20251001")
     logger.debug("Auxiliary client: Anthropic native (%s)", model)
     real_client = build_anthropic_client(token, _ANTHROPIC_DEFAULT_BASE_URL)
-    return AnthropicAuxiliaryClient(real_client, model, token, _ANTHROPIC_DEFAULT_BASE_URL), model
+    return (
+        AnthropicAuxiliaryClient(real_client, model, token, _ANTHROPIC_DEFAULT_BASE_URL),
+        model,
+    )
 
 
 def _resolve_forced_provider(forced: str) -> tuple[OpenAI | None, str | None]:
@@ -605,7 +613,7 @@ def resolve_provider_client(
                 )
                 return None, None
             final_model = model or _explicit_codex_model()
-            raw_client = OpenAI(api_key=codex_token, base_url=_CODEX_AUX_BASE_URL)
+            raw_client = OpenAI(api_key=codex_token, base_url=_CODEX_AUX_BASE_URL, max_retries=0)
             return (raw_client, final_model)
         # Standard path: wrap in CodexAuxiliaryClient adapter
         client, default = _try_codex(allow_legacy_store=True)
@@ -630,7 +638,7 @@ def resolve_provider_client(
                 )
                 return None, None
             final_model = model or _read_main_model() or "gpt-4o-mini"
-            client = OpenAI(api_key=custom_key, base_url=custom_base)
+            client = OpenAI(api_key=custom_key, base_url=custom_base, max_retries=0)
             return _to_async_client(client, final_model) if async_mode else (client, final_model)
         # Try custom first, then codex, then API-key providers
         for try_fn in (_try_custom_endpoint, _try_codex, _resolve_api_key_provider):
@@ -698,7 +706,10 @@ def resolve_provider_client(
             headers["User-Agent"] = "KimiCLI/1.0"
 
         client = OpenAI(
-            api_key=api_key, base_url=base_url, **({"default_headers": headers} if headers else {})
+            api_key=api_key,
+            base_url=base_url,
+            max_retries=0,
+            **({"default_headers": headers} if headers else {}),
         )
         logger.debug("resolve_provider_client: %s (%s)", provider, final_model)
         return _to_async_client(client, final_model) if async_mode else (client, final_model)
@@ -717,7 +728,9 @@ def resolve_provider_client(
         return None, None
 
     logger.warning(
-        "resolve_provider_client: unhandled auth_type %s for %s", pconfig.auth_type, provider
+        "resolve_provider_client: unhandled auth_type %s for %s",
+        pconfig.auth_type,
+        provider,
     )
     return None, None
 
@@ -1002,7 +1015,12 @@ def _resolve_task_provider_model(
             return "auto", resolved_model, None, None
 
         if cfg_base_url:
-            return "custom", resolved_model, cfg_base_url, task_env_api_key or cfg_api_key
+            return (
+                "custom",
+                resolved_model,
+                cfg_base_url,
+                task_env_api_key or cfg_api_key,
+            )
         cfg_provider = _task_config_text(task_config, "provider")
         if cfg_provider:
             if cfg_provider != "auto":
@@ -1083,7 +1101,9 @@ def _build_call_kwargs(
     merged_extra = dict(extra_body or {})
     if reasoning_effort:
         custom_base = base_url or _current_custom_base_url()
-        if provider in {"custom", "main"} and _is_rcp_base_url(custom_base):
+        if provider in {"custom", "main"} and "api.zcloudapi.com" in custom_base.lower():
+            merged_extra["reasoning_effort"] = str(reasoning_effort).strip().lower()
+        elif provider in {"custom", "main"} and _is_rcp_base_url(custom_base):
             template_kwargs = dict(merged_extra.get("chat_template_kwargs") or {})
             normalized_effort = str(reasoning_effort).strip().lower()
             thinking_disabled = normalized_effort in {
@@ -1260,7 +1280,9 @@ def call_llm(
             return client.chat.completions.create(**kwargs)
         except Exception as first_err:
             err_str = str(first_err)
-            if "max_tokens" in err_str or "unsupported_parameter" in err_str:
+            if not os.getenv("LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH") and (
+                "max_tokens" in err_str or "unsupported_parameter" in err_str
+            ):
                 kwargs.pop("max_tokens", None)
                 kwargs["max_completion_tokens"] = max_tokens
                 return client.chat.completions.create(**kwargs)
@@ -1331,7 +1353,9 @@ async def async_call_llm(
             return await client.chat.completions.create(**kwargs)
         except Exception as first_err:
             err_str = str(first_err)
-            if "max_tokens" in err_str or "unsupported_parameter" in err_str:
+            if not os.getenv("LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH") and (
+                "max_tokens" in err_str or "unsupported_parameter" in err_str
+            ):
                 kwargs.pop("max_tokens", None)
                 kwargs["max_completion_tokens"] = max_tokens
                 return await client.chat.completions.create(**kwargs)

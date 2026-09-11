@@ -44,6 +44,14 @@ def test_declaration_line_index_from_text_indexes_kind_name_and_sorry():
     assert lean_parsing._text_has_theorem_or_lemma_without_sorry(src) is True
 
 
+def test_multiline_admit_and_sorry_ax_are_admission_placeholders():
+    source = "theorem admitted : True := by\n  admit\n\nlemma ax : True := by\n  exact sorryAx _\n"
+    assert lean_parsing._text_has_sorry(source) is True
+    entries = {item["name"]: item for item in lean_parsing._declaration_line_index_from_text(source)}
+    assert entries["admitted"]["has_sorry"] is True
+    assert entries["ax"]["has_sorry"] is True
+
+
 def test_declaration_index_excludes_explicit_universe_suffix_separator():
     """Keep the declaration name separate from ``.{...}`` universe binders."""
     src = "theorem Space.example.{u_2, u_1} {A : Type u_1} : True := by trivial\n"

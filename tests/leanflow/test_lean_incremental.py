@@ -2819,3 +2819,18 @@ def test_failed_check_projection_is_error_first_and_drops_replayed_source():
     assert "resource_admission" not in projected
     assert projected["audit_payload_preserved"] is True
     assert len(json.dumps(projected, ensure_ascii=False)) <= 4000
+
+
+def test_check_projection_requires_explicit_real_backend_verification():
+    payload = {
+        "action": "check_target",
+        "success": True,
+        "ok": True,
+        "valid_without_sorry": True,
+        "has_errors": False,
+        "has_sorry": False,
+    }
+    assert li.compact_check_payload(payload)["verification_status"] == "not_verified"
+
+    payload["backend"] = "lake-env-lean"
+    assert li.compact_check_payload(payload)["verification_status"] == "verified"

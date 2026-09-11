@@ -28,6 +28,15 @@ from leanflow_cli.native.native_utils import (
 
 
 def _verification_review_result_payload(result: Any) -> dict[str, Any]:
+    # Keep legacy reviewer stubs billable when they predate ``pricing_known``.
+    # A result is unknown-priced only when the new field is explicitly False.
+    pricing_marker = getattr(result, "pricing_known", None)
+    pricing_known = (
+        bool(pricing_marker) if pricing_marker is not None else hasattr(result, "cost_usd")
+    )
+    cost_source = str(getattr(result, "cost_source", "") or "")
+    if not cost_source:
+        cost_source = "reviewer_token_usage" if pricing_known else "cost_unavailable"
     return {
         "task": str(getattr(result, "task", "") or ""),
         "provider": str(getattr(result, "provider", "") or ""),
@@ -46,6 +55,11 @@ def _verification_review_result_payload(result: Any) -> dict[str, Any]:
         "completion_tokens": int(getattr(result, "completion_tokens", 0) or 0),
         "total_tokens": int(getattr(result, "total_tokens", 0) or 0),
         "cost_usd": float(getattr(result, "cost_usd", 0.0) or 0.0),
+        "pricing_known": pricing_known,
+        "cost_source": cost_source,
+        "transient_gateway_failure": bool(getattr(result, "transient_gateway_failure", False)),
+        "retry_attempts": int(getattr(result, "retry_attempts", 0) or 0),
+        "failure_class": str(getattr(result, "failure_class", "") or ""),
     }
 
 

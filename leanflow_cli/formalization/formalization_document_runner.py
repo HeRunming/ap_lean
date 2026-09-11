@@ -431,7 +431,7 @@ def _blueprint_source_inventory_entries(text: str) -> dict[str, str]:
         end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
         label = str(match.group("label") or "").strip()
         normalized = re.match(
-            r"^(?:Source\s+Entry\s+)?(?P<label>[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)\b",
+            r"^(?:Source\s+Entry\s+)?(?P<label>[A-Za-z0-9]+(?:[.:_-][A-Za-z0-9]+)*)\b",
             label,
             flags=re.IGNORECASE,
         )
