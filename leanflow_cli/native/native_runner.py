@@ -1298,6 +1298,7 @@ def _stop_native_owned_work(
     reason: str,
 ) -> None:
     """Reconcile agents, research jobs, and process-owned runtime services."""
+    interrupted_before_shutdown = bool(getattr(agent, "is_interrupted", False))
     steps: list[tuple[_NativeStopSubsystem, Callable[[], Any]]] = [
         (
             _NativeStopSubsystem.LOCAL_LEAN_COMMANDS,
@@ -1378,6 +1379,16 @@ def _stop_native_owned_work(
         raise termination
     if failures:
         raise _NativeOwnedWorkStopError(failures)
+    # Quiescence intentionally cancels tools. Once all owned work is gone,
+    # that internal signal must not cancel the terminal kernel verification.
+    # Preserve earlier cancellation and any newer user interrupt.
+    if not interrupted_before_shutdown and getattr(agent, "_interrupt_message", None) in {
+        "native runner finalization",
+        "native runner planner finalization",
+    }:
+        clear_interrupt = getattr(agent, "clear_interrupt", None)
+        if callable(clear_interrupt):
+            clear_interrupt()
 
 
 def _release_native_runner_locks(agent: Any) -> None:

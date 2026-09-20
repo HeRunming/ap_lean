@@ -177,6 +177,7 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
             return label_by_id[target_id.rsplit(":", 1)[-1]]
         target_entry = str(record.get("target_entry_id") or "").strip()
         return label_by_entry_id.get(target_entry, target_id or target_entry)
+
     for index, raw_item in enumerate(raw_items[:MAX_QA_ITEMS], start=1):
         if not isinstance(raw_item, dict):
             continue
@@ -264,9 +265,9 @@ def _extract_qa_json_summary(path: Path) -> dict[str, Any]:
                     if key in raw_item
                 },
                 "dependency_records": dependencies,
-                "cross_reference_records": cross_references
-                if isinstance(cross_references, list)
-                else [],
+                "cross_reference_records": (
+                    cross_references if isinstance(cross_references, list) else []
+                ),
             }
         )
         extracted_parts.append(f"[{label}]\n{statement}")

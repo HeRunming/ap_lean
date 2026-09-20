@@ -2679,9 +2679,7 @@ class TestRunConversation:
         assert result["completed"] is True
         assert result["final_response"] == "Recovered"
         assert agent.client.chat.completions.create.call_count == 2
-        retry_messages = agent.client.chat.completions.create.call_args_list[1].kwargs[
-            "messages"
-        ]
+        retry_messages = agent.client.chat.completions.create.call_args_list[1].kwargs["messages"]
         assert retry_messages[-1]["role"] == "user"
         assert "no visible text" in retry_messages[-1]["content"]
 

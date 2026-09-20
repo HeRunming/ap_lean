@@ -6,9 +6,7 @@ import hashlib
 import re
 from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

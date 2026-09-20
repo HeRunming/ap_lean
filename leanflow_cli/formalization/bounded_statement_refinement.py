@@ -60,6 +60,7 @@ from leanflow_cli.workflows.verification_providers import (
     resolve_model_verification_provider,
     run_model_verification_review,
 )
+from leanflow_cli.workflows.verification_review import _verification_review_decision
 
 
 class BoundedStatementRefinementError(RuntimeError):
@@ -206,11 +207,7 @@ def review_statement_evidence(
         timeout_s=timeout_s,
         max_tokens=max_tokens,
     )
-    decision = (
-        "PASS"
-        if review.response.lstrip().startswith("PASS")
-        else ("BLOCK" if review.response.lstrip().startswith("BLOCK") else "")
-    )
+    decision = _verification_review_decision({"response": review.response})
     return {
         "status": review.status,
         "review_decision": decision,
@@ -2028,7 +2025,10 @@ def refine_campaign_statement_bounded(
                 infrastructure_failure = True
                 review_feedback.append(review.error or "independent reviewer provider failed")
                 break
-            if review.status == "ok" and review.response.lstrip().startswith("PASS"):
+            if (
+                review.status == "ok"
+                and _verification_review_decision({"response": review.response}) == "PASS"
+            ):
                 final_draft = draft
                 break
             review_feedback.append(review.response[:3000] or review.error[:1000])

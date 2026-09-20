@@ -41,6 +41,16 @@ def test_sdk_timeout_error_names_are_classified_as_timeout():
     assert isolated_auxiliary._worker_error_kind(ReadTimeout("read timed out")) == "timeout"
 
 
+@pytest.mark.parametrize("status_code", [502, 504, 524, "504"])
+def test_gateway_status_codes_are_classified_as_transient(status_code):
+    class GatewayError(Exception):
+        pass
+
+    error = GatewayError(f"HTTP {status_code} gateway timeout")
+    error.status_code = status_code
+    assert isolated_auxiliary._worker_error_kind(error) == "transient_gateway"
+
+
 def test_overrunning_worker_is_killed_at_wall_clock_deadline(tmp_path):
     """An SDK call that ignores its request timeout cannot pin the caller."""
     child_pid_file = tmp_path / "child.pid"

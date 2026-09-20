@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 _TERMINAL_BATCH_STATUSES = {"proofs_completed", "completed", "skipped"}
 _STATEMENT_COMPLETE_STATUSES = _TERMINAL_BATCH_STATUSES | {"statements_completed"}
@@ -832,7 +832,7 @@ def lease_campaign_batches(
         )
         if selected is None:
             break
-        lease = {
+        lease: dict[str, Any] = {
             "worker_id": str(worker_id),
             "stage": stage,
             "leased_at": moment.isoformat(timespec="seconds"),
@@ -844,7 +844,7 @@ def lease_campaign_batches(
             # Persist the budget ceiling with the lease so another supervisor
             # can account for this in-flight action before admitting work.
             lease["reserve_usd"] = max(0.0, float(reserve_usd))
-        selected["lease"] = lease
+        cast(dict[str, Any], selected)["lease"] = lease
         leased.append(dict(selected))
         claimed_ids.add(str(selected.get("id", "") or "").strip())
     return updated, leased
@@ -880,9 +880,7 @@ def record_campaign_outcome(
     updated = {**campaign, "batches": [dict(batch) for batch in campaign.get("batches", []) or []]}
     matched = False
     matching_count = sum(
-        1
-        for batch in updated["batches"]
-        if str(batch.get("id", "") or "") == batch_id
+        1 for batch in updated["batches"] if str(batch.get("id", "") or "") == batch_id
     )
     if matching_count > 1:
         raise ValueError(f"campaign batch id is not unique: {batch_id}")
@@ -963,9 +961,7 @@ def record_campaign_outcome(
                         infrastructure_limit = max(
                             1,
                             int(
-                                attempt.get(
-                                    "max_infrastructure_retries", MAX_ESCALATION_ATTEMPTS
-                                )
+                                attempt.get("max_infrastructure_retries", MAX_ESCALATION_ATTEMPTS)
                                 or MAX_ESCALATION_ATTEMPTS
                             ),
                         )
@@ -985,9 +981,7 @@ def record_campaign_outcome(
                         semantic_limit = max(
                             1,
                             int(
-                                attempt.get(
-                                    "max_semantic_repairs", MAX_ESCALATION_SEMANTIC_REPAIRS
-                                )
+                                attempt.get("max_semantic_repairs", MAX_ESCALATION_SEMANTIC_REPAIRS)
                                 or MAX_ESCALATION_SEMANTIC_REPAIRS
                             ),
                         )

@@ -41,9 +41,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import replace
-from datetime import datetime, timezone, timedelta
-
-UTC = timezone.utc
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 

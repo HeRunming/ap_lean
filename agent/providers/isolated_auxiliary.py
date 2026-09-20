@@ -104,7 +104,7 @@ class IsolatedAuxiliaryUnavailable(RuntimeError):
 
 
 class IsolatedAuxiliaryTransientGateway(IsolatedAuxiliaryError):
-    """Report a retryable HTTP 502/Bad Gateway provider failure."""
+    """Report a retryable HTTP gateway failure (502/504/524)."""
 
 
 @dataclass(frozen=True)
@@ -442,8 +442,16 @@ def _worker_error_kind(exc: Exception) -> str:
     if status_code is None:
         response = getattr(exc, "response", None)
         status_code = getattr(response, "status_code", None)
+    try:
+        status_code = int(status_code) if status_code is not None else None
+    except (TypeError, ValueError):
+        status_code = None
     text = str(exc or "").lower()
-    if status_code == 502 or "bad gateway" in text or ("502" in text and "gateway" in text):
+    gateway_codes = {502, 504, 524}
+    if status_code in gateway_codes or any(
+        f"{code}" in text and ("gateway" in text or "timeout" in text or "origin" in text)
+        for code in gateway_codes
+    ):
         return "transient_gateway"
     # OpenAI/httpx SDK timeout classes (for example APITimeoutError and
     # ReadTimeout) do not consistently inherit Python's TimeoutError. Keep
@@ -493,7 +501,7 @@ def worker_main() -> int:
                     model=str(getattr(response, "model", "") or call_kwargs.get("model") or ""),
                     max_tokens=call_kwargs.get("max_tokens"),
                     reasoning_effort=_resolve_task_reasoning_effort(
-                        str(call_kwargs.get("task") or "") or None
+                        str(call_kwargs.get("task") or "")
                     ),
                     provider=str(call_kwargs.get("provider") or ""),
                     base_url=str(

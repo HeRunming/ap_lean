@@ -1,0 +1,324 @@
+#!/Users/blackbox/m2f/leanflow/.venv/bin/python
+"""Supervise bounded HDP waves with cooldowns and one authorized quota allocation."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import re
+import runpy
+import signal
+import subprocess
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parent
+
+
+_PROVIDER_TRANSIENT_RE = re.compile(
+    r"Error code: (?:500|502|503|504|524)\b|system_cpu_overloaded|"
+    r"get_channel_failed|Proxy Read Timeout|auxiliary call exceeded \d+(?:\.\d+)? seconds",
+    re.IGNORECASE,
+)
+_LEAN_OR_FINALIZATION_RE = re.compile(
+    r"LeanProbe|lean[_ ]probe|lean_probe_wall_clock_timeout|"
+    r"Command interrupted|finalization|exit(?:ed)? code[: ]+124|"
+    r"timed out after (?:120|300|600|900) seconds",
+    re.IGNORECASE,
+)
+
+
+def _attempt_is_retryable_provider(attempt: dict) -> bool:
+    """Accept only an explicitly infrastructure-classified provider timeout."""
+    if str(attempt.get("retry_class", "") or "").lower() != "infrastructure":
+        return False
+    if str(attempt.get("failure_class", "") or "").lower() not in {
+        "infrastructure",
+        "transport",
+        "provider_unavailable",
+    }:
+        return False
+    text = " ".join(
+        str(attempt.get(key, "") or "")
+        for key in ("error", "final_diagnostic", "reason", "failure_stage")
+    )
+    return bool(_PROVIDER_TRANSIENT_RE.search(text)) and not bool(
+        _LEAN_OR_FINALIZATION_RE.search(text)
+    )
+
+
+def continuation(result: dict, *, retries: int, extended: bool) -> str:
+    """Permit only evidenced transient recovery or a local quota reservation rollover."""
+    if not result.get("finished_at") or result.get("active"):
+        return "stop"
+    if result.get("quota", {}).get("halt_reason"):
+        return "stop"
+    if result.get("after", {}).get("leases"):
+        return "stop"
+    if any(item.get("lease_after") for item in result.get("items", [])):
+        return "stop"
+    items = result.get("items", [])
+    # Validate every outcome first. A quota failure must not hide an unsafe
+    # missing receipt from a different worker in the same drained wave.
+    provider_failure = False
+    deferred = False
+    for item in items:
+        kind = item.get("classification")
+        if kind in {"auth", "rate_limit"}:
+            return "stop"
+        attempts = item.get("new_attempts", [])
+        if not attempts:
+            recovery = item.get("receipt_recovery", {})
+            if recovery.get("safe_to_retry") is not True:
+                return "stop"
+            deferred = True
+        elif kind == "infrastructure":
+            if not all(_attempt_is_retryable_provider(a) for a in attempts):
+                return "stop"
+            provider_failure = True
+        elif kind == "quota":
+            if not all(
+                "provider quota budget does not cover the request reservation"
+                in str(a.get("final_diagnostic", ""))
+                for a in attempts
+            ):
+                return "stop"
+    reason = result.get("stop_reason")
+    if reason not in {"quota", "consecutive_infrastructure_failures"}:
+        return "stop"
+    shortfall = any(i.get("classification") == "quota" for i in items) or (
+        result.get("quota", {}).get("remaining_quota", 1) <= 0
+    )
+    if shortfall:
+        return "stop" if extended else "extend"
+    if provider_failure:
+        return "cooldown" if retries < 3 else "stop"
+    return "continue" if deferred else "stop"
+
+
+def supervise(options, scale: dict, *, now=time.time, pause=time.sleep) -> dict:
+    """Run waves until one fixed deadline, retaining holds and stopping on unknown failures."""
+    from agent.accounting.provider_quota_budget import read_quota_budget
+    from core.utils import atomic_json_write
+
+    options.log_dir.mkdir(parents=True, exist_ok=True)
+    stop_file = options.log_dir / "STOP"
+    deadline = now() + options.hours * 3600
+    hashes = scale["source_hashes"]()
+    extended = False
+    retries = 0
+    excluded_batches = set(getattr(options, "defer_batch", ()))
+    budget = options.budget
+    state = {
+        "started_at": datetime.fromtimestamp(now(), UTC).isoformat(),
+        "deadline_utc": datetime.fromtimestamp(deadline, UTC).isoformat(),
+        "workers": 4,
+        "stage": "mixed",
+        "waves": [],
+        "status": "starting",
+        "cooldowns_used": 0,
+        "extension_activated": False,
+        "remote_warmup": [],
+        "deferred_batches": sorted(excluded_batches),
+    }
+
+    def save():
+        atomic_json_write(options.log_dir / "status.json", state)
+
+    def stop_signal(_signum, _frame):
+        stop_file.touch()
+
+    previous = {sig: signal.signal(sig, stop_signal) for sig in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        while now() < deadline and not stop_file.exists():
+            if scale["source_hashes"]() != hashes:
+                state["status"] = "source_changed"
+                break
+            warmup = scale.get("remote_warmup_check")
+            if warmup is not None:
+                try:
+                    health = dict(warmup())
+                except (
+                    OSError,
+                    RuntimeError,
+                    TimeoutError,
+                    ValueError,
+                    subprocess.SubprocessError,
+                ) as exc:
+                    state["status"] = "remote_warmup_failed"
+                    state["remote_warmup"].append(
+                        {"available": False, "error": f"{type(exc).__name__}: {exc}"}
+                    )
+                    save()
+                    break
+                state["remote_warmup"].append(health)
+                if not health.get("available") or health.get("ready_for_checks") is False:
+                    state["status"] = "remote_warmup_failed"
+                    save()
+                    break
+            if now() >= deadline or stop_file.exists():
+                break
+            quota = read_quota_budget(budget)
+            if quota.get("halt_reason"):
+                state["status"] = "quota_halted"
+                break
+            state.update(status="running", quota_budget=str(budget))
+            save()
+            wave = SimpleNamespace(
+                project=ROOT / "fate-x-work",
+                campaign=ROOT / "fate-x-work/HDP/Environments/campaign.json",
+                workers=4,
+                stage="mixed",
+                max_items=1035,
+                max_wall=(deadline - now()) / 60,
+                quota_limit=quota["limit_quota"],
+                quota_budget=budget,
+                quote=options.quote,
+                ignore_unknown_holds=False,
+                no_infrastructure_fuse=False,
+                excluded_batches=tuple(sorted(excluded_batches)),
+                supervisor_stop_file=stop_file,
+            )
+            minimum = scale.get("minimum_request_quota")
+            if minimum is not None and quota.get("remaining_quota", 0) < minimum(options.quote):
+                result = {
+                    "finished_at": datetime.fromtimestamp(now(), UTC).isoformat(),
+                    "active": {},
+                    "stop_reason": "quota",
+                    "quota": quota,
+                    "items": [
+                        {
+                            "classification": "quota",
+                            "new_attempts": [
+                                {
+                                    "final_diagnostic": "provider quota budget does not cover the request reservation"
+                                }
+                            ],
+                        }
+                    ],
+                }
+            else:
+                result = scale["execute"](wave)
+            state["waves"].append(
+                {
+                    k: result.get(k)
+                    for k in (
+                        "started_at",
+                        "finished_at",
+                        "stop_reason",
+                        "before",
+                        "after",
+                        "quota",
+                    )
+                }
+            )
+            for item in result.get("items", []):
+                if item.get("receipt_recovery", {}).get("safe_to_retry") is True:
+                    excluded_batches.add(item["batch_id"])
+            state["deferred_batches"] = sorted(excluded_batches)
+            action = continuation(result, retries=retries, extended=extended)
+            state["status"] = str(result.get("stop_reason", "stopped"))
+            if any(
+                isinstance(item.get("receipt_recovery"), dict)
+                and item["receipt_recovery"].get("manual_reconciliation_required")
+                for item in result.get("items", [])
+            ):
+                state["status"] = "manual_reconciliation_required"
+                state["reconciliation_items"] = [
+                    item.get("batch_id")
+                    for item in result.get("items", [])
+                    if isinstance(item.get("receipt_recovery"), dict)
+                    and item["receipt_recovery"].get("manual_reconciliation_required")
+                ]
+            save()
+            if now() >= deadline or stop_file.exists() or action == "stop":
+                break
+            if scale["source_hashes"]() != hashes:
+                state["status"] = "source_changed"
+                break
+            if action == "continue":
+                continue
+            if action == "extend":
+                _, metadata = scale["verified_quote_snapshot"](options.quote)
+                scale["create_isolated_operator_budget"](
+                    budget,
+                    options.extension_budget,
+                    limit_quota=10_000_000,
+                    authorization_ref="user-20260918-long-run-10000000-quota",
+                    authorized_at=options.authorized_at,
+                    quote_metadata=metadata,
+                )
+                budget = options.extension_budget
+                extended = True
+                state["extension_activated"] = True
+                save()
+                continue
+            delay = 300 * 2**retries
+            retries += 1
+            resume_at = min(deadline, now() + delay)
+            state.update(
+                status="provider_cooldown",
+                cooldowns_used=retries,
+                resume_at_utc=datetime.fromtimestamp(resume_at, UTC).isoformat(),
+            )
+            save()
+            while now() < resume_at and not stop_file.exists():
+                pause(min(15, resume_at - now()))
+        if stop_file.exists():
+            state["status"] = "stop_file"
+        elif now() >= deadline:
+            state["status"] = "wall_limit"
+    except Exception as exc:
+        state["status"] = f"supervisor_error: {type(exc).__name__}"
+        raise
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        state["finished_at"] = datetime.fromtimestamp(now(), UTC).isoformat()
+        save()
+    return state
+
+
+def main() -> None:
+    """Hold one outer supervisor lock across cooldowns and all child waves."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--hours", type=float, default=8)
+    parser.add_argument("--budget", type=Path, required=True)
+    parser.add_argument("--extension-budget", type=Path, required=True)
+    parser.add_argument("--quote", type=Path, required=True)
+    parser.add_argument("--log-dir", type=Path, required=True)
+    parser.add_argument("--authorized-at", required=True)
+    parser.add_argument(
+        "--defer-batch",
+        action="append",
+        default=[],
+        help="leave an audited difficult item for a later run",
+    )
+    options = parser.parse_args()
+    if not 0 < options.hours <= 8:
+        parser.error("duration must be positive and at most eight hours")
+    if options.extension_budget.exists():
+        parser.error("extension ledger already exists; never silently reuse an allocation")
+    scale = runpy.run_path(str(ROOT / "hdp-scale"))
+
+    def remote_warmup_check() -> dict:
+        """Run one bounded import health check on the authoritative Lean host."""
+        from leanflow_cli.formalization.remote_warm_probe import RemoteWarmProbe
+
+        service = RemoteWarmProbe(ROOT / "fate-x-work", warmup_workers=1)
+        try:
+            return dict(service.start())
+        finally:
+            service.close(force=True)
+
+    scale["remote_warmup_check"] = remote_warmup_check
+    with (ROOT / "fate-x-work/.leanflow/long-controller.lock").open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        print(json.dumps(supervise(options, scale), ensure_ascii=False), flush=True)
+
+
+if __name__ == "__main__":
+    main()

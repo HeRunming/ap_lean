@@ -13,9 +13,7 @@ import json
 import os
 import re
 from collections.abc import Mapping
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

@@ -12,6 +12,7 @@ import pytest
 from agent.accounting.provider_quota import ProviderQuotaError
 from agent.accounting.provider_quota_budget import (
     BUDGET_PATH_ENV,
+    IGNORE_UNKNOWN_HOLDS_ENV,
     QUOTE_PATH_ENV,
     ProviderQuotaBudgetExceeded,
     initialize_quota_budget,
@@ -105,6 +106,45 @@ def test_unknown_calls_keep_entire_hold_and_block_more_work(quota_env, status, p
     assert after["remaining_quota"] == before["remaining_quota"]
     with pytest.raises(ProviderQuotaBudgetExceeded):
         reserve(quota_env)
+
+
+def test_success_only_mode_excludes_unknown_holds_but_preserves_evidence(quota_env):
+    path = quota_env[BUDGET_PATH_ENV]
+    initialize_quota_budget(path, limit_quota=1000)
+    reservation = reserve(quota_env)
+    reservation.settle(prompt_tokens=49, completion_tokens=5, status="timeout")
+    conservative = read_quota_budget(path)
+    assert conservative["unknown_hold_quota"] == conservative["held_quota"] > 0
+    assert conservative["quota_accounting_mode"] == "conservative"
+    success_only_env = {**quota_env, IGNORE_UNKNOWN_HOLDS_ENV: "1"}
+    admitted = reserve(success_only_env)
+    assert admitted is not None
+    state = read_quota_budget(path, ignore_unknown_holds=True)
+    assert state["unknown_hold_quota"] == conservative["unknown_hold_quota"]
+    assert state["effective_held_quota"] == state["held_quota"] - state["unknown_hold_quota"]
+    assert state["quota_accounting_mode"] == "success_only"
+
+
+def test_success_only_parallel_reservations_do_not_oversubscribe(quota_env):
+    path = quota_env[BUDGET_PATH_ENV]
+    initialize_quota_budget(path, limit_quota=1000)
+    first = reserve(quota_env)
+    first.settle(prompt_tokens=49, completion_tokens=5, status="timeout")
+    success_only = {**quota_env, IGNORE_UNKNOWN_HOLDS_ENV: "1"}
+
+    def attempt(_index):
+        try:
+            return reserve(success_only)
+        except ProviderQuotaBudgetExceeded:
+            return None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        reservations = list(pool.map(attempt, range(8)))
+    state = read_quota_budget(path, ignore_unknown_holds=True)
+    assert sum(item is not None for item in reservations) > 0
+    assert state["effective_held_quota"] <= state["limit_quota"]
+    assert state["unknown_hold_quota"] > 0
+    assert state["quota_accounting_mode"] == "success_only"
 
 
 def test_atomic_parallel_reservations_do_not_oversubscribe(quota_env):

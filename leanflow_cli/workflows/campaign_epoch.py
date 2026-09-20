@@ -8,9 +8,7 @@ import time
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from typing import Any
 
 from core.provider_availability import normalize_provider_retry_after
@@ -1511,7 +1509,7 @@ def record_route_decision(
         route_record["target"] = normalized_target
     if semantic_identity.proof_shapes:
         route_record["semantic_proof_shapes"] = list(semantic_identity.proof_shapes)
-    semantic_record = {
+    semantic_record: dict[str, Any] = {
         key: route_record[key]
         for key in (
             "route",

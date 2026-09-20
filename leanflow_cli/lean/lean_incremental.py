@@ -988,8 +988,7 @@ def compact_check_payload(
         and payload.get("has_errors") is False
         and payload.get("has_sorry") is False
         and payload.get("timed_out") is not True
-        and str(payload.get("backend", "") or "").strip()
-        not in {"", "deterministic_preflight"}
+        and str(payload.get("backend", "") or "").strip() not in {"", "deterministic_preflight"}
     )
     projected["verification_status"] = "verified" if verified else "not_verified"
 
@@ -1768,9 +1767,7 @@ def lean_incremental_check(
         dispatch_worker_enabled() or include_axiom_profile
     )
     profiled_target_check = (
-        leanflow_action == "check_target"
-        and bool(replacement.strip())
-        and include_axiom_profile
+        leanflow_action == "check_target" and bool(replacement.strip()) and include_axiom_profile
     )
     (
         effective_timeout_s,

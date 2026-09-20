@@ -17,6 +17,8 @@ __pycache__/
 /testlogs/
 
 # LeanFlow runtime state and local campaigns
+/.leanflow-home/
+/fate-x-work/
 .leanflow/
 .lake/
 .artifacts/

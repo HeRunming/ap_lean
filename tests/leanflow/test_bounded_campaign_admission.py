@@ -17,9 +17,7 @@ from leanflow_cli.workflows.verification_providers import VerificationReviewResu
 
 def _campaign(root: Path) -> Path:
     (root / "source.json").write_text(
-        json.dumps(
-            [{"label": "1.1", "question": "For all natural numbers n, n + 0 = n."}]
-        )
+        json.dumps([{"label": "1.1", "question": "For all natural numbers n, n + 0 = n."}])
     )
     path = root / "campaign.json"
     path.write_text(
@@ -59,9 +57,7 @@ def _review(response: str) -> VerificationReviewResult:
     )
 
 
-def test_executor_forwards_worker_environment_without_mutating_process(
-    tmp_path, monkeypatch
-):
+def test_executor_forwards_worker_environment_without_mutating_process(tmp_path, monkeypatch):
     path = _campaign(tmp_path)
     observed = {}
 
@@ -116,9 +112,7 @@ def test_bounded_compile_gate_and_lease_owner(tmp_path, monkeypatch, warm, recla
         finally:
             held -= 1
 
-    monkeypatch.setattr(
-        bounded, "acquire_project_lean_capacity", acquire, raising=False
-    )
+    monkeypatch.setattr(bounded, "acquire_project_lean_capacity", acquire, raising=False)
 
     def compile_candidate(*args, **kwargs):
         assert held == 1
@@ -198,9 +192,7 @@ def test_bounded_compile_gate_and_lease_owner(tmp_path, monkeypatch, warm, recla
 @pytest.mark.parametrize("stage", [None, "statements"])
 def test_escalation_cannot_raise_explicit_wave_budget(tmp_path, monkeypatch, stage):
     path = _campaign(tmp_path)
-    monkeypatch.setattr(
-        runner, "_campaign_has_escalation_pending", lambda campaign: True
-    )
+    monkeypatch.setattr(runner, "_campaign_has_escalation_pending", lambda campaign: True)
     claims = []
 
     def lease(*args, **kwargs):
@@ -221,13 +213,9 @@ def test_escalation_cannot_raise_explicit_wave_budget(tmp_path, monkeypatch, sta
     assert claims == [], "insufficient wave budget must fail before reserving work"
 
 
-def test_escalation_wave_with_sufficient_budget_keeps_aggregate_reservations(
-    tmp_path, monkeypatch
-):
+def test_escalation_wave_with_sufficient_budget_keeps_aggregate_reservations(tmp_path, monkeypatch):
     path = _campaign(tmp_path)
-    monkeypatch.setattr(
-        runner, "_campaign_has_escalation_pending", lambda campaign: True
-    )
+    monkeypatch.setattr(runner, "_campaign_has_escalation_pending", lambda campaign: True)
     claims = []
 
     def lease(*args, **kwargs):
@@ -284,9 +272,7 @@ def test_quota_guard_refuses_before_any_model_request(tmp_path, monkeypatch, cau
     assert len(observed) == (1 if cause == "budget" else 0)
 
 
-def test_every_bounded_role_reserves_and_settles_before_next_call(
-    tmp_path, monkeypatch
-):
+def test_every_bounded_role_reserves_and_settles_before_next_call(tmp_path, monkeypatch):
     from dataclasses import replace
 
     path = _campaign(tmp_path)
@@ -357,7 +343,7 @@ def test_every_bounded_role_reserves_and_settles_before_next_call(
         model_call=model,
     )
     assert result["success"] is True
-    assert [r["max_output_tokens"] for r in reserved] == [512, 5000, 5000, 2500]
+    assert [r["max_output_tokens"] for r in reserved] == [256, 5000, 5000, 2500]
     assert len(settled) == 4
     assert settled[1]["status"] == "unavailable"
     assert len(result["provider_quota_receipts"]) == 4

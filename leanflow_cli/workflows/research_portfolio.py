@@ -9,9 +9,7 @@ import os
 import re
 import threading
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import datetime, timezone, timedelta
-
-UTC = timezone.utc
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 

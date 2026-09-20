@@ -113,14 +113,17 @@ def test_model_review_forwards_explicit_model_without_process_env_mutation(monke
     assert result.model == "MathForm-8B"
 
 
-def test_model_review_retries_502_with_distinct_payload_and_requested_model(monkeypatch):
+@pytest.mark.parametrize("status_code", [502, 504, 524])
+def test_model_review_retries_gateway_with_distinct_payload_and_requested_model(
+    monkeypatch, status_code
+):
     prompts: list[str] = []
     events: list[str] = []
 
     def fake_call(**kwargs):
         prompts.append(kwargs["messages"][-1]["content"])
         if len(prompts) == 1:
-            raise IsolatedAuxiliaryTransientGateway("HTTP 502 Bad Gateway")
+            raise IsolatedAuxiliaryTransientGateway(f"HTTP {status_code} gateway timeout")
         return AuxiliaryTextResponse(content="PASS", model="gpt-5.6-terra")
 
     monkeypatch.setenv("LEANFLOW_AUXILIARY_RETRY_BACKOFFS", "0")

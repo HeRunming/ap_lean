@@ -1,5 +1,5 @@
 #!/Users/blackbox/m2f/leanflow/.venv/bin/python
-"""Run a finite HDP statement campaign with shared quota and remote Lean admission."""
+"""Run finite HDP statement and proof campaigns with shared quota admission."""
 
 from __future__ import annotations
 
@@ -18,13 +18,27 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 WORKSPACE = Path("/Users/blackbox/m2f")
-SOURCE = WORKSPACE / "leanflow"
+SOURCE = (
+    Path(__file__).resolve().parent
+    if (Path(__file__).resolve().parent / "leanflow_cli").is_dir()
+    else WORKSPACE / "leanflow"
+)
 PROJECT = WORKSPACE / "fate-x-work"
 LAUNCHER = WORKSPACE / "hdp-run"
 CANONICAL_QUOTA_QUOTE = (
     WORKSPACE / ".leanflow-home/logs/zcloud-pricing-20260909T091106Z/quota-quote.json"
 )
 MIN_PROVIDER_ALLOWANCE_TOKENS = 16_384
+NO_INFRASTRUCTURE_FUSE_ENV = "HDP_SCALE_NO_INFRASTRUCTURE_FUSE"
+IGNORE_UNKNOWN_HOLDS_ENV = "LEANFLOW_PROVIDER_QUOTA_IGNORE_UNKNOWN_HOLDS"
+INFRASTRUCTURE_FUSE_THRESHOLD = 2
+PER_REQUEST_TIMEOUT_SECONDS = 600
+# A proof action must operate on a real generated declaration.  In particular,
+# an ``import Mathlib`` scaffold is not evidence that a statement was accepted.
+_LEAN_DECLARATION_RE = re.compile(
+    r"(?m)^\s*(?:(?:noncomputable|private|protected|unsafe)\s+)*" r"(?:theorem|lemma|example)\b"
+)
+_LEAN_PLACEHOLDER_RE = re.compile(r"\b(?:sorry|admit)\b")
 sys.path.insert(0, str(SOURCE))
 
 from core.utils import atomic_json_write
@@ -41,10 +55,48 @@ from leanflow_cli.formalization.corpus_campaign_runner import (
     _record_campaign_interruption,
     reconcile_campaign_targets,
 )
+from leanflow_cli.formalization.project_reachability import project_target_reachability
+from leanflow_cli.lean.lean_parsing import _strip_lean_comments_and_strings
 
 
 def utc() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _truthy_env(value: str) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def key_pool_metadata(env: dict[str, str] | None = None) -> dict[str, object]:
+    """Return credential-pool cardinality and fingerprints without exposing keys."""
+    values = dict(env or os.environ)
+    if not str(values.get("M2F_CODEX_API_KEYS", "") or "").strip():
+        try:
+            from leanflow_cli.config import load_env_file
+
+            values.update(load_env_file())
+        except (OSError, ValueError):
+            pass
+    raw = str(values.get("M2F_CODEX_API_KEYS", "") or "")
+    keys = [item.strip() for item in raw.split(",") if item.strip()]
+    fingerprints = sorted({hashlib.sha256(item.encode()).hexdigest() for item in keys})
+    return {
+        "key_pool_size": len(keys),
+        "key_fingerprint_count": len(fingerprints),
+        "key_fingerprints": fingerprints,
+    }
+
+
+def no_infrastructure_fuse_setting(cli_enabled: bool) -> tuple[bool, str]:
+    """Resolve the temporary fuse bypass and retain its explicit origin."""
+    env_enabled = _truthy_env(os.environ.get(NO_INFRASTRUCTURE_FUSE_ENV, ""))
+    if cli_enabled and env_enabled:
+        return True, "cli+env"
+    if cli_enabled:
+        return True, "cli"
+    if env_enabled:
+        return True, "env"
+    return False, "default"
 
 
 def digest(data: bytes) -> str:
@@ -55,16 +107,73 @@ def load(path: Path) -> dict:
     return json.loads(path.read_bytes())
 
 
+def inspect_proof_target(
+    project: Path,
+    target_file: str,
+    *,
+    root_reachability: dict | None = None,
+    allow_proof_retry: bool = False,
+) -> dict[str, object]:
+    """Classify a generated Lean target before admitting a paid proof action.
+
+    Existence alone is insufficient: old campaigns left tiny ``import Mathlib``
+    scaffolds and stale proof receipts behind.  A candidate must contain an
+    actual declaration, a proof placeholder (or an explicit failed proof retry),
+    and be reachable from the public project root.  This check is deliberately
+    textual; remote Lean remains the authority for proving the resulting file.
+    """
+    root = project.expanduser().resolve()
+    target = (root / str(target_file or "")).resolve()
+    result: dict[str, object] = {
+        "target_file": str(target_file or ""),
+        "target_exists": False,
+        "has_declaration": False,
+        "has_placeholder": False,
+        "explicit_proof_retry": bool(allow_proof_retry),
+        "only_import_shell": False,
+        "root_reachable": None,
+        "eligible": False,
+        "reason": "missing_target",
+    }
+    if not target.is_relative_to(root):
+        result["reason"] = "invalid_target_path"
+        return result
+    if not target.is_file() or target.suffix.lower() != ".lean":
+        return result
+    result["target_exists"] = True
+    try:
+        source = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        result["reason"] = "unreadable_target"
+        return result
+    sanitized = _strip_lean_comments_and_strings(source)
+    has_declaration = bool(_LEAN_DECLARATION_RE.search(sanitized))
+    has_placeholder = bool(_LEAN_PLACEHOLDER_RE.search(sanitized))
+    result["has_declaration"] = has_declaration
+    result["has_placeholder"] = has_placeholder
+    result["only_import_shell"] = not has_declaration
+    reachability = root_reachability or project_target_reachability(project, target_file)
+    result["root_reachable"] = reachability.get("root_reachable")
+    root_reachable = reachability.get("root_reachable") is True
+    if not has_declaration:
+        result["reason"] = "empty_import_shell"
+    elif not has_placeholder and not allow_proof_retry:
+        result["reason"] = "no_proof_placeholder"
+    elif not root_reachable:
+        result["reason"] = "root_unreachable"
+    else:
+        result["eligible"] = True
+        result["reason"] = "eligible"
+    return result
+
+
 def summary(campaign: dict) -> dict:
     """Separate accepted statements, integration receipts, and completed proofs."""
     batches = campaign.get("batches", [])
     return {
         "batches": len(batches),
         "statement_accepted": sum(
-            any(
-                a.get("stage") == "statements" and a.get("success")
-                for a in b.get("attempts", [])
-            )
+            any(a.get("stage") == "statements" and a.get("success") for a in b.get("attempts", []))
             for b in batches
         ),
         "root_integrated_statements": sum(
@@ -86,71 +195,154 @@ def summary(campaign: dict) -> dict:
 
 
 def preview(
-    campaign_path: Path, project: Path, excluded: set[str], limit: int
+    campaign_path: Path,
+    project: Path,
+    excluded: set[str],
+    limit: int,
+    *,
+    stage: str = "statements",
+    active_stages: tuple[str, ...] = (),
 ) -> list[dict]:
     """Use pure rebuild, reconciliation, and exact lease previews without ledger writes."""
+    if stage == "mixed":
+        selected = []
+        occupied = list(active_stages)
+        used = set(excluded)
+        pools = {
+            lane: preview(campaign_path, project, used, limit, stage=lane)
+            for lane in ("proofs", "statements")
+        }
+        while len(selected) < limit:
+            lanes = sorted(pools, key=lambda lane: occupied.count(lane))
+            for lane in lanes:
+                pools[lane] = [row for row in pools[lane] if row["batch_id"] not in used]
+                if pools[lane]:
+                    item = pools[lane].pop(0)
+                    selected.append(item)
+                    occupied.append(lane)
+                    used.add(item["batch_id"])
+                    break
+            else:
+                break
+        return selected
     current = load(campaign_path)
     manifest = campaign_path.with_name("book-manifest.json")
-    current = (
-        build_campaign(load(manifest), existing=current)
-        if manifest.is_file()
-        else current
-    )
+    current = build_campaign(load(manifest), existing=current) if manifest.is_file() else current
     current, _ = reconcile_campaign_targets(current, project_root=project)
     packets = {}
     candidates = []
+    eligible_statuses = (
+        {"pending", "statement_retry"}
+        if stage == "statements"
+        else {"statements_completed", "proof_retry"}
+    )
     for batch in current["batches"]:
         if batch["id"] in excluded or statement_escalation_pending(batch):
             continue
-        if batch.get("agent_status", batch.get("status")) not in {
-            "pending",
-            "statement_retry",
-        }:
+        if batch.get("agent_status", batch.get("status")) not in eligible_statuses:
             continue
+        target_file = ""
+        target_check = {}
+        if stage == "proofs":
+            proof_retry_semantics = batch.get(
+                "agent_status", batch.get("status")
+            ) == "proof_retry" and any(
+                isinstance(attempt, dict)
+                and attempt.get("stage") == "proofs"
+                and attempt.get("success") is False
+                and not attempt.get("reconciled_stale")
+                for attempt in batch.get("attempts", [])
+            )
+            target_file = str(
+                dict(batch.get("last_outcome", {}) or {}).get("target_file", "") or ""
+            ).strip()
+            if not target_file:
+                continue
+            target = (project / target_file).resolve()
+            if not target.is_relative_to(project) or not target.is_file():
+                continue
+            # Reject empty scaffolds and completed files before the relatively
+            # expensive project-wide import-closure scan.
+            target_check = inspect_proof_target(
+                project,
+                target_file,
+                root_reachability={"root_reachable": None},
+                allow_proof_retry=proof_retry_semantics,
+            )
+            if not target_check["has_declaration"] or (
+                not target_check["has_placeholder"] and not proof_retry_semantics
+            ):
+                continue
+            reachability = project_target_reachability(project, target_file)
+            target_check = inspect_proof_target(
+                project,
+                target_file,
+                root_reachability=reachability,
+                allow_proof_retry=proof_retry_semantics,
+            )
+            if not target_check["eligible"]:
+                continue
+        else:
+            reachability = {}
         labels = batch.get("labels", [])
         if len(labels) != 1:
             continue
-        path = (
-            project / (batch.get("source_file") or current.get("source", ""))
-        ).resolve()
-        if (
-            not path.is_relative_to(project)
-            or not path.is_file()
-            or path.suffix != ".json"
-        ):
-            continue
-        if path not in packets:
-            data = load(path)
-            rows = data.get("questions", []) if isinstance(data, dict) else data
-            if not isinstance(rows, list):
+        item = {}
+        path = project
+        if stage == "statements":
+            path = (project / (batch.get("source_file") or current.get("source", ""))).resolve()
+            if not path.is_relative_to(project) or not path.is_file() or path.suffix != ".json":
                 continue
-            indexed = {}
-            for row in rows:
-                if isinstance(row, dict):
-                    indexed.setdefault(str(row.get("label", "")), []).append(row)
-            packets[path] = (indexed, digest(path.read_bytes()))
-        matches = packets[path][0].get(str(labels[0]), [])
-        if len(matches) != 1:
-            continue
-        item = matches[0]
-        statement = str(item.get("question", item.get("statement", "")) or "").strip()
-        if not statement or statement_scope_preflight(
-            statement, kind=str(item.get("kind", ""))
-        ):
-            continue
-        attempts = [
-            a for a in batch.get("attempts", []) if a.get("stage") == "statements"
-        ]
+            if path not in packets:
+                data = load(path)
+                rows = data.get("questions", []) if isinstance(data, dict) else data
+                if not isinstance(rows, list):
+                    continue
+                indexed = {}
+                for row in rows:
+                    if isinstance(row, dict):
+                        indexed.setdefault(str(row.get("label", "")), []).append(row)
+                packets[path] = (indexed, digest(path.read_bytes()))
+            matches = packets[path][0].get(str(labels[0]), [])
+            if len(matches) != 1:
+                continue
+            item = matches[0]
+            statement = str(item.get("question", item.get("statement", "")) or "").strip()
+            if not statement or statement_scope_preflight(
+                statement, kind=str(item.get("kind", ""))
+            ):
+                continue
+        else:
+            statement = target_file
+        attempts = [a for a in batch.get("attempts", []) if a.get("stage") == "statements"]
         candidates.append(
-            (len(attempts), len(statement), batch["id"], path, statement, batch)
+            (
+                len(attempts),
+                len(statement),
+                batch["id"],
+                path,
+                statement,
+                batch,
+                target_file,
+                reachability,
+                target_check,
+            )
         )
     selected = []
-    for _, _, batch_id, path, statement, batch in sorted(
-        candidates, key=lambda value: value[:3]
-    ):
+    for (
+        _,
+        _,
+        batch_id,
+        path,
+        statement,
+        batch,
+        target_file,
+        reachability,
+        target_check,
+    ) in sorted(candidates, key=lambda value: value[:3]):
         proposed, leased = lease_campaign_batches(
             current,
-            stage="statements",
+            stage=stage,
             worker_ids=[f"preview-{len(selected)}"],
             batch_id=batch_id,
         )
@@ -161,12 +353,16 @@ def preview(
             {
                 "batch_id": batch_id,
                 "source_file": str(path.relative_to(project)),
-                "source_sha256": packets[path][1],
+                "source_sha256": packets[path][1] if stage == "statements" else "",
                 "statement_sha256": digest(statement.encode()),
                 "statement_preview": statement[:240],
                 "complexity": batch.get("source_complexity_tier", "routine"),
                 "attempts_before": len(batch.get("attempts", [])),
                 "dependencies": batch.get("dependency_labels", []),
+                "stage": stage,
+                "target_file": target_file,
+                "root_reachability": reachability,
+                **({"target_check": target_check} if stage == "proofs" else {}),
             }
         )
         if len(selected) >= limit:
@@ -174,28 +370,34 @@ def preview(
     return selected
 
 
-def command(campaign: Path, batch_id: str) -> list[str]:
-    return [
+def command(campaign: Path, batch_id: str, *, stage: str = "statements") -> list[str]:
+    base = [
         str(LAUNCHER),
         "--campaign",
         str(campaign),
         "--execute",
         "--stage",
-        "statements",
-        "--bounded-statements",
+        stage,
         "--batch-id",
         batch_id,
         "--workers",
         "1",
         "--lean-slots",
-        "2",
+        "1",
         "--reserve-usd",
         "2",
-        "--statement-candidates",
-        "1",
-        "--statement-candidate-workers",
-        "1",
     ]
+    if stage == "statements":
+        base.extend(
+            (
+                "--bounded-statements",
+                "--statement-candidates",
+                "1",
+                "--statement-candidate-workers",
+                "1",
+            )
+        )
+    return base
 
 
 def failure_kind(attempts: list[dict], exit_code: int) -> str:
@@ -214,20 +416,18 @@ def failure_kind(attempts: list[dict], exit_code: int) -> str:
         )
     ).lower()
     if re.search(
-        r"\b(401|403)\b|invalid.api.key|authentication|unauthorized|forbidden", fields
+        r"\b(401|403)\b|invalid.api.key|authentication|unauthorized|access denied",
+        fields,
     ):
         return "auth"
-    if re.search(
-        r"quota|insufficient.credit|余额不足|额度不足|insufficient.balance", fields
-    ):
+    if re.search(r"quota|insufficient.credit|余额不足|额度不足|insufficient.balance", fields):
         return "quota"
     if re.search(r"\b429\b|rate.?limit|too.many.requests", fields):
         return "rate_limit"
     if any(
         a.get("infrastructure_failure")
         or a.get("retry_class") == "infrastructure"
-        or a.get("failure_class")
-        in {"infrastructure", "transport", "provider_unavailable"}
+        or a.get("failure_class") in {"infrastructure", "transport", "provider_unavailable"}
         for a in attempts
     ):
         return "infrastructure"
@@ -236,8 +436,7 @@ def failure_kind(attempts: list[dict], exit_code: int) -> str:
     if any(
         a.get("review_decision") == "BLOCK"
         or a.get("retry_class") == "semantic"
-        or a.get("failure_class")
-        in {"semantic_review_block", "statement_generation_incomplete"}
+        or a.get("failure_class") in {"semantic_review_block", "statement_generation_incomplete"}
         or a.get("failure_stage")
         in {"semantic_review", "semantic_contract", "lean_compilation", "format_check"}
         for a in attempts
@@ -247,28 +446,166 @@ def failure_kind(attempts: list[dict], exit_code: int) -> str:
 
 
 def item_receipts(item: dict, batch: dict) -> list[dict]:
-    """Match a fresh statement receipt to this child's emitted worker identity."""
+    """Match fresh receipts to this child's emitted worker identity and stage."""
     text = Path(item["log"]).read_text(errors="replace")[-2_000_000:]
     decoder = json.JSONDecoder()
     owner = ""
+    stage = str(item.get("stage", "statements") or "statements")
     for start in re.finditer(r"(?m)^\{", text):
         try:
             payload, _ = decoder.raw_decode(text[start.start() :])
         except ValueError:
             continue
-        if (
-            payload.get("batch_id") == item["batch_id"]
-            and payload.get("stage") == "statements"
-        ):
-            owner = str(payload.get("outcome", {}).get("worker_id", "") or "")
+        if payload.get("batch_id") == item["batch_id"] and payload.get("stage") == stage:
+            candidate = str(
+                payload.get("worker_id") or payload.get("outcome", {}).get("worker_id", "") or ""
+            )
+            if candidate:
+                owner = candidate
+                item["child_result"] = {
+                    k: payload.get(k)
+                    for k in ("batch_id", "stage", "worker_id", "exit_code", "success")
+                }
     if not owner:
         return []
     item["worker_id"] = owner
     return [
         a
         for a in batch.get("attempts", [])[item["attempts_before"] :]
-        if a.get("worker_id") == owner and a.get("stage") == "statements"
+        if a.get("worker_id") == owner and a.get("stage") == stage
     ]
+
+
+def _file_digest(path: str | Path) -> str | None:
+    """Return a file digest for recovery reconciliation, or ``None`` if absent."""
+    candidate = Path(path)
+    try:
+        if not candidate.is_file():
+            return None
+        return digest(candidate.read_bytes())
+    except (OSError, ValueError):
+        return None
+
+
+def recovery_snapshot(target_path: str) -> dict | None:
+    """Hash the assigned Lean directory; unreadable or absent targets cannot recover."""
+    target = Path(target_path)
+    if not target_path or not target.is_file():
+        return None
+    try:
+        return {str(p): digest(p.read_bytes()) for p in sorted(target.parent.rglob("*.lean"))}
+    except OSError:
+        return None
+
+
+def recovery_runtime_idle(*, run=subprocess.run) -> dict:
+    """Check both hosts after draining; uncertainty never authorizes a restart."""
+    try:
+        local = run(
+            ["ps", "-axo", "pid=,command="],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        ).stdout
+        local_busy = any(
+            marker in line
+            for line in local.splitlines()
+            for marker in (
+                "-m leanflow_cli.",
+                "-m agent.providers.isolated_auxiliary",
+                "lean-probe-service.py",
+                "leanflow/remote-bin/lake",
+            )
+        )
+        remote = run(
+            [
+                "ssh",
+                "-p",
+                "49322",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=10",
+                "hrm@140.143.244.199",
+                "ps -u hrm -o pid=,comm=",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=20,
+        ).stdout
+        remote_busy = any(
+            line.split()[-1] in {"lean", "lake", "repl", "python", "python3", "rsync"}
+            for line in remote.splitlines()
+            if line.split()
+        )
+        return {
+            "checked": True,
+            "local_idle": not local_busy,
+            "remote_idle": not remote_busy,
+        }
+    except (OSError, subprocess.SubprocessError):
+        return {"checked": False, "local_idle": False, "remote_idle": False}
+
+
+def _missing_receipt_recovery(item: dict, batch: dict, exit_code: int) -> dict:
+    """Defer an exhausted proof only with positive source, ledger and runtime evidence.
+
+    Console rollback messages alone carry no authority. No success receipt is
+    synthesized and the failed item is excluded for the rest of this run.
+    """
+    result = item.get("child_result", {})
+    runtime = item.get("recovery_runtime", {})
+    before = item.get("recovery_source_before")
+    after = recovery_snapshot(str(item.get("target_path", "")))
+    attempts = batch.get("attempts", [])
+    ledger_unchanged = item.get("attempts_before_sha256") == digest(
+        json.dumps(attempts, sort_keys=True).encode()
+    )
+    target_unchanged = bool(before and before == after)
+    child_timeout = (
+        item.get("stage") == "proofs"
+        and result.get("stage") == "proofs"
+        and result.get("batch_id") == item.get("batch_id")
+        and bool(item.get("worker_id"))
+        and result.get("worker_id") == item.get("worker_id")
+        and result.get("exit_code") == 124
+        and result.get("success") is False
+    )
+    idle = all(runtime.get(k) is True for k in ("checked", "local_idle", "remote_idle"))
+    safe = bool(
+        child_timeout
+        and exit_code == 1
+        and not batch.get("lease")
+        and ledger_unchanged
+        and target_unchanged
+        and idle
+    )
+    return {
+        "kind": "action_timeout" if child_timeout else "unknown_missing_receipt",
+        "lease_released": not bool(batch.get("lease")),
+        "target_unchanged": target_unchanged,
+        "attempts_unchanged": ledger_unchanged,
+        "runtime": runtime,
+        "safe_to_retry": safe,
+        "disposition": "defer_for_this_run" if safe else "manual_reconciliation",
+        "manual_reconciliation_required": not safe,
+    }
+
+
+def reconcile_missing_receipts(state: dict, campaign: Path, *, check=None) -> None:
+    """Recheck missing outcomes after all workers drain, before any quota rollover."""
+    missing = [i for i in state["items"] if not i.get("new_attempts")]
+    if not missing or state.get("active"):
+        return
+    runtime = (check or recovery_runtime_idle)()
+    batches = {b["id"]: b for b in load(campaign)["batches"]}
+    for item in missing:
+        item["recovery_runtime"] = runtime
+        item["receipt_recovery"] = _missing_receipt_recovery(
+            item, batches.get(item["batch_id"], {}), item["exit_code"]
+        )
 
 
 @contextmanager
@@ -290,6 +627,7 @@ def controller_lock(project: Path):
 def source_hashes() -> dict[str, str]:
     files = [
         WORKSPACE / "hdp-scale",
+        WORKSPACE / "hdp-long-run",
         LAUNCHER,
         SOURCE / "core/project_lean_capacity.py",
         SOURCE / "agent/accounting/provider_quota.py",
@@ -335,6 +673,21 @@ def verified_quote_snapshot(path: Path) -> tuple[bytes, dict]:
     }
 
 
+def minimum_request_quota(path: Path) -> int:
+    """Compute the provider allowance floor without making or reserving a request."""
+    from agent.accounting.provider_quota import ProviderQuotaQuote
+
+    raw, _metadata = verified_quote_snapshot(path)
+    quote = ProviderQuotaQuote.from_mapping(json.loads(raw))
+    return quote.estimate_quota(
+        base_url=quote.base_url,
+        model=quote.model,
+        group=quote.group,
+        prompt_tokens=max(768, quote.provider_input_allowance_tokens),
+        completion_tokens=max(1, quote.provider_output_allowance_tokens),
+    )
+
+
 def quota_environment(options, run_dir: Path) -> dict[str, str]:
     """Require verified raw-quota accounting before admitting paid child processes."""
     # The provider module owns validation, request reservations, and reconciliation.
@@ -355,7 +708,10 @@ def quota_environment(options, run_dir: Path) -> dict[str, str]:
         budget = options.project / ".leanflow" / "scale-budget.json"
     budget = Path(budget).expanduser().resolve()
     initialize_quota_budget(budget, limit_quota=options.quota_limit)
-    state = read_quota_budget(budget)
+    state = read_quota_budget(
+        budget,
+        ignore_unknown_holds=bool(getattr(options, "ignore_unknown_holds", False)),
+    )
     if state.get("halt_reason"):
         raise RuntimeError(
             "quota budget is halted; reconcile it before starting another wave: "
@@ -367,6 +723,7 @@ def quota_environment(options, run_dir: Path) -> dict[str, str]:
         "LEANFLOW_PROVIDER_AUDIT_PATH": str(run_dir / "provider-audit.jsonl"),
         "LEANFLOW_AUXILIARY_RETRY_COUNT": "0",
         "LEANFLOW_AUXILIARY_TIMEOUT_RETRY_COUNT": "0",
+        IGNORE_UNKNOWN_HOLDS_ENV: ("1" if getattr(options, "ignore_unknown_holds", False) else "0"),
     }
 
 
@@ -384,7 +741,11 @@ def quota_quote_status(options, env: dict) -> dict:
 def quota_status(env: dict) -> dict:
     from agent.accounting.provider_quota_budget import read_quota_budget
 
-    state = read_quota_budget(env["LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH"])
+    ignore_unknown = _truthy_env(env.get(IGNORE_UNKNOWN_HOLDS_ENV, ""))
+    state = read_quota_budget(
+        env["LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH"],
+        ignore_unknown_holds=ignore_unknown,
+    )
     return {
         key: state.get(key)
         for key in (
@@ -394,6 +755,9 @@ def quota_status(env: dict) -> dict:
             "held_quota",
             "remaining_quota",
             "halt_reason",
+            "unknown_hold_quota",
+            "effective_held_quota",
+            "quota_accounting_mode",
         )
     }
 
@@ -411,17 +775,13 @@ def import_halted_quota_budget(source: Path, destination: Path) -> dict:
     source = source.expanduser().resolve()
     destination = destination.expanduser().resolve()
     if source == destination:
-        raise RuntimeError(
-            "quota budget import requires distinct source and destination"
-        )
+        raise RuntimeError("quota budget import requires distinct source and destination")
     if destination.exists():
         raise RuntimeError("quota budget destination already exists")
     state = read_quota_budget(source)
     halt = str(state.get("halt_reason", "") or "")
     if not halt:
-        raise RuntimeError(
-            "source quota budget is not halted; import is only for halted budgets"
-        )
+        raise RuntimeError("source quota budget is not halted; import is only for halted budgets")
     source_sha = digest(source.read_bytes())
     state.pop("halt_reason", None)
     state["imported_from"] = str(source)
@@ -437,9 +797,7 @@ def _operator_authorized_at(value: str) -> str:
     try:
         authorized_at = datetime.fromisoformat(str(value or "").strip())
     except ValueError as exc:
-        raise ValueError(
-            "operator authorization time must be ISO-8601 with timezone"
-        ) from exc
+        raise ValueError("operator authorization time must be ISO-8601 with timezone") from exc
     if authorized_at.tzinfo is None:
         raise ValueError("operator authorization time must include a timezone")
     normalized = authorized_at.astimezone(UTC)
@@ -495,11 +853,7 @@ def create_isolated_operator_budget(
         raise RuntimeError("isolated budget must not replace its source ledger")
     if destination.exists():
         raise RuntimeError("isolated budget destination already exists")
-    if (
-        isinstance(limit_quota, bool)
-        or not isinstance(limit_quota, int)
-        or limit_quota <= 0
-    ):
+    if isinstance(limit_quota, bool) or not isinstance(limit_quota, int) or limit_quota <= 0:
         raise ValueError("isolated raw provider quota limit must be positive")
     reference = str(authorization_ref or "").strip()
     if not reference or len(reference) > 256:
@@ -520,7 +874,7 @@ def create_isolated_operator_budget(
             "raw_quota_limit_source": "operator_authorized_new_provider_quota",
         },
         "isolated_from": {
-            "wave": "wave3",
+            "wave": source.stem.removesuffix("-scale-budget") or source.stem,
             "source_path": str(source),
             "source_sha256": digest(source_bytes),
             "source_summary": isolated_budget_source_summary(source_state),
@@ -531,17 +885,12 @@ def create_isolated_operator_budget(
     return read_quota_budget(destination)
 
 
-def execute(
-    options, *, popen=subprocess.Popen, clock=time.monotonic, pause=time.sleep
-) -> dict:
+def execute(options, *, popen=subprocess.Popen, clock=time.monotonic, pause=time.sleep) -> dict:
     """Fill bounded worker slots, then drain on limits or infrastructure failures."""
     project, campaign = options.project, options.campaign
     with controller_lock(project):
         run_dir = (
-            project
-            / ".leanflow"
-            / "scale-runs"
-            / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            project / ".leanflow" / "scale-runs" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         )
         run_dir.mkdir(parents=True, exist_ok=False)
         before = campaign.read_bytes()
@@ -555,13 +904,20 @@ def execute(
         )
         baseline = summary(json.loads(before))
         hashes = source_hashes()
+        no_infrastructure_fuse = bool(getattr(options, "no_infrastructure_fuse", False))
+        fuse_source = str(getattr(options, "no_infrastructure_fuse_source", "") or "") or (
+            "explicit_option" if no_infrastructure_fuse else "default"
+        )
         state = {
             "started_at": utc(),
             "controller_pid": os.getpid(),
             "workers": options.workers,
-            "lean_slots": 2,
+            "stage": getattr(options, "stage", "statements"),
+            **key_pool_metadata(env),
+            "lean_slots": 1,
             "max_items": options.max_items,
             "max_wall_minutes": options.max_wall,
+            "per_request_timeout_seconds": PER_REQUEST_TIMEOUT_SECONDS,
             "quota_limit_raw": effective_quota.get("limit_quota", options.quota_limit),
             "quota_budget_path": env.get("LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH", ""),
             "quota_quote": effective_quote,
@@ -573,6 +929,16 @@ def execute(
             "items": [],
             "active": {},
             "stop_reason": "",
+            "no_infrastructure_fuse": no_infrastructure_fuse,
+            "no_infrastructure_fuse_source": fuse_source,
+            "infrastructure_fuse_threshold": INFRASTRUCTURE_FUSE_THRESHOLD,
+            "ignore_unknown_holds": bool(getattr(options, "ignore_unknown_holds", False)),
+            "quota_accounting_mode": (
+                "success_only"
+                if getattr(options, "ignore_unknown_holds", False)
+                else "conservative"
+            ),
+            "infrastructure_failure_streak": 0,
         }
         active = {}
         seen = set()
@@ -597,10 +963,21 @@ def execute(
             stop(f"signal_{signum}")
 
         old_signals = {
-            sig: signal.signal(sig, on_signal)
-            for sig in (signal.SIGINT, signal.SIGTERM)
+            sig: signal.signal(sig, on_signal) for sig in (signal.SIGINT, signal.SIGTERM)
         }
-        event("started", directory=str(run_dir), **baseline)
+        event(
+            "started",
+            directory=str(run_dir),
+            no_infrastructure_fuse=no_infrastructure_fuse,
+            no_infrastructure_fuse_source=fuse_source,
+            infrastructure_fuse_enabled=not no_infrastructure_fuse,
+            infrastructure_fuse_threshold=INFRASTRUCTURE_FUSE_THRESHOLD,
+            ignore_unknown_holds=bool(getattr(options, "ignore_unknown_holds", False)),
+            quota_accounting_mode=state["quota"].get("quota_accounting_mode", "conservative"),
+            unknown_hold_quota=state["quota"].get("unknown_hold_quota", 0),
+            per_request_timeout_seconds=PER_REQUEST_TIMEOUT_SECONDS,
+            **baseline,
+        )
         try:
             while True:
                 for batch_id, (process, item) in list(active.items()):
@@ -608,9 +985,7 @@ def execute(
                     if exit_code is None:
                         continue
                     current = load(campaign)
-                    batch = next(
-                        (b for b in current["batches"] if b["id"] == batch_id), {}
-                    )
+                    batch = next((b for b in current["batches"] if b["id"] == batch_id), {})
                     attempts = item_receipts(item, batch)
                     # A directly killed child can exit before the campaign
                     # runner's Python finally block writes its outcome. Recover
@@ -619,23 +994,16 @@ def execute(
                     if exit_code is not None and exit_code < 0 and not attempts:
                         lease = batch.get("lease") if isinstance(batch, dict) else None
                         worker_id = (
-                            str(lease.get("worker_id", "") or "")
-                            if isinstance(lease, dict)
-                            else ""
+                            str(lease.get("worker_id", "") or "") if isinstance(lease, dict) else ""
                         )
                         if worker_id:
                             action = CampaignAction(
-                                stage="statements",
+                                stage=str(item.get("stage", "statements") or "statements"),
                                 batch_id=batch_id,
-                                labels=tuple(
-                                    str(label)
-                                    for label in batch.get("labels", []) or []
-                                ),
+                                labels=tuple(str(label) for label in batch.get("labels", []) or []),
                                 argv=tuple(item.get("command", []) or []),
                                 target_file=str(
-                                    dict(batch.get("last_outcome", {}) or {}).get(
-                                        "target_file", ""
-                                    )
+                                    dict(batch.get("last_outcome", {}) or {}).get("target_file", "")
                                     or ""
                                 ),
                             )
@@ -664,23 +1032,46 @@ def execute(
                             "lease_after": batch.get("lease"),
                         }
                     )
+                    if not attempts:
+                        item["receipt_recovery"] = _missing_receipt_recovery(item, batch, exit_code)
+                    else:
+                        item["receipt_recovery"] = {
+                            "kind": "receipt_present",
+                            "safe_to_retry": False,
+                            "manual_reconciliation_required": False,
+                        }
                     del active[batch_id]
                     infra_streak = infra_streak + 1 if kind == "infrastructure" else 0
+                    state["infrastructure_failure_streak"] = infra_streak
                     event(
                         "item_finished",
                         batch_id=batch_id,
                         classification=kind,
                         exit_code=exit_code,
+                        infrastructure_failure_streak=infra_streak,
+                        no_infrastructure_fuse=no_infrastructure_fuse,
                     )
                     if kind in {"auth", "quota", "rate_limit"}:
                         stop(kind)
-                    elif infra_streak >= 2:
+                    elif (
+                        infra_streak >= INFRASTRUCTURE_FUSE_THRESHOLD and not no_infrastructure_fuse
+                    ):
                         stop("consecutive_infrastructure_failures")
+                    elif infra_streak >= INFRASTRUCTURE_FUSE_THRESHOLD and no_infrastructure_fuse:
+                        event(
+                            "infrastructure_fuse_bypassed",
+                            infrastructure_failure_streak=infra_streak,
+                            threshold=INFRASTRUCTURE_FUSE_THRESHOLD,
+                            no_infrastructure_fuse=True,
+                        )
                     elif batch.get("lease"):
                         stop("lease_not_released")
                 if clock() - started >= options.max_wall * 60:
                     stop("wall_limit")
-                if (run_dir / "STOP").exists():
+                if (run_dir / "STOP").exists() or (
+                    getattr(options, "supervisor_stop_file", None) is not None
+                    and options.supervisor_stop_file.exists()
+                ):
                     stop("stop_file")
                 if len(seen) >= options.max_items:
                     stop("item_limit")
@@ -694,26 +1085,66 @@ def execute(
                     if source_hashes() != hashes:
                         stop("source_changed")
                     else:
-                        slots = min(
-                            options.workers - len(active), options.max_items - len(seen)
+                        slots = min(options.workers - len(active), options.max_items - len(seen))
+                        choices = preview(
+                            campaign,
+                            project,
+                            seen | set(getattr(options, "excluded_batches", ())),
+                            slots,
+                            stage=getattr(options, "stage", "statements"),
+                            **(
+                                {
+                                    "active_stages": tuple(
+                                        item["stage"] for _, item in active.values()
+                                    )
+                                }
+                                if getattr(options, "stage", "statements") == "mixed"
+                                else {}
+                            ),
                         )
-                        choices = preview(campaign, project, seen, slots)
                         if not choices and not active:
                             stop("no_eligible_unseen_items")
                         for item in choices:
                             batch_id = item["batch_id"]
                             seen.add(batch_id)
-                            item["command"] = command(campaign, batch_id)
+                            item.setdefault("stage", getattr(options, "stage", "statements"))
+                            item["command"] = command(campaign, batch_id, stage=item["stage"])
                             item["started_at"] = utc()
+                            target_path = (
+                                (project / str(item.get("target_file", ""))).resolve()
+                                if item.get("target_file")
+                                else None
+                            )
+                            item["target_path"] = str(target_path) if target_path else ""
+                            item["target_sha256_before"] = (
+                                _file_digest(target_path) if target_path else None
+                            )
+                            item["recovery_source_before"] = recovery_snapshot(item["target_path"])
+                            current_batch = next(
+                                b for b in load(campaign)["batches"] if b["id"] == batch_id
+                            )
+                            item["attempts_before_sha256"] = digest(
+                                json.dumps(
+                                    current_batch.get("attempts", []), sort_keys=True
+                                ).encode()
+                            )
                             item["log"] = str(
                                 run_dir
                                 / f"{len(seen):03d}-{re.sub(r'[^A-Za-z0-9_.-]', '_', batch_id)}.log"
                             )
                             with Path(item["log"]).open("w") as log:
+                                # Bind each child to a deterministic credential
+                                # pool slot.  hdp-run resolves the corresponding
+                                # key from M2F_CODEX_API_KEYS and records only its
+                                # fingerprint in check telemetry.
+                                child_env = dict(env)
+                                child_env["HDP_WORKER_SLOT"] = str(
+                                    (len(seen) - 1) % options.workers
+                                )
                                 process = popen(
                                     item["command"],
                                     cwd=project,
-                                    env=env,
+                                    env=child_env,
                                     stdin=subprocess.DEVNULL,
                                     stdout=log,
                                     stderr=subprocess.STDOUT,
@@ -727,6 +1158,7 @@ def execute(
                                 batch_id=batch_id,
                                 pid=process.pid,
                                 log=item["log"],
+                                stage=item["stage"],
                             )
                 if clock() - heartbeat_at >= 30:
                     event(
@@ -760,6 +1192,7 @@ def execute(
                 }
             )
             atomic_json_write(run_dir / "run.json", state)
+        reconcile_missing_receipts(state, campaign)
         event("finished", stop_reason=state["stop_reason"], after=state["after"])
         return state
 
@@ -769,13 +1202,33 @@ def main() -> int:
     parser.add_argument(
         "--execute", action="store_true", help="otherwise print an offline dry plan"
     )
+    parser.add_argument("--campaign", type=Path, default=PROJECT / "HDP/Environments/campaign.json")
     parser.add_argument(
-        "--campaign", type=Path, default=PROJECT / "HDP/Environments/campaign.json"
+        "--stage",
+        choices=("statements", "proofs", "mixed"),
+        default="statements",
+        help="dispatch statements, proofs, or balanced mixed lanes with shared worker slots",
     )
     parser.add_argument("--workers", type=int, choices=(1, 2, 4, 8), default=4)
     parser.add_argument("--max-items", type=int, default=24)
     parser.add_argument(
         "--max-wall", type=float, default=180, help="minutes before stopping dispatch"
+    )
+    parser.add_argument(
+        "--no-infrastructure-fuse",
+        action="store_true",
+        help=(
+            "explicitly continue dispatch after consecutive infrastructure failures; "
+            "quota, lease, wall-time and item limits remain enforced"
+        ),
+    )
+    parser.add_argument(
+        "--ignore-unknown-holds",
+        action="store_true",
+        help=(
+            "opt in to success-only quota admission: retain unknown reservations as "
+            "evidence but exclude their holds from remaining capacity"
+        ),
     )
     parser.add_argument(
         "--quota-limit", type=int, default=2_000_000, help="raw provider quota units"
@@ -820,37 +1273,30 @@ def main() -> int:
         help="ISO-8601 timestamp (with timezone) of the allocation authorization",
     )
     options = parser.parse_args()
+    (
+        options.no_infrastructure_fuse,
+        options.no_infrastructure_fuse_source,
+    ) = no_infrastructure_fuse_setting(options.no_infrastructure_fuse)
     options.project = PROJECT
     if options.quota_budget is not None:
         options.quota_budget = options.quota_budget.expanduser().resolve()
         if not options.quota_budget.is_relative_to(PROJECT):
-            parser.error(
-                "quota budget must remain inside the unique local HDP checkout"
-            )
+            parser.error("quota budget must remain inside the unique local HDP checkout")
     if options.import_quota_budget is not None:
         if options.create_isolated_quota_budget:
             parser.error(
-                "--import-quota-budget cannot be combined with "
-                "--create-isolated-quota-budget"
+                "--import-quota-budget cannot be combined with " "--create-isolated-quota-budget"
             )
         options.import_quota_budget = options.import_quota_budget.expanduser().resolve()
         if not options.import_quota_budget.is_relative_to(PROJECT):
-            parser.error(
-                "imported quota budget must remain inside the unique local HDP checkout"
-            )
+            parser.error("imported quota budget must remain inside the unique local HDP checkout")
         if not options.acknowledge_overrun:
             parser.error("--import-quota-budget requires --acknowledge-overrun")
-        destination = options.quota_budget or (
-            PROJECT / ".leanflow" / "scale-budget.json"
-        )
+        destination = options.quota_budget or (PROJECT / ".leanflow" / "scale-budget.json")
         if not destination.is_relative_to(PROJECT):
-            parser.error(
-                "quota budget must remain inside the unique local HDP checkout"
-            )
+            parser.error("quota budget must remain inside the unique local HDP checkout")
         try:
-            imported = import_halted_quota_budget(
-                options.import_quota_budget, destination
-            )
+            imported = import_halted_quota_budget(options.import_quota_budget, destination)
         except (OSError, RuntimeError, ValueError) as exc:
             parser.error(str(exc))
         print(
@@ -875,21 +1321,13 @@ def main() -> int:
         return 0
     if options.create_isolated_quota_budget:
         if options.execute:
-            parser.error(
-                "--create-isolated-quota-budget is offline-only; omit --execute"
-            )
+            parser.error("--create-isolated-quota-budget is offline-only; omit --execute")
         if options.quota_budget is None:
-            parser.error(
-                "isolated quota creation requires an explicit --quota-budget destination"
-            )
+            parser.error("isolated quota creation requires an explicit --quota-budget destination")
         if options.isolated_from_quota_budget is None:
-            parser.error(
-                "isolated quota creation requires --isolated-from-quota-budget"
-            )
+            parser.error("isolated quota creation requires --isolated-from-quota-budget")
         if not options.operator_authorization_ref:
-            parser.error(
-                "isolated quota creation requires --operator-authorization-ref"
-            )
+            parser.error("isolated quota creation requires --operator-authorization-ref")
         if not options.operator_authorized_at:
             parser.error("isolated quota creation requires --operator-authorized-at")
         source = options.isolated_from_quota_budget.expanduser().resolve()
@@ -945,27 +1383,35 @@ def main() -> int:
         parser.error("item, wall-time and quota limits must be positive")
     if options.execute:
         if not options.quote:
-            parser.error(
-                "execution requires a verified --quote and shared request quota guard"
-            )
+            parser.error("execution requires a verified --quote and shared request quota guard")
         result = execute(options)
         return int(
             result["stop_reason"]
             in {"auth", "quota", "rate_limit", "consecutive_infrastructure_failures"}
         )
     before = options.campaign.read_bytes()
-    plan = preview(options.campaign, PROJECT, set(), options.max_items)
+    plan = preview(
+        options.campaign,
+        PROJECT,
+        set(),
+        options.max_items,
+        stage=options.stage,
+    )
     print(
         json.dumps(
             {
                 "dry_run": True,
                 "utc": utc(),
                 "workers": options.workers,
-                "lean_slots": 2,
+                "stage": options.stage,
+                "lean_slots": 1,
                 "campaign_sha256": digest(before),
                 "items": plan,
                 "max_items": options.max_items,
                 "max_wall_minutes": options.max_wall,
+                "no_infrastructure_fuse": options.no_infrastructure_fuse,
+                "no_infrastructure_fuse_source": options.no_infrastructure_fuse_source,
+                "per_request_timeout_seconds": PER_REQUEST_TIMEOUT_SECONDS,
                 "quota_limit_raw": options.quota_limit,
                 "cost_note": "No API/Lean calls; execution requires verified raw-quota guard.",
             },

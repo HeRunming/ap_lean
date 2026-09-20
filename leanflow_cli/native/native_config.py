@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 
 __all__ = [

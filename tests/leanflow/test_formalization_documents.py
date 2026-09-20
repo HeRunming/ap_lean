@@ -91,7 +91,9 @@ def test_prepare_qa_json_context_accepts_typed_environment_ids(tmp_path):
                     "label": "0.2",
                     "kind": "theorem",
                     "statement": "B.",
-                    "dependencies": [{"target_id": "definition:0.1", "relation": "uses_definition"}],
+                    "dependencies": [
+                        {"target_id": "definition:0.1", "relation": "uses_definition"}
+                    ],
                     "cross_references": [
                         {"target_label": "theorem 0.2", "relation": "see_also", "resolved": True}
                     ],
@@ -101,7 +103,10 @@ def test_prepare_qa_json_context_accepts_typed_environment_ids(tmp_path):
         encoding="utf-8",
     )
     context = prepare_formalization_document_context(
-        project_root=project, cwd=project, workflow_args="book/environments.json", project_label="Demo"
+        project_root=project,
+        cwd=project,
+        workflow_args="book/environments.json",
+        project_label="Demo",
     )
     blocks = context.metadata["theorem_blocks"]
     assert [block["label"] for block in blocks] == ["0.1", "0.2"]

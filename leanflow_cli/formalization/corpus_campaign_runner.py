@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from core.project_lean_capacity import MAX_PROJECT_LEAN_CAPACITY
 from leanflow_cli.formalization.bounded_statement_refinement import (
@@ -797,6 +797,7 @@ def plan_next_campaign_action(
     batch_id = str(statement_batch.get("id", "") or "")
     labels = tuple(str(label) for label in statement_batch.get("labels", []) or [])
     selection_kind = str(statement_batch.get("selection_kind", "batch") or "batch")
+    selector: tuple[str, ...]
     if selection_kind == "items":
         if not labels:
             raise CampaignExecutionBlocked(f"batch {batch_id} has no explicit item labels")
@@ -860,6 +861,7 @@ def plan_campaign_batch_action(
         raise CampaignExecutionBlocked(f"unknown campaign stage: {stage}")
     source = str(campaign.get("source", "") or "").strip()
     selection_kind = str(batch.get("selection_kind", "batch") or "batch")
+    selector: tuple[str, ...]
     if selection_kind == "items":
         if not labels:
             raise CampaignExecutionBlocked(f"batch {batch_id} has no explicit item labels")
@@ -1069,7 +1071,7 @@ def _campaign_safe_name(value: str, default: str = "Formalization") -> str:
 
 
 def _campaign_formalization_target_path(
-    action: CampaignAction, *, project_root: str | Path
+    action: CampaignAction, *, project_root: str | Path | None
 ) -> Path | None:
     """Resolve the deterministic target that a formalize action will scaffold.
 
@@ -1160,7 +1162,7 @@ def _expected_lean_import_update(before: str, module: str) -> str:
 
 
 def _campaign_import_transaction_snapshot(
-    action: CampaignAction, *, project_root: str | Path, target: Path | None
+    action: CampaignAction, *, project_root: str | Path | None, target: Path | None
 ) -> dict[Path, tuple[str | None, str]]:
     """Snapshot root/parent import-chain files touched by formalize intake."""
     if action.stage != "statements" or target is None:
@@ -1176,6 +1178,7 @@ def _campaign_import_transaction_snapshot(
         return {}
     root_module = parts[0]
     root_file = root / f"{root_module}.lean"
+    candidates: tuple[tuple[Path, str], ...]
     if target.name == "Main.lean" and len(parts) >= 3:
         parent_module = ".".join(parts[:-1])
         parent_file = root / Path(*parts[:-1]).with_suffix(".lean")
@@ -1266,6 +1269,7 @@ def try_zero_cost_proof_preflight(
     project_root: str | Path,
     action: CampaignAction,
     lake_executable: str = "lake",
+    worker_id: str = "",
     timeout_s: int = 30,
     failure_diagnostics: list[str] | None = None,
 ) -> dict[str, Any] | None:
@@ -1354,6 +1358,8 @@ def try_zero_cost_proof_preflight(
         "cost_scope": "local_lean_preflight",
         "provenance": "agent",
     }
+    if worker_id:
+        outcome["worker_id"] = worker_id
 
     def commit(current: Mapping[str, Any]):
         updated = record_campaign_outcome(current, batch_id=action.batch_id, outcome=outcome)
@@ -1446,6 +1452,7 @@ def execute_next_campaign_action(
         return updated, updated
 
     campaign = update_campaign_file(path, refresh)
+    execution_environ: Mapping[str, str] | None
     explicit_selection = bool(str(stage or "").strip() or str(batch_id or "").strip())
     worker_id = ""
     action: CampaignAction | None = None
@@ -1546,7 +1553,7 @@ def execute_next_campaign_action(
             )
             if not admitted:
                 raise CampaignExecutionBlocked(reason)
-        return _execute_campaign_action(
+        result = _execute_campaign_action(
             action,
             campaign_path=path,
             campaign=campaign,
@@ -1571,6 +1578,11 @@ def execute_next_campaign_action(
             lake_executable=lake_executable,
             statement_compile_timeout_seconds=statement_compile_timeout_seconds,
         )
+        # Native proof summaries omit the nested outcome; expose the lease
+        # identity so supervisors can correlate only this child's receipts.
+        if worker_id:
+            result["worker_id"] = worker_id
+        return result
     except BaseException as exc:
         # Preserve an auditable infrastructure attempt before the lease is
         # released.  Re-raise so callers retain cancellation semantics.
@@ -1697,11 +1709,13 @@ def _execute_campaign_action_impl(
     path = Path(campaign_path).expanduser().resolve()
     action = _normalize_campaign_action(action, project_root=project_root)
     validate_campaign_action_paths(action, project_root=project_root)
+    worker_id = str((environ or os.environ).get("LEANFLOW_CAMPAIGN_WORKER_ID", "") or "").strip()
     zero_cost_outcome = try_zero_cost_proof_preflight(
         path,
         project_root=project_root,
         action=action,
         lake_executable=lake_executable,
+        worker_id=worker_id,
     )
     if zero_cost_outcome is not None:
         return {
@@ -1998,7 +2012,7 @@ def _execute_campaign_action_impl(
             "executed": True,
             "stage": action.stage,
             "batch_id": action.batch_id,
-            "exit_code": int(outcome["exit_code"]),
+            "exit_code": int(cast(int, outcome["exit_code"])),
             "success": bool(outcome["success"]),
             "outcome": outcome,
         }
@@ -2223,7 +2237,9 @@ def _record_campaign_interruption(
             ),
             None,
         )
-        lease = batch.get("lease") if isinstance(batch, Mapping) else None
+        if not isinstance(batch, Mapping):
+            return current, False
+        lease = batch.get("lease")
         if not isinstance(lease, Mapping) or str(lease.get("worker_id", "")) != worker_id:
             # No active lease means another path already committed/reclaimed the
             # action; never append a duplicate late failure.
@@ -2996,11 +3012,10 @@ def recover_agent_verified_proof(
                     (str(record.get("timestamp", "") or ""), recovered, evidence_path)
                 )
     tactic = ""
-    evidence: Path
     if matches:
         _timestamp, payload, evidence = max(matches, key=lambda item: item[0])
         try:
-            line = int(payload.get("line", 0) or 0)
+            target_line = int(payload.get("line", 0) or 0)
             raw_column = payload.get("column")
             column = int(raw_column) if raw_column not in (None, "") else None
         except (TypeError, ValueError) as exc:
@@ -3008,7 +3023,7 @@ def recover_agent_verified_proof(
                 "verified candidate has invalid source coordinates"
             ) from exc
         tactic = str(payload["verified_attempts"][0]).strip()
-        replacement = _multi_attempt_replacement_candidate(target, line, column, tactic)
+        replacement = _multi_attempt_replacement_candidate(target, target_line, column, tactic)
         if replacement is None:
             raise CampaignExecutionBlocked("verified candidate no longer matches current source")
         declaration_name, declaration = replacement

@@ -16,9 +16,7 @@ import stat
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-
-UTC = timezone.utc
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 

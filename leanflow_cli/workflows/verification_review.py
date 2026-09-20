@@ -73,13 +73,15 @@ def _verification_review_decision(payload: Mapping[str, Any] | None) -> str:
             value = str(parsed.get(key, "") or "").strip().upper()
             if value in {"PASS", "BLOCK"}:
                 return value
-    match = re.search(
-        r"^\s*(?:[#>*_`\-]+\s*)?(?:Decision\s*[:=-]\s*)?\**(PASS|BLOCK)\**\b",
-        response,
+    # The model contract puts the verdict on the first non-empty line.  Read
+    # only that line so a later discussion of ``Decision: PASS`` cannot turn a
+    # response without a verdict into an approval.
+    first_line = next((line.strip() for line in response.splitlines() if line.strip()), "")
+    match = re.match(
+        r"^(?:[#>*_`~\-]+\s*)*(?:Decision\s*[:=-]\s*)?\**(PASS|BLOCK)\**\b",
+        first_line,
         flags=re.IGNORECASE,
     )
-    if not match:
-        match = re.search(r"\bDecision\s*[:=-]\s*(PASS|BLOCK)\b", response, flags=re.IGNORECASE)
     return match.group(1).upper() if match else ""
 
 

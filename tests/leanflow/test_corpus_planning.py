@@ -88,7 +88,11 @@ def test_repeated_stage_failures_park_a_batch_instead_of_rescheduling_forever():
         ],
     }
     campaign = build_campaign(plan)
-    failure = {"stage": "statements", "success": False, "reason": "retrieval planner timeout"}
+    failure = {
+        "stage": "statements",
+        "success": False,
+        "reason": "retrieval planner timeout",
+    }
 
     for index in range(MAX_STAGE_FAILURES_BEFORE_TERMINAL - 1):
         campaign = record_campaign_outcome(
@@ -131,7 +135,11 @@ def test_repeated_stage_failures_park_a_batch_instead_of_rescheduling_forever():
     campaign = record_campaign_outcome(
         campaign,
         batch_id="b",
-        outcome={**failure, "escalated": True, "recorded_at": "2026-09-02T13:00:00+00:00"},
+        outcome={
+            **failure,
+            "escalated": True,
+            "recorded_at": "2026-09-02T13:00:00+00:00",
+        },
     )
 
     parked = campaign["batches"][0]
@@ -155,7 +163,11 @@ def test_escalation_pending_batches_are_scheduled_before_cheap_leaves():
         "execution_plan": {"order": ["cheap", "foundation"]},
         "source_batches": [
             {"id": "items-cheap", "labels": ["cheap"], "selection_kind": "items"},
-            {"id": "items-foundation", "labels": ["foundation"], "selection_kind": "items"},
+            {
+                "id": "items-foundation",
+                "labels": ["foundation"],
+                "selection_kind": "items",
+            },
         ],
     }
     campaign = build_campaign(plan)
@@ -231,7 +243,11 @@ def test_campaign_outcome_delivery_is_idempotent_by_timestamped_payload():
     assert campaign["spent_usd"] == 0.25
     # An interrupt is an infrastructure fault, not a verdict on the mathematics.
     assert campaign["batches"][0]["attempts"] == [
-        {**outcome, "failure_class": "infrastructure", "retry_class": RETRY_CLASS_INFRASTRUCTURE}
+        {
+            **outcome,
+            "failure_class": "infrastructure",
+            "retry_class": RETRY_CLASS_INFRASTRUCTURE,
+        }
     ]
 
 
@@ -971,6 +987,7 @@ def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeyp
                         "id": "item",
                         "status": "statements_completed",
                         "agent_status": "statements_completed",
+                        "lease": {"worker_id": "campaign-test-worker"},
                         "attempts": [{"stage": "statements", "success": True, "cost_usd": 2.0}],
                     }
                 ],
@@ -990,17 +1007,23 @@ def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeyp
 
     monkeypatch.setattr(corpus_campaign_runner.subprocess, "run", compile_candidate)
     action = CampaignAction(
-        stage="proofs", batch_id="item", labels=("1",), target_file="Book/Main.lean", argv=()
+        stage="proofs",
+        batch_id="item",
+        labels=("1",),
+        target_file="Book/Main.lean",
+        argv=(),
     )
 
     outcome = try_zero_cost_proof_preflight(
         campaign_path,
         project_root=tmp_path,
         action=action,
+        worker_id="campaign-test-worker",
     )
 
     assert outcome is not None
     assert outcome["cost_usd"] == 0
+    assert outcome["worker_id"] == "campaign-test-worker"
     assert "(simp; done)" in observed["source"]
     assert "simp_all [" not in observed["source"]
     assert "aesop" not in observed["source"]
@@ -1010,6 +1033,7 @@ def test_zero_cost_proof_preflight_commits_without_model_usage(tmp_path, monkeyp
     campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
     assert campaign["spent_usd"] == 2.0
     assert campaign["batches"][0]["status"] == "proofs_completed"
+    assert campaign["batches"][0]["attempts"][-1]["worker_id"] == "campaign-test-worker"
 
 
 def test_zero_cost_proof_preflight_unfolds_local_definitions(tmp_path, monkeypatch):
@@ -1044,7 +1068,11 @@ def test_zero_cost_proof_preflight_unfolds_local_definitions(tmp_path, monkeypat
 
     monkeypatch.setattr(corpus_campaign_runner.subprocess, "run", compile_candidate)
     action = CampaignAction(
-        stage="proofs", batch_id="item", labels=("1",), target_file="Book/Main.lean", argv=()
+        stage="proofs",
+        batch_id="item",
+        labels=("1",),
+        target_file="Book/Main.lean",
+        argv=(),
     )
 
     assert (
@@ -1306,7 +1334,9 @@ def test_recover_agent_verified_proof_from_checked_target_activity(
     assert target.read_text(encoding="utf-8") == "theorem demo : True := by\n  trivial\n"
 
 
-def test_recent_campaign_candidate_evidence_recovers_failed_concrete_candidate(tmp_path):
+def test_recent_campaign_candidate_evidence_recovers_failed_concrete_candidate(
+    tmp_path,
+):
     target = tmp_path / "Book" / "Main.lean"
     target.parent.mkdir(parents=True)
     target.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
@@ -1632,10 +1662,14 @@ def test_failed_prover_exit_auto_recovers_durable_candidate(tmp_path, monkeypatc
             return 2
 
     monkeypatch.setattr(
-        corpus_campaign_runner, "try_zero_cost_proof_preflight", lambda *args, **kwargs: None
+        corpus_campaign_runner,
+        "try_zero_cost_proof_preflight",
+        lambda *args, **kwargs: None,
     )
     monkeypatch.setattr(
-        corpus_campaign_runner.subprocess, "Popen", lambda *args, **kwargs: FailedProcess()
+        corpus_campaign_runner.subprocess,
+        "Popen",
+        lambda *args, **kwargs: FailedProcess(),
     )
     monkeypatch.setattr(
         corpus_campaign_runner,
@@ -2088,7 +2122,9 @@ def test_campaign_wave_fills_spare_capacity_after_routine_frontier(tmp_path):
     assert [action.batch_id for _worker, action in claims] == ["complex"]
 
 
-def test_campaign_fills_spare_capacity_with_complex_proof_after_routine_statement(tmp_path):
+def test_campaign_fills_spare_capacity_with_complex_proof_after_routine_statement(
+    tmp_path,
+):
     campaign = {
         "source": "book.json",
         "budget_usd": 10.0,
@@ -3054,7 +3090,10 @@ def test_execute_next_campaign_action_preserves_an_explicit_large_advisory_timeo
         reserve_usd=2,
         provider="openai-codex",
         model="gpt-5.6-sol",
-        environ={"PATH": "/usr/bin", "LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S": "1200"},
+        environ={
+            "PATH": "/usr/bin",
+            "LEANFLOW_ADVISORY_VERIFICATION_TIMEOUT_S": "1200",
+        },
     )
 
     assert outcome["success"] is True
@@ -3206,6 +3245,7 @@ def test_explicit_selector_is_leased_and_released_on_runner_failure(tmp_path, mo
     assert result["batch_id"] == "statement-batch"
     assert observed["action"].stage == "statements"
     assert observed["env"]["LEANFLOW_CAMPAIGN_WORKER_ID"].startswith("campaign-")
+    assert result["worker_id"] == observed["env"]["LEANFLOW_CAMPAIGN_WORKER_ID"]
     persisted = json.loads(campaign_path.read_text(encoding="utf-8"))
     selected = next(item for item in persisted["batches"] if item["id"] == "statement-batch")
     assert "lease" not in selected
@@ -3224,13 +3264,21 @@ def test_execute_next_campaign_action_forwards_statement_compile_timeout(tmp_pat
     source.write_text("[]", encoding="utf-8")
     campaign_path = tmp_path / "campaign.json"
     campaign_path.write_text(
-        json.dumps({"budget_usd": 2.0, "spent_usd": 0.0, "batches": []}), encoding="utf-8"
+        json.dumps({"budget_usd": 2.0, "spent_usd": 0.0, "batches": []}),
+        encoding="utf-8",
     )
     action = CampaignAction(
         stage="statements",
         batch_id="batch-1",
         labels=("1.1",),
-        argv=("python", "-m", "leanflow_cli.main", "workflow", "formalize", "source.json"),
+        argv=(
+            "python",
+            "-m",
+            "leanflow_cli.main",
+            "workflow",
+            "formalize",
+            "source.json",
+        ),
     )
     observed: dict[str, object] = {}
     monkeypatch.setattr(corpus_campaign_runner, "plan_next_campaign_action", lambda *a, **k: action)
@@ -3261,7 +3309,8 @@ def test_campaign_accepts_reviewed_agent_statement_without_repeating_provider_tu
     target.parent.mkdir(parents=True)
     target.write_text("import Mathlib\ntheorem demo : True := by sorry\n", encoding="utf-8")
     target.with_name("Blueprint.md").write_text(
-        "- Statement verification status: approved by codex verifier\n", encoding="utf-8"
+        "- Statement verification status: approved by codex verifier\n",
+        encoding="utf-8",
     )
     review = tmp_path / "review.txt"
     review.write_text("PASS\nSource fidelity checked.\n", encoding="utf-8")
@@ -3515,7 +3564,9 @@ def test_placement_report_routes_reusable_definitions_without_moving_them(tmp_pa
     assert all(item["automatic_move"] is False for item in placements.values())
 
 
-def test_placement_transaction_requires_registry_approval_and_closed_dependencies(tmp_path):
+def test_placement_transaction_requires_registry_approval_and_closed_dependencies(
+    tmp_path,
+):
     workspace = tmp_path / "Book"
     target = workspace / "Batch" / "Main.lean"
     target.parent.mkdir(parents=True)

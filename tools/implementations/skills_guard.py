@@ -25,9 +25,7 @@ Usage:
 import hashlib
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------------------------------------------------------------------

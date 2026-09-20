@@ -291,7 +291,7 @@ def build_corpus_plan(
         dependencies = raw_foundation.get("dependencies", []) or []
         if isinstance(dependencies, str):
             dependencies = [dependencies]
-        foundation = {
+        foundation: dict[str, Any] = {
             "label": label,
             "ordinal": index - len(metadata.get("source_foundations", []) or []),
             "chapter": str(raw_foundation.get("chapter", "foundations") or "foundations"),
@@ -399,8 +399,12 @@ def build_corpus_plan(
     # Surface scheduling signals without treating inferred edges as proof
     # dependencies.  Consumers can use these metrics to prioritize shared
     # foundations while the Lean checker remains authoritative.
-    downstream = Counter(str(edge.get("to", "")) for edge in edges if edge.get("status") == "declared_unverified")
-    indegree = Counter(str(edge.get("from", "")) for edge in edges if edge.get("status") == "declared_unverified")
+    downstream = Counter(
+        str(edge.get("to", "")) for edge in edges if edge.get("status") == "declared_unverified"
+    )
+    indegree = Counter(
+        str(edge.get("from", "")) for edge in edges if edge.get("status") == "declared_unverified"
+    )
     for item in items:
         label = str(item["label"])
         item["dag_metrics"] = {

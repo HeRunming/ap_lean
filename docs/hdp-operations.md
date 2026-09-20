@@ -1,5 +1,57 @@
 # HDP operational controls
 
+## Snapshot layout
+
+This branch archives the harness for the whole HDP book, including `hdp-run`,
+`hdp-scale`, and `hdp-long-run`. The launchers retain the operator's deployment
+defaults: `/Users/blackbox/m2f/leanflow` contains this package, the three
+launchers are deployed in `/Users/blackbox/m2f`, and `fate-x-work` is their
+sibling Lean project. Review these paths, SSH settings, credential fingerprints,
+and quota paths before deploying elsewhere. The archived scale launcher imports
+the adjacent package when tested directly from this repository.
+
+Credentials, campaign state, generated book proofs, provider logs, and quota
+evidence are separate runtime inputs and are not part of this code snapshot.
+The test suite uses synthetic quote fixtures and does not need operator logs.
+
+## Mixed workers and bounded recovery
+
+`hdp-scale --stage mixed --workers 4` shares four worker slots between proof
+and statement actions. It favors the less occupied lane and uses the other
+lane when no eligible work is available. Proof actions retain target,
+import-reachability, and dependency checks. The shared checkout uses one
+Lean-heavy slot. `--max-wall 180` stops new dispatch after three hours;
+already running children drain under their existing action timeouts.
+All children share one quota ledger, including outstanding request holds.
+
+`hdp-long-run` supervises mixed four-worker waves under one fixed wall-clock
+deadline (at most eight hours). The existing per-wave infrastructure fuse stays
+enabled. After all workers drain, a fuse trip is retryable only when every
+infrastructure receipt identifies an allowed transient provider failure, including
+HTTP 500/502/503/504/524 responses and auxiliary request deadlines. Unknown
+errors, leaked leases, source changes, authentication errors, and halted quota
+ledgers stop the supervisor. There are
+at most three cooldowns across the whole run: five, ten, then twenty minutes.
+Cooldowns count toward the same deadline; they never extend the run.
+
+An action without a receipt can be deferred only after all workers drain and
+reconciliation verifies its structured exit-124 result, matching worker/stage/batch
+identity, released lease, unchanged target-directory Lean sources, unchanged
+attempt ledger, and idle local and remote runtimes. Log text alone is not
+rollback evidence. A safely deferred batch is excluded for the rest of this
+supervisor run; failed checks stop it. `--defer-batch` also excludes a known
+problem batch explicitly. Unknown quota holds remain reserved.
+
+For the September 18 operator authorization, this wrapper uses the remaining
+existing ledger first. Only a local quota-reservation shortfall activates one
+new 10,000,000-quota allocation linked to the immutable old ledger. Provider
+balance errors and reservation overruns do not activate it. Unknown holds are
+never released. The outer `status.json` records each drained wave, the absolute
+deadline, cooldowns, and whether the additional allocation was activated.
+The long supervisor can be stopped with SIGTERM (the active wave drains).
+Its log directory's `STOP` file is also propagated to the active wave to stop
+new dispatch, and prevents subsequent waves from starting.
+
 The HDP campaign runner supports a non-executing reconciliation pass:
 
 ```bash
@@ -63,6 +115,14 @@ Both auxiliary retry counts must be zero so one request hold cannot hide paid
 transport retries. These are conservative quota estimates; a changed route,
 provider-added input, or changed price can exceed them, so they are not a
 guarantee about actual provider billing.
+
+For explicitly authorized long runs where gateway failures leave usage unknown, pass
+`hdp-scale --ignore-unknown-holds`. This wave-level opt-in records
+`quota_accounting_mode=success_only`: successful usage-bearing requests still charge
+actual quoted usage, while `unknown` reservations remain immutable evidence and are
+reported as `unknown_hold_quota`; only their holds are excluded from admission. The
+default remains `conservative`, which counts every unknown hold. Run metadata and
+`events.jsonl` record the selected mode.
 
 The read-only zcloud evidence is stored in
 `/Users/blackbox/m2f/.leanflow-home/logs/zcloud-pricing-20260909T091106Z/`.
@@ -129,3 +189,12 @@ and destination must remain inside the local HDP checkout, and the destination
 must not already exist. Subsequent execution can select the new ledger with
 `--quota-budget fate-x-work/.leanflow/wave4-scale-budget.json`; the source ledger
 must remain untouched.
+
+After an infrastructure stop, inspect both the provider diagnostics and the
+native proof finalizer. Shutdown uses a cooperative tool interrupt to quiesce
+owned writers; after successful shutdown, the runner clears only its own
+internal interrupt before the terminal kernel check. Earlier cancellation,
+new user interrupts, and failed shutdown remain blocking. A saved proof whose
+final check was interrupted is not a completed proof. Reverify it through an
+existing acceptance path; operator verification is recorded separately from
+automatic agent recovery.

@@ -19,6 +19,15 @@ REMOTE_ROOT = "/data/hrm/fate-x-work"
 BASE_URL = "https://api.zcloudapi.com/v1"
 MODEL = "gpt-6-astra"
 LAKE = SOURCE / "remote-bin/lake"
+# Authorized zcloud credentials are represented by fingerprints only.  The
+# launcher may receive a comma-separated ``M2F_CODEX_API_KEYS`` pool; the
+# selected child key is injected by hdp-scale and never written to telemetry.
+AUTHORIZED_KEY_SHA256S = {
+    "012b2b3aa7e06dc602005f84198e96f6c673f56c96e61159e41e845139449aaa",
+    "dc0ea881cd21ecbc3fdde7a79a6ee67241fd659b119411870b45314cc3146a45",
+    "93117c584cd6cb1e089d1f54abeed9af73a361c79a82f0330faec26b5b67511d",
+    "1a5c2de77e002a5ef7914da5ff2565b44eb1a7d2b48596c38c28cc69d7f310c2",
+}
 EXPECTED_KEY_SHA256 = "93117c584cd6cb1e089d1f54abeed9af73a361c79a82f0330faec26b5b67511d"
 
 sys.path.insert(0, str(SOURCE))
@@ -33,27 +42,40 @@ def launch_environment() -> dict[str, str]:
 
     file_values = load_env_file()
     key = ""
+    key_pool = []
     for values in (os.environ, file_values):
-        key = str(values.get("M2F_CODEX_API_KEY", "") or "").strip()
-        if key:
-            break
-        for prefix in ("LEANFLOW_OPENAI", "OPENAI"):
-            endpoint = str(values.get(f"{prefix}_BASE_URL", "") or "").rstrip("/")
-            candidate = str(values.get(f"{prefix}_API_KEY", "") or "").strip()
-            if candidate and endpoint == BASE_URL:
-                key = candidate
+        raw_pool = str(values.get("M2F_CODEX_API_KEYS", "") or "").strip()
+        if raw_pool and not key_pool:
+            key_pool = [candidate.strip() for candidate in raw_pool.split(",") if candidate.strip()]
+    # A scale child explicitly carries a slot, so prefer the configured pool
+    # even when the parent shell still exports a legacy single key.
+    if key_pool and "HDP_WORKER_SLOT" in os.environ:
+        slot = int(str(os.environ.get("HDP_WORKER_SLOT", "0") or "0"))
+        key = key_pool[slot % len(key_pool)]
+    else:
+        for values in (os.environ, file_values):
+            key = str(values.get("M2F_CODEX_API_KEY", "") or "").strip()
+            if key:
                 break
-        if key:
-            break
+            if key_pool:
+                key = key_pool[0]
+                break
+            for prefix in ("LEANFLOW_OPENAI", "OPENAI"):
+                endpoint = str(values.get(f"{prefix}_BASE_URL", "") or "").rstrip("/")
+                candidate = str(values.get(f"{prefix}_API_KEY", "") or "").strip()
+                if candidate and endpoint == BASE_URL:
+                    key = candidate
+                    break
+            if key:
+                break
     if not key:
         raise RuntimeError(
             "Set M2F_CODEX_API_KEY, or configure a zcloud endpoint/key in "
             f"{leanflow_home() / '.env'}; no credential was found."
         )
-    if hashlib.sha256(key.encode()).hexdigest() != EXPECTED_KEY_SHA256:
-        raise RuntimeError(
-            "The configured zcloud credential does not match the authorized key."
-        )
+    key_fingerprint = hashlib.sha256(key.encode()).hexdigest()
+    if key_fingerprint not in AUTHORIZED_KEY_SHA256S:
+        raise RuntimeError("The configured zcloud credential does not match the authorized key.")
 
     env = dict(os.environ)
     env.update(
@@ -62,7 +84,7 @@ def launch_environment() -> dict[str, str]:
             "PYTHONPATH": str(SOURCE),
             "PYTHONUNBUFFERED": "1",
             "M2F_CODEX_API_KEY": key,
-            "HDP_EXPECTED_KEY_SHA256": EXPECTED_KEY_SHA256,
+            "HDP_EXPECTED_KEY_SHA256": key_fingerprint,
             "LEANFLOW_OPENAI_API_KEY": key,
             "LEANFLOW_OPENAI_BASE_URL": BASE_URL,
             "OPENAI_API_KEY": key,
@@ -157,9 +179,7 @@ def main() -> int:
     parser.add_argument(
         "--check", action="store_true", help="check a real child; no API or Lean calls"
     )
-    parser.add_argument(
-        "--campaign", type=Path, default=PROJECT / "HDP/Environments/campaign.json"
-    )
+    parser.add_argument("--campaign", type=Path, default=PROJECT / "HDP/Environments/campaign.json")
     options, forwarded = parser.parse_known_args()
     fixed = {
         "--project-root": str(PROJECT),
@@ -197,9 +217,7 @@ def main() -> int:
         env = launch_environment()
     except RuntimeError as exc:
         parser.error(str(exc))
-    check = subprocess.run(
-        [str(PYTHON), "-c", CHECK_CODE], cwd=PROJECT, env=env, check=False
-    )
+    check = subprocess.run([str(PYTHON), "-c", CHECK_CODE], cwd=PROJECT, env=env, check=False)
     if options.check or check.returncode:
         return check.returncode
     command = [

@@ -34,6 +34,7 @@ except ImportError:  # pragma: no cover - controller requires POSIX file locks.
 
 BUDGET_PATH_ENV = "LEANFLOW_PROVIDER_QUOTA_BUDGET_PATH"
 QUOTE_PATH_ENV = "LEANFLOW_PROVIDER_QUOTA_QUOTE_PATH"
+IGNORE_UNKNOWN_HOLDS_ENV = "LEANFLOW_PROVIDER_QUOTA_IGNORE_UNKNOWN_HOLDS"
 _THREAD_LOCK = threading.RLock()
 
 
@@ -60,8 +61,13 @@ def _budget_lock(path: Path) -> Iterator[None]:
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def _read(path: Path) -> dict[str, Any]:
-    """Validate a quota ledger and derive capacity including unresolved holds."""
+def _read(path: Path, *, ignore_unknown_holds: bool = False) -> dict[str, Any]:
+    """Validate a quota ledger and derive conservative or success-only capacity.
+
+    Unknown reservations remain durable evidence and are always exposed through
+    ``unknown_hold_quota``. The opt-in success-only mode excludes them only
+    from admission capacity; it never deletes or rewrites those reservations.
+    """
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -78,6 +84,7 @@ def _read(path: Path) -> dict[str, Any]:
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ProviderQuotaError(f"invalid budget {field}")
     held = 0
+    unknown_hold = 0
     for item in state["reservations"].values():
         if not isinstance(item, dict) or item.get("status") not in {
             "reserved",
@@ -90,8 +97,16 @@ def _read(path: Path) -> dict[str, Any]:
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ProviderQuotaError("invalid held quota")
             held += value
+            if item["status"] == "unknown":
+                unknown_hold += value
     state["held_quota"] = held
-    state["remaining_quota"] = max(0, state["limit_quota"] - state["charges_quota"] - held)
+    state["unknown_hold_quota"] = unknown_hold
+    effective_held = held - unknown_hold if ignore_unknown_holds else held
+    state["effective_held_quota"] = effective_held
+    state["quota_accounting_mode"] = "success_only" if ignore_unknown_holds else "conservative"
+    state["remaining_quota"] = max(
+        0, state["limit_quota"] - state["charges_quota"] - effective_held
+    )
     return state
 
 
@@ -120,11 +135,11 @@ def initialize_quota_budget(path: str | Path, *, limit_quota: int) -> dict[str, 
         return _read(resolved)
 
 
-def read_quota_budget(path: str | Path) -> dict[str, Any]:
-    """Return remaining estimated capacity, including unknown request holds."""
+def read_quota_budget(path: str | Path, *, ignore_unknown_holds: bool = False) -> dict[str, Any]:
+    """Return quota capacity under an explicit accounting policy."""
     resolved = Path(path).expanduser().resolve()
     with _budget_lock(resolved):
-        return _read(resolved)
+        return _read(resolved, ignore_unknown_holds=ignore_unknown_holds)
 
 
 @dataclass(frozen=True)
@@ -208,6 +223,12 @@ def reserve_provider_request(
         if str(env.get(name, "")) != "0":
             raise ProviderQuotaError("quota-gated calls require auxiliary retries disabled")
     quote = load_provider_quota_quote(quote_path)
+    ignore_unknown_holds = str(env.get(IGNORE_UNKNOWN_HOLDS_ENV, "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     # The provider may prepend substantial hidden context (retrieval,
     # wrappers, routing metadata). Use the empirically validated allowance
     # from the quote as an operational bound; this remains conservative and
@@ -226,14 +247,14 @@ def reserve_provider_request(
     resolved = Path(budget_path).expanduser().resolve()
     reservation_id = uuid.uuid4().hex
     with _budget_lock(resolved):
-        state = _read(resolved)
+        state = _read(resolved, ignore_unknown_holds=ignore_unknown_holds)
         if state.get("halt_reason"):
             raise ProviderQuotaBudgetExceeded(str(state["halt_reason"]))
         try:
             admit_quota_reservation(
                 limit_quota=state["limit_quota"],
                 charged_quota=state["charges_quota"],
-                outstanding_quota=state["held_quota"],
+                outstanding_quota=state["effective_held_quota"],
                 requested_quota=requested,
             )
         except ProviderQuotaError as exc:

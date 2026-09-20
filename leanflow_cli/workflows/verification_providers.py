@@ -148,7 +148,7 @@ def advisory_verification_timeout_s() -> int:
     return max(5, min(configured, ADVISORY_VERIFICATION_TIMEOUT_MAX_S))
 
 
-def verification_review_timeout_s(value: int | float | None = None) -> int:
+def verification_review_timeout_s(value: int | float | str | None = None) -> int:
     """Return a review deadline bounded to a conservative operational cap."""
     if value is None:
         raw = os.getenv(ADVISORY_VERIFICATION_TIMEOUT_ENV, "")
@@ -413,8 +413,12 @@ def run_model_verification_review(
                     time.sleep(delay)
             except (IsolatedAuxiliaryTransientGateway, IsolatedAuxiliaryError) as exc:
                 error_text = str(exc).lower()
-                is_gateway = isinstance(exc, IsolatedAuxiliaryTransientGateway) or (
-                    "502" in error_text and "gateway" in error_text
+                is_gateway = isinstance(exc, IsolatedAuxiliaryTransientGateway) or any(
+                    code in error_text
+                    and (
+                        "gateway" in error_text or "timeout" in error_text or "origin" in error_text
+                    )
+                    for code in ("502", "504", "524")
                 )
                 if not is_gateway or gateway_retries >= retry_count:
                     raise
@@ -428,7 +432,7 @@ def run_model_verification_review(
                 )
                 _record_verification_activity(
                     "verification-review-transient-gateway",
-                    "Transient HTTP 502/Bad Gateway; retrying with a distinct payload",
+                    "Transient HTTP 502/504/524 gateway failure; retrying with a distinct payload",
                     review_id=review_id,
                     task=task,
                     provider=heartbeat_provider,

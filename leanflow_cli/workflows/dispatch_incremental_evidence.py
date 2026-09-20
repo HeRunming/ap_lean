@@ -9,9 +9,7 @@ import os
 import signal
 import threading
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

@@ -7,9 +7,7 @@ import os
 import re
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
-
-UTC = timezone.utc
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any

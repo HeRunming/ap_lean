@@ -285,7 +285,7 @@ Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 This branch also contains the LeanFlow harness used to formalize the *HDP* book into Lean. It combines model driven statement generation, deterministic contract checks, independent review, compiler feedback and bounded retry, with remote Lean verification as the authoritative acceptance gate.
 
-The root level `hdp-run` starts a bounded single worker campaign. `hdp-scale` is the quota guarded multi worker launcher. Campaign state and large HDP corpus data stay outside this repository.
+The root level `hdp-run` starts a bounded single worker campaign. `hdp-scale` shares four workers between statement formalization and proof completion. `hdp-long-run` supervises bounded waves with cooldowns, quota admission, and conservative recovery. See [HDP operations](docs/hdp-operations.md) for deployment paths and stop conditions. Campaign state and large HDP corpus data stay outside this repository.
 
 For zcloud, configure credentials only through the environment or a project `.env` file (never commit keys):
 

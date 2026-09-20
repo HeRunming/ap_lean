@@ -2685,6 +2685,52 @@ def test_finalization_math_exit_fails_closed_when_quiescence_fails(monkeypatch):
     assert revalidated == []
 
 
+@pytest.mark.parametrize("pending", ["", "user stop"])
+@pytest.mark.parametrize("cleanup_failure", [False, True])
+def test_owned_shutdown_clears_only_its_internal_interrupt(monkeypatch, pending, cleanup_failure):
+    """Allow terminal Lean checks only after successful non-user shutdown."""
+    from tools.utilities import interrupt as signaling
+
+    monkeypatch.setattr(signaling, "_interrupt_event", threading.Event())
+
+    class Agent:
+        is_interrupted = bool(pending)
+        _interrupt_message = pending
+
+        def interrupt(self, message):
+            self.is_interrupted = True
+            self._interrupt_message = message
+            signaling.set_interrupt(True)
+
+        def clear_interrupt(self):
+            self.is_interrupted = False
+            signaling.set_interrupt(False)
+
+    agent = Agent()
+    monkeypatch.setattr(runner, "terminate_active_lean_commands", lambda: ())
+    monkeypatch.setattr(runner, "quiesce_parent_maintained_actions", lambda **kwargs: ())
+    monkeypatch.setattr(runner, "_terminate_descendant_agents", lambda _agent: None)
+    monkeypatch.setattr(runner, "_terminate_other_agents", lambda _agent: None)
+    monkeypatch.setattr(runner, "_shutdown_campaign_research", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        runner.verification_batch_admission, "release", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        runner.helper_integration_admission, "release", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        runner,
+        "shutdown_native_runtime_services",
+        lambda _agent: ("terminal processes",) if cleanup_failure else (),
+    )
+    if cleanup_failure:
+        with pytest.raises(RuntimeError):
+            runner._stop_native_owned_work(agent, {}, reason="verified")
+    else:
+        runner._stop_native_owned_work(agent, {}, reason="verified")
+    assert signaling.is_interrupted() is bool(pending or cleanup_failure)
+
+
 def test_stop_native_owned_work_rejects_reported_agent_and_runtime_failures(monkeypatch):
     class _Agent:
         session_id = "root-agent"
@@ -14391,9 +14437,7 @@ def test_campaign_patch_requires_successful_cheap_target_check(monkeypatch, tmp_
     )
 
 
-def test_campaign_helper_check_injects_axiom_profile_for_cold_start_floor(
-    monkeypatch, tmp_path
-):
+def test_campaign_helper_check_injects_axiom_profile_for_cold_start_floor(monkeypatch, tmp_path):
     active = tmp_path / "Main.lean"
     active.write_text("theorem demo : True := by sorry\n", encoding="utf-8")
     monkeypatch.setattr(runner, "_axiom_profile_check_enabled", lambda: True)
@@ -28697,7 +28741,10 @@ def test_formalization_campaign_provider_exhaustion_ignores_stale_escalated_bloc
         "review_decision": "BLOCK",
         "review_findings": ["the prior candidate used an unconstrained measure"],
         "candidate_diagnostics": [
-            {"stage": "semantic_review", "diagnostic": "the prior candidate used an unconstrained measure"}
+            {
+                "stage": "semantic_review",
+                "diagnostic": "the prior candidate used an unconstrained measure",
+            }
         ],
         "final_diagnostic": "the prior candidate used an unconstrained measure",
         "semantic_retry_limit_exhausted": 1,
@@ -28752,9 +28799,7 @@ def test_formalization_campaign_provider_exhaustion_ignores_stale_escalated_bloc
         },
         {
             "operational_pause": "paused_infrastructure",
-            "infrastructure_pause_reason": (
-                "TransientProviderRetriesExhausted: Connection error."
-            ),
+            "infrastructure_pause_reason": ("TransientProviderRetriesExhausted: Connection error."),
         },
         {"cost": {"estimated_turn_usd": 0.0}},
     )
@@ -28782,11 +28827,7 @@ def test_formalization_campaign_provider_exhaustion_ignores_stale_escalated_bloc
     assert latest["escalation_session_id"] == "fresh-session-2"
     assert latest["max_semantic_repairs"] == 1
     assert latest["max_infrastructure_retries"] == 3
-    assert sum(
-        1
-        for attempt in batch["attempts"]
-        if attempt.get("retry_class") == "semantic"
-    ) == 1
+    assert sum(1 for attempt in batch["attempts"] if attempt.get("retry_class") == "semantic") == 1
 
 
 def test_reconcile_stale_workflow_file_locks_releases_only_terminal_owners(monkeypatch):

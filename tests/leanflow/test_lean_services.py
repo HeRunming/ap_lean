@@ -1955,6 +1955,9 @@ def test_lean_search_marks_repeated_empty_search_loop(monkeypatch, tmp_path):
         ),
     )
     monkeypatch.setattr(lean_services, "_rg_search", lambda root, query, *, limit=10: [])
+    monkeypatch.setattr(
+        lean_services, "_leansearch_direct_search", lambda query, *, limit=10: ([], "")
+    )
     outcomes = project / ".leanflow-outcomes.jsonl"
     outcomes.write_text(
         "\n".join(
